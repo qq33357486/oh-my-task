@@ -4,7 +4,7 @@ import type { Task } from '../../types/index.js';
 
 export const completeTaskTool: Tool = {
   name: 'complete_task',
-  description: '完成任务（状态变为 done）。如果所有子任务完成，父任务自动完成。',
+  description: '完成任务（→ done）',
   inputSchema: {
     type: 'object',
     properties: {
@@ -41,10 +41,7 @@ export async function handleCompleteTask(
   return {
     content: [{
       type: 'text',
-      text: `任务已完成！✅
-ID: ${task.id}
-标题: ${task.title}
-状态: ${task.status}`,
+      text: `任务已完成。\nID: ${task.id}\n标题: ${task.title}\n状态: ${task.status}`,
     }],
   };
 }

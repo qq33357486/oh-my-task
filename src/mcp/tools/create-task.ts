@@ -6,7 +6,7 @@ import type { ProjectConfig, Task } from '../../types/index.js';
 
 export const createTaskTool: Tool = {
   name: 'create_task',
-  description: '创建任务或子任务。自动关联最新版本。子任务用 parent_title 指定父任务。',
+  description: '创建任务或子任务，自动关联最新版本',
   inputSchema: {
     type: 'object',
     properties: {
@@ -20,15 +20,15 @@ export const createTaskTool: Tool = {
       },
       parent_id: {
         type: 'string',
-        description: '父任务ID（可选）。子任务会自动继承父任务的 version_id',
+        description: '父任务ID（可选）',
       },
       parent_title: {
         type: 'string',
-        description: '父任务标题（可选）。通过标题精确匹配查找父任务，比 parent_id 更方便',
+        description: '父任务标题（可选），精确匹配',
       },
       version_id: {
         type: 'string',
-        description: '版本ID（可选）。不指定时自动使用项目最新版本',
+        description: '版本ID（可选），默认自动使用最新版本',
       },
       estimated_days: {
         type: 'number',
@@ -75,9 +75,6 @@ interface TaskResult {
   inserted?: number;
 }
 
-/**
- * 通过标题精确匹配查找父任务
- */
 async function findParentTaskByTitle(
   parentTitle: string,
   projectId: string,
@@ -92,16 +89,8 @@ async function findParentTaskByTitle(
   }
 
   const result = await response.json() as { data: Task[] };
-  const tasks = result.data;
-
-  // 精确匹配优先
-  const exactMatch = tasks.find(t => t.title === parentTitle);
-  if (exactMatch) {
-    return exactMatch.id;
-  }
-
-  // 未找到精确匹配，返回 null
-  return null;
+  const exactMatch = result.data.find(t => t.title === parentTitle);
+  return exactMatch ? exactMatch.id : null;
 }
 
 export async function handleCreateTask(
@@ -115,7 +104,6 @@ export async function handleCreateTask(
     throw new Error('项目配置缺少 project_id，请重新初始化项目');
   }
 
-  // 解析 parent_id
   let parentId: string | undefined = args.parent_id as string | undefined;
 
   if (!parentId && args.parent_title) {
@@ -130,7 +118,6 @@ export async function handleCreateTask(
     parentId = foundId;
   }
 
-  // 自动关联最新版本
   let versionId = args.version_id as string | undefined;
   let versionName = '';
 
@@ -179,20 +166,15 @@ export async function handleCreateTask(
   const task = result.data;
 
   const typeLabel = task.parent_id ? '子任务' : '任务';
-  const insertedLabel = task.inserted === 1 ? ' ⚡插队任务' : '';
+  const insertedLabel = task.inserted === 1 ? ' [插队]' : '';
   const versionInfo = versionName
     ? `\n版本: ${versionName}`
-    : (task.version_id ? `\n版本ID: ${task.version_id}` : '\n⚠️ 未关联版本（请先创建版本）');
+    : (task.version_id ? `\n版本ID: ${task.version_id}` : '\n未关联版本');
 
   return {
     content: [{
       type: 'text',
-      text: `${typeLabel}创建成功！${insertedLabel}
-ID: ${task.id}
-标题: ${task.title}
-状态: ${task.status}${versionInfo}
-${task.start_date ? `开始日期: ${task.start_date}` : ''}
-${task.due_date ? `截止日期: ${task.due_date}` : ''}`,
+      text: `${typeLabel}已创建。${insertedLabel}\nID: ${task.id}\n标题: ${task.title}\n状态: ${task.status}${versionInfo}${task.start_date ? `\n开始: ${task.start_date}` : ''}${task.due_date ? `\n截止: ${task.due_date}` : ''}`,
     }],
   };
 }

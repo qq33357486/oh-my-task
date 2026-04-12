@@ -18,7 +18,7 @@ interface Version {
 
 export const listVersionsTool: Tool = {
   name: 'list_versions',
-  description: '列出项目所有版本。',
+  description: '列出项目所有版本',
   inputSchema: {
     type: 'object',
     properties: {
@@ -64,38 +64,29 @@ export async function handleListVersions(
     return {
       content: [{
         type: 'text',
-        text: `项目暂无版本。
-
-请使用 create_version 创建第一个版本，例如：
-- create_version(name="v1.0")
-- create_version(name="Sprint-1", due_date="2024-02-01")`,
+        text: '暂无版本。',
       }],
     };
   }
 
   const versionList = versions.map((v) => {
-    // 活跃版本：已开始(locked_at)且未完成(completed_at)且未归档(archived_at)
     const isActive = v.locked_at && !v.completed_at && !v.archived_at;
     const isCompleted = !!v.completed_at;
     const isArchived = !!v.archived_at;
 
-    let statusMark = '';
-    if (isArchived) statusMark = ' 📦';
-    else if (isCompleted) statusMark = ' ✅';
-    else if (isActive) statusMark = ' 🔒';
+    let status = '';
+    if (isArchived) status = '[归档]';
+    else if (isCompleted) status = '[完成]';
+    else if (isActive) status = '[活跃]';
 
-    const dates = [v.start_date, v.due_date].filter(Boolean).join(' ~ ') || '未设置日期';
-    return `  ${v.name}${statusMark} (${dates})\n    ID: ${v.id}`;
+    const dates = [v.start_date, v.due_date].filter(Boolean).join(' ~ ') || '';
+    return `  ${v.name}${status ? ' ' + status : ''}${dates ? ' (' + dates + ')' : ''}\n    ID: ${v.id}`;
   }).join('\n');
 
   return {
     content: [{
       type: 'text',
-      text: `项目版本列表（共 ${versions.length} 个）：
-
-${versionList}
-
-🔒 = 活跃版本  ✅ = 已完成  📦 = 已归档`,
+      text: `共 ${versions.length} 个版本：\n\n${versionList}`,
     }],
   };
 }

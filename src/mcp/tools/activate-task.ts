@@ -4,7 +4,7 @@ import type { Task } from '../../types/index.js';
 
 export const activateTaskTool: Tool = {
   name: 'activate_task',
-  description: '激活任务（状态变为 in_progress）。',
+  description: '激活任务（→ in_progress）',
   inputSchema: {
     type: 'object',
     properties: {
@@ -43,10 +43,7 @@ export async function handleActivateTask(
   return {
     content: [{
       type: 'text',
-      text: `任务已激活！🔄
-ID: ${task.id}
-标题: ${task.title}
-状态: ${task.status}`,
+      text: `任务已激活。\nID: ${task.id}\n标题: ${task.title}\n状态: ${task.status}`,
     }],
   };
 }

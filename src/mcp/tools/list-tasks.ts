@@ -6,7 +6,7 @@ import type { ProjectConfig, Task } from '../../types/index.js';
 
 export const listTasksTool: Tool = {
   name: 'list_tasks',
-  description: '查询任务列表，支持按状态筛选',
+  description: '查询任务列表',
   inputSchema: {
     type: 'object',
     properties: {
@@ -40,22 +40,12 @@ function formatTaskList(tasks: Task[]): string {
     return '没有找到任务。';
   }
 
-  const statusEmoji: Record<string, string> = {
-    planned: '📋',
-    in_progress: '🔄',
-    done: '✅',
-  };
-
   const lines = tasks.map((task, index) => {
-    const emoji = statusEmoji[task.status] || '📌';
     const typeLabel = task.parent_id ? '[子任务]' : '';
-    return `${index + 1}. ${emoji} ${typeLabel} ${task.title}
-   ID: ${task.id}
-   状态: ${task.status}
-   ${task.due_date ? `截止: ${task.due_date}` : ''}`;
+    return `${index + 1}. ${typeLabel} ${task.title}\n   ID: ${task.id} | 状态: ${task.status}${task.due_date ? ` | 截止: ${task.due_date}` : ''}`;
   });
 
-  return `找到 ${tasks.length} 个任务：\n\n${lines.join('\n\n')}`;
+  return `共 ${tasks.length} 个任务：\n\n${lines.join('\n\n')}`;
 }
 
 export async function handleListTasks(

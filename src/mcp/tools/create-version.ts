@@ -14,7 +14,7 @@ interface Version {
 
 export const createVersionTool: Tool = {
   name: 'create_version',
-  description: '创建版本。任务是必须关联版本才能显示。版本如 v1.0、Sprint-1。',
+  description: '创建版本（如 v1.0、Sprint-1）',
   inputSchema: {
     type: 'object',
     properties: {
@@ -86,13 +86,7 @@ export async function handleCreateVersion(
   return {
     content: [{
       type: 'text',
-      text: `版本创建成功！🏷️
-版本名称: ${version.name}
-版本ID: ${version.id}
-${version.start_date ? `开始日期: ${version.start_date}` : ''}
-${version.due_date ? `目标日期: ${version.due_date}` : ''}
-
-后续使用 create_task 创建的任务会自动关联到此版本。`,
+      text: `版本创建成功。\n名称: ${version.name}\nID: ${version.id}${version.start_date ? `\n开始: ${version.start_date}` : ''}${version.due_date ? `\n截止: ${version.due_date}` : ''}`,
     }],
   };
 }

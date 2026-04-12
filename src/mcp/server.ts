@@ -16,6 +16,7 @@ import { activateTaskTool, handleActivateTask } from './tools/activate-task.js';
 import { completeTaskTool, handleCompleteTask } from './tools/complete-task.js';
 import { deleteTaskTool, handleDeleteTask } from './tools/delete-task.js';
 import { autoScheduleTool, handleAutoSchedule } from './tools/auto-schedule.js';
+import { getCurrentTaskTool, handleGetCurrentTask } from './tools/get-current-task.js';
 // 配置工具
 import { getMcpContextFromEnv } from './tools/utils/config.js';
 
@@ -47,6 +48,7 @@ const tools = [
   completeTaskTool,
   deleteTaskTool,
   autoScheduleTool,
+  getCurrentTaskTool,
 ];
 
 // 处理工具列表请求
@@ -80,6 +82,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleDeleteTask(args, mcpContext);
       case 'auto_schedule':
         return await handleAutoSchedule(args, mcpContext);
+      case 'get_current_task':
+        return await handleGetCurrentTask(args, mcpContext);
       default:
         return {
           content: [{ type: 'text', text: `Unknown tool: ${name}` }],
