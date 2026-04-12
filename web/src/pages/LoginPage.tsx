@@ -1,45 +1,30 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api';
-import Captcha, { resetCaptcha } from '@/components/Captcha';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import type HCaptcha from '@hcaptcha/react-hcaptcha';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading, error, clearError } = useAuth();
-  const captchaRef = useRef<HCaptcha>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
 
   useEffect(() => {
     authApi.getRegistrationStatus().then(data => setRegistrationEnabled(data.enabled)).catch(() => {});
   }, []);
 
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
-  };
-
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    const result = await login(email, password, captchaToken || undefined);
+    const result = await login(email, password);
     if (result.success) {
       navigate('/');
-    } else {
-      setCaptchaToken(null);
-      resetCaptcha(captchaRef);
     }
   };
 
@@ -78,12 +63,6 @@ export default function LoginPage() {
                 placeholder="请输入密码"
                 required
                 autoComplete="current-password"
-              />
-            </div>
-            <div>
-              <Captcha
-                onVerify={handleCaptchaVerify}
-                onExpire={handleCaptchaExpire}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>

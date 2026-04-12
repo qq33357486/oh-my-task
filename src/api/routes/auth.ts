@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { createUser, loginUser, getUserById, toPublicUser, changePassword, generateResetToken, resetPassword } from '../../services/user.service.js';
+import { createUser, loginUser, getUserById, toPublicUser, changePassword, generateResetToken, resetPassword, sendEmailCode, verifyEmailCode } from '../../services/user.service.js';
 import { isRegistrationEnabled } from '../../services/config.service.js';
 import { getDb } from '../../db/connection.js';
-import { verifyHCaptcha } from '../middleware/captcha.js';
 
 const router = Router();
 
@@ -53,11 +52,38 @@ function getAuthenticatedUser(req: Request): { id: string; name: string; email: 
   return null;
 }
 
-router.post('/register', verifyHCaptcha, async (req: Request, res: Response) => {
+// 发送注册验证码
+router.post('/send-code', async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ success: false, error: '请输入邮箱' });
+      return;
+    }
 
-    if (!name || !email || !password) {
+    // 检查注册是否开启
+    if (!isRegistrationEnabled()) {
+      const db = getDb();
+      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+      if (userCount.count > 0) {
+        res.status(403).json({ success: false, error: '注册功能已关闭' });
+        return;
+      }
+    }
+
+    await sendEmailCode(email);
+    res.json({ success: true, message: '验证码已发送，请查收邮件' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '发送失败';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+router.post('/register', async (req: Request, res: Response) => {
+  try {
+    const { email, password, code } = req.body;
+
+    if (!email || !password) {
       res.status(400).json({ success: false, error: '缺少必填字段' });
       return;
     }
@@ -72,7 +98,18 @@ router.post('/register', verifyHCaptcha, async (req: Request, res: Response) => 
       }
     }
 
-    const user = await createUser({ name, email, password });
+    // 生产环境必须校验验证码；非生产环境 code 缺失则跳过
+    if (process.env.NODE_ENV === 'production') {
+      if (!code) {
+        res.status(400).json({ success: false, error: '缺少必填字段' });
+        return;
+      }
+      verifyEmailCode(email, code);
+    } else if (code) {
+      verifyEmailCode(email, code);
+    }
+
+    const user = await createUser({ email, password, code: code || '' });
 
     req.session.userId = user.id;
 
@@ -90,7 +127,7 @@ router.post('/register', verifyHCaptcha, async (req: Request, res: Response) => 
   }
 });
 
-router.post('/login', verifyHCaptcha, async (req: Request, res: Response) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 

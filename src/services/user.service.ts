@@ -2,12 +2,58 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/connection.js';
 import { hashPassword, verifyPassword, validatePasswordStrength } from '../utils/password.js';
 import { validateEmail, normalizeEmail } from '../utils/validation.js';
+import { sendEmail } from '../utils/email.js';
 import type { User } from '../types/index.js';
 
 export interface CreateUserParams {
-  name: string;
   email: string;
   password: string;
+  code: string;
+}
+
+// 内存验证码存储：email -> { code, expiresAt }
+const emailCodeStore = new Map<string, { code: string; expiresAt: number }>();
+
+/**
+ * 发送邮箱注册验证码
+ */
+export async function sendEmailCode(email: string): Promise<void> {
+  if (!validateEmail(email)) {
+    throw new Error('邮箱格式无效');
+  }
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5分钟
+  emailCodeStore.set(normalizeEmail(email), { code, expiresAt });
+
+  await sendEmail(
+    email,
+    '注册验证码 - oh-my-task',
+    `您的注册验证码是：${code}\n验证码 5 分钟内有效，请勿泄露给他人。`
+  );
+}
+
+/**
+ * 校验邮箱验证码（通过后从 store 中删除）
+ */
+export function verifyEmailCode(email: string, code: string): void {
+  const normalized = normalizeEmail(email);
+  const entry = emailCodeStore.get(normalized);
+  if (!entry) {
+    throw new Error('验证码不存在或已过期，请重新发送');
+  }
+  if (Date.now() > entry.expiresAt) {
+    emailCodeStore.delete(normalized);
+    throw new Error('验证码已过期，请重新发送');
+  }
+  if (entry.code !== code) {
+    throw new Error('验证码错误');
+  }
+  emailCodeStore.delete(normalized);
+}
+
+// 供测试直接写入验证码
+export function _setEmailCodeForTest(email: string, code: string): void {
+  emailCodeStore.set(normalizeEmail(email), { code, expiresAt: Date.now() + 5 * 60 * 1000 });
 }
 
 export interface LoginParams {
@@ -29,10 +75,10 @@ export interface ResetPasswordParams {
 // ========== 认证相关 ==========
 
 /**
- * 创建用户（邮箱+密码）
+ * 创建用户（邮箱+验证码+密码，name 自动取邮箱前缀）
  */
 export async function createUser(params: CreateUserParams): Promise<User> {
-  const { name, email, password } = params;
+  const { email, password } = params;
 
   // 验证邮箱
   if (!validateEmail(email)) {
@@ -57,16 +103,18 @@ export async function createUser(params: CreateUserParams): Promise<User> {
   // 哈希密码
   const passwordHash = await hashPassword(password);
 
-  // 创建用户
+  // name 取邮箱前缀
+  const name = normalizedEmail.split('@')[0];
+
+  // 创建用户（第一个注册的普通用户自动成为 admin）
   const id = uuidv4();
-  // 第一个注册的用户自动成为 admin
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
   const role = userCount.count === 0 ? 'admin' : 'member';
 
   db.prepare(`
     INSERT INTO users (id, name, email, password_hash, role)
     VALUES (?, ?, ?, ?, ?)
-  `).run(id, name.trim(), normalizedEmail, passwordHash, role);
+  `).run(id, name, normalizedEmail, passwordHash, role);
 
   return getUserById(id) as User;
 }

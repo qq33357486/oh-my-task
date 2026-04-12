@@ -57,7 +57,7 @@ describe('POST /api/auth/register', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.role).toBe('admin');
     expect(res.body.data.user.email).toBe('admin@test.com');
-    expect(res.body.data.user.name).toBe('Admin');
+    expect(res.body.data.user.name).toBe('admin');
     // 确保返回的是公开用户信息（不包含密码等）
     expect(res.body.data.user).not.toHaveProperty('password_hash');
     expect(res.body.data.user).not.toHaveProperty('reset_token');
@@ -145,25 +145,11 @@ describe('POST /api/auth/register', () => {
     expect(res4.body.error).toMatch(/密码/);
   });
 
-  it('VAL-AUTH-005: 提交空邮箱、空用户名时返回 400 错误', async () => {
-    // 空用户名
-    const res1 = await request(app)
-      .post('/api/auth/register')
-      .send({
-        name: '',
-        email: 'emptyname@test.com',
-        password: 'TestPass123'
-      });
-
-    expect(res1.status).toBe(400);
-    expect(res1.body.success).toBe(false);
-    expect(res1.body.error).toMatch(/必填|缺少/);
-
+  it('VAL-AUTH-005: 提交空邮箱、空密码时返回 400 错误', async () => {
     // 空邮箱
     const res2 = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'TestUser',
         email: '',
         password: 'TestPass123'
       });
@@ -176,7 +162,6 @@ describe('POST /api/auth/register', () => {
     const res3 = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'TestUser',
         email: 'emptypass@test.com',
         password: ''
       });
@@ -189,7 +174,6 @@ describe('POST /api/auth/register', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'BadEmail',
         email: 'notanemail',
         password: 'TestPass123'
       });
@@ -314,33 +298,17 @@ describe('GET /api/auth/registration-status', () => {
 });
 
 describe('POST /api/auth/register — hCaptcha 验证', () => {
-  it('VAL-AUTH-029: hCaptcha 配置开启时无 captcha token 返回 400', async () => {
-    // 通过 getDb 单例设置数据库配置（模拟管理员开启 hCaptcha）
-    const { getDb } = await import('../db/connection.js');
-    getDb().prepare(`
-      INSERT OR REPLACE INTO system_config (key, value, updated_at)
-      VALUES ('hcaptcha_secret_key', 'test-secret-key', CURRENT_TIMESTAMP)
-    `).run();
-
+  it('VAL-AUTH-029: hCaptcha 已移除，注册不再需要 captcha token', async () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'CaptchaTest',
         email: 'captcha@test.com',
         password: 'CaptchaPass123'
-        // 不提供 captcha_token
+        // 不提供 captcha_token，应正常注册成功
       });
 
-    // 应该返回 400（验证码缺失）—— 无论什么环境，只要数据库有 secret 就需要 captcha
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/验证码/);
-
-    // 恢复数据库配置
-    getDb().prepare(`
-      INSERT OR REPLACE INTO system_config (key, value, updated_at)
-      VALUES ('hcaptcha_secret_key', '', CURRENT_TIMESTAMP)
-    `).run();
+    // hCaptcha 已移除，非 production 环境应直接注册成功
+    expect([200, 409]).toContain(res.status);
   });
 });
 
@@ -355,7 +323,6 @@ describe('POST /api/auth/register — 边界情况', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'UpperCase',
         email: 'ADMIN@TEST.COM', // 大写版本的已注册邮箱
         password: 'UpperPass123'
       });
@@ -368,7 +335,7 @@ describe('POST /api/auth/register — 边界情况', () => {
     process.env.HCAPTCHA_SECRET = originalSecret;
   });
 
-  it('用户名自动去除前后空格', async () => {
+  it('用户名自动取邮箱前缀', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     const originalSecret = process.env.HCAPTCHA_SECRET;
     delete process.env.HCAPTCHA_SECRET;
@@ -377,17 +344,12 @@ describe('POST /api/auth/register — 边界情况', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: '  TrimUser  ',
         email: 'trim@test.com',
         password: 'TrimPass123'
       });
 
-    // 成功或失败都检查
     if (res.status === 200) {
-      expect(res.body.data.user.name).toBe('TrimUser');
-    } else {
-      // 如果失败，确保不是因为名称验证
-      expect(res.body.success).toBe(false);
+      expect(res.body.data.user.name).toBe('trim');
     }
 
     process.env.NODE_ENV = originalNodeEnv;
@@ -403,7 +365,6 @@ describe('POST /api/auth/register — 边界情况', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'ValidUser',
         email: 'valid@test.com',
         password: 'ValidPass123'
       });
@@ -428,7 +389,6 @@ describe('POST /api/auth/register — 边界情况', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({
-        name: 'AnotherValidUser',
         email: 'anothervalid@test.com',
         password: 'AnotherPass123'
       });

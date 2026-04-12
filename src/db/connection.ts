@@ -3,6 +3,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { mkdirSync } from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcrypt';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -70,6 +72,18 @@ export function initDb(): void {
   }
 
   console.log('Database initialized successfully');
+
+  // 默认管理员账号（仅在 users 表为空时初始化）
+  const userCount = database.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+  if (userCount.count === 0) {
+    const passwordHash = bcrypt.hashSync('admin', 10);
+    const id = uuidv4();
+    database.prepare(`
+      INSERT INTO users (id, name, email, password_hash, role)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, 'admin', 'admin@admin.com', passwordHash, 'admin');
+    console.log('Default admin user created: admin@admin.com / admin');
+  }
 }
 
 /**

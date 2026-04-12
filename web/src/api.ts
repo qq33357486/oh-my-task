@@ -103,17 +103,24 @@ export interface TokenWithPlain {
 
 export const authApi = {
   // 登录
-  login: (email: string, password: string, captchaToken?: string) =>
+  login: (email: string, password: string) =>
     fetchApi<{ user: User }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, captcha_token: captchaToken }),
+      body: JSON.stringify({ email, password }),
     }),
 
-  // 注册
-  register: (name: string, email: string, password: string, captchaToken?: string) =>
+  // 发送注册验证码
+  sendEmailCode: (email: string) =>
+    fetchApi<void>('/api/auth/send-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  // 注册（邮箱 + 验证码 + 密码）
+  register: (email: string, code: string, password: string) =>
     fetchApi<{ user: User }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name, email, password, captcha_token: captchaToken }),
+      body: JSON.stringify({ email, code, password }),
     }),
 
   // 登出

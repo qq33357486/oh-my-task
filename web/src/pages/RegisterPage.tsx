@@ -1,25 +1,24 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api';
-import Captcha, { resetCaptcha } from '@/components/Captcha';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import type HCaptcha from '@hcaptcha/react-hcaptcha';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { register, isLoading, error, clearError } = useAuth();
-  const captchaRef = useRef<HCaptcha>(null);
 
-  const [name, setName] = useState('');
+  const [step, setStep] = useState<'email' | 'verify'>('email');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationError, setValidationError] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -31,6 +30,12 @@ export default function RegisterPage() {
     }).catch(() => setRegistrationEnabled(true));
   }, [navigate]);
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) return '密码至少 8 位';
     if (!/[A-Z]/.test(pwd)) return '密码需要包含大写字母';
@@ -39,12 +44,34 @@ export default function RegisterPage() {
     return null;
   };
 
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
+  const handleSendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+    setValidationError('');
+    setSending(true);
+    try {
+      await authApi.sendEmailCode(email);
+      setStep('verify');
+      setCountdown(60);
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : '发送失败');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
+  const handleResend = async () => {
+    if (countdown > 0) return;
+    setSending(true);
+    setValidationError('');
+    try {
+      await authApi.sendEmailCode(email);
+      setCountdown(60);
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : '发送失败');
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,12 +90,9 @@ export default function RegisterPage() {
       return;
     }
 
-    const result = await register(name, email, password, captchaToken || undefined);
+    const result = await register(email, code, password);
     if (result.success) {
       navigate('/login');
-    } else {
-      setCaptchaToken(null);
-      resetCaptcha(captchaRef);
     }
   };
 
@@ -83,25 +107,13 @@ export default function RegisterPage() {
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               注册功能已关闭
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {(error || validationError) && (
+          ) : step === 'email' ? (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              {validationError && (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-                  {validationError || error}
+                  {validationError}
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="name">用户名</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="请输入用户名"
-                  required
-                  autoComplete="username"
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">邮箱</Label>
                 <Input
@@ -113,6 +125,44 @@ export default function RegisterPage() {
                   required
                   autoComplete="email"
                 />
+              </div>
+              <Button type="submit" className="w-full" disabled={sending}>
+                {sending ? '发送中...' : '发送验证码'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {(error || validationError) && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  {validationError || error}
+                </div>
+              )}
+              <div className="text-sm text-muted-foreground">
+                验证码已发送至 <span className="font-medium text-foreground">{email}</span>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="code">验证码</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="code"
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="6 位验证码"
+                    required
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={countdown > 0 || sending}
+                    onClick={handleResend}
+                    className="shrink-0"
+                  >
+                    {countdown > 0 ? `${countdown}s` : '重新发送'}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">密码</Label>
@@ -126,7 +176,6 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                 />
               </div>
-              {/* 密码强度实时校验列表 */}
               {password && (
                 <div className="space-y-1 text-sm">
                   <ul className="space-y-0.5 text-muted-foreground">
@@ -157,14 +206,16 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                 />
               </div>
-              <div>
-                <Captcha
-                  onVerify={handleCaptchaVerify}
-                  onExpire={handleCaptchaExpire}
-                />
-              </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? '注册中...' : '注册'}
+                {isLoading ? '注册中...' : '完成注册'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => { setStep('email'); setCode(''); setPassword(''); setConfirmPassword(''); }}
+              >
+                返回修改邮箱
               </Button>
             </form>
           )}

@@ -41,10 +41,10 @@ export function useAuth() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = useCallback(async (email: string, password: string, captchaToken?: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     try {
-      const { user } = await authApi.login(email, password, captchaToken);
+      const { user } = await authApi.login(email, password);
       setState({
         user,
         isLoading: false,
@@ -63,10 +63,10 @@ export function useAuth() {
     }
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string, captchaToken?: string) => {
+  const register = useCallback(async (email: string, code: string, password: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     try {
-      const { user } = await authApi.register(name, email, password, captchaToken);
+      const { user } = await authApi.register(email, code, password);
       setState({
         user,
         isLoading: false,
