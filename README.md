@@ -67,7 +67,29 @@ npm run dev:all
 
 **获取 Token**：Web 界面 → 右上角 → 设置 → 创建 Token
 
-**配置 Claude Desktop**：
+oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在**项目级**（如 `.cursor/mcp.json`、`.claude/mcp.json`），而非全局配置。这样每个项目使用各自的项目名，AI 工具自动定位到正确的任务空间。
+
+**项目级配置（推荐）**：
+
+在项目根目录创建 `.cursor/mcp.json` 或 `.claude/mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "oh-my-task": {
+      "command": "npx",
+      "args": ["@qq33357486/oh-my-task"],
+      "env": {
+        "OMT_SERVER_URL": "http://localhost:3000",
+        "OMT_TOKEN": "你的Token",
+        "OMT_PROJECT_NAME": "当前项目名称"
+      }
+    }
+  }
+}
+```
+
+**全局配置**（所有项目共用同一任务空间，不推荐）：
 
 ```json
 {
