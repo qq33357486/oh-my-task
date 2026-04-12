@@ -1,0 +1,106 @@
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
+
+// 导入工具
+import { initProjectTool, handleInitProject } from './tools/init-project.js';
+import { createVersionTool, handleCreateVersion } from './tools/create-version.js';
+import { listVersionsTool, handleListVersions } from './tools/list-versions.js';
+import { createTaskTool, handleCreateTask } from './tools/create-task.js';
+import { listTasksTool, handleListTasks } from './tools/list-tasks.js';
+import { getTaskTool, handleGetTask } from './tools/get-task.js';
+import { activateTaskTool, handleActivateTask } from './tools/activate-task.js';
+import { completeTaskTool, handleCompleteTask } from './tools/complete-task.js';
+import { deleteTaskTool, handleDeleteTask } from './tools/delete-task.js';
+import { autoScheduleTool, handleAutoSchedule } from './tools/auto-schedule.js';
+// 配置工具
+import { getMcpContextFromEnv } from './tools/utils/config.js';
+
+// 从环境变量获取 MCP 上下文
+const mcpContext = getMcpContextFromEnv();
+
+// 创建 MCP Server
+const server = new Server(
+  {
+    name: 'oh-my-task',
+    version: '3.0.0',
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
+
+// 工具列表（3.0 版本 - 精简工具集）
+const tools = [
+  initProjectTool,
+  createVersionTool,
+  listVersionsTool,
+  createTaskTool,
+  listTasksTool,
+  getTaskTool,
+  activateTaskTool,
+  completeTaskTool,
+  deleteTaskTool,
+  autoScheduleTool,
+];
+
+// 处理工具列表请求
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return { tools };
+});
+
+// 处理工具调用请求
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args = {} } = request.params;
+
+  try {
+    switch (name) {
+      case 'init_project':
+        return await handleInitProject(args, mcpContext);
+      case 'create_version':
+        return await handleCreateVersion(args, mcpContext);
+      case 'list_versions':
+        return await handleListVersions(args, mcpContext);
+      case 'create_task':
+        return await handleCreateTask(args, mcpContext);
+      case 'list_tasks':
+        return await handleListTasks(args, mcpContext);
+      case 'get_task':
+        return await handleGetTask(args, mcpContext);
+      case 'activate_task':
+        return await handleActivateTask(args, mcpContext);
+      case 'complete_task':
+        return await handleCompleteTask(args, mcpContext);
+      case 'delete_task':
+        return await handleDeleteTask(args, mcpContext);
+      case 'auto_schedule':
+        return await handleAutoSchedule(args, mcpContext);
+      default:
+        return {
+          content: [{ type: 'text', text: `Unknown tool: ${name}` }],
+          isError: true,
+        };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Error: ${message}` }],
+      isError: true,
+    };
+  }
+});
+
+// 启动 MCP Server
+export async function startMcpServer(): Promise<void> {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('MCP Server started (v3.0.0)');
+}
+
+// 如果直接运行此文件
+startMcpServer().catch(console.error);

@@ -1,0 +1,13 @@
+node_modules
+dist
+web/dist
+web/node_modules
+data
+*.md
+.git
+.factory
+docker-compose.yml
+Dockerfile
+.dockerignore
+*.log
+.env
