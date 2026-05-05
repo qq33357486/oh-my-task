@@ -35,11 +35,22 @@ npm-debug.log*
 文档区/
 .ace-tool/
 
-# Mission infrastructure (Droid personal)
-.factory/
+# Factory local infrastructure
+.factory/*
+!.factory/skills/
+.factory/skills/*
+!.factory/skills/qa/
+!.factory/skills/qa/**
+!.factory/skills/qa-web/
+!.factory/skills/qa-web/**
+!.factory/skills/qa-backend/
+!.factory/skills/qa-backend/**
+!.factory/skills/qa-mcp/
+!.factory/skills/qa-mcp/**
 
 # Temporary files
 temp/
+qa-results/
 
 # Internal
 git/

@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tokenApi, authApi, type TokenWithPlain } from '@/api';
+import { tokenApi, authApi, type Token, type TokenWithPlain } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [newTokenName, setNewTokenName] = useState('');
   const [createdToken, setCreatedToken] = useState<TokenWithPlain | null>(null);
+  const [deleteTokenTarget, setDeleteTokenTarget] = useState<Token | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [oldPassword, setOldPassword] = useState('');
@@ -81,6 +83,7 @@ export default function SettingsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tokenApi.delete(id),
     onSuccess: () => {
+      setDeleteTokenTarget(null);
       queryClient.invalidateQueries({ queryKey: ['tokens'] });
     },
   });
@@ -304,11 +307,7 @@ export default function SettingsPage() {
                           <Button
                             variant="destructive"
                             size="xs"
-                            onClick={() => {
-                              if (confirm(`确定要删除 Token「${token.name}」吗？`)) {
-                                deleteMutation.mutate(token.id);
-                              }
-                            }}
+                            onClick={() => setDeleteTokenTarget(token)}
                             disabled={deleteMutation.isPending}
                           >
                             删除
@@ -323,6 +322,17 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTokenTarget)}
+        title="删除 Token"
+        message={`确定要删除 Token「${deleteTokenTarget?.name}」吗？`}
+        warning="删除后使用该 Token 的 MCP 客户端将无法继续认证。"
+        confirmText="删除"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTokenTarget && deleteMutation.mutate(deleteTokenTarget.id)}
+        onCancel={() => setDeleteTokenTarget(null)}
+      />
 
       {/* MCP 配置示例 */}
       <Card>

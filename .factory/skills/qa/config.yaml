@@ -1,0 +1,103 @@
+project: oh-my-task
+imagemagick: false
+environments:
+  local:
+    url: http://localhost:17173
+    api_url: http://localhost:17173
+    restrictions:
+      - QA must start from zero with an empty temporary SQLite DB_PATH for deterministic first-admin initialization.
+      - QA must use a single unified HTTP port. Browser and API traffic both go through http://localhost:17173.
+      - Use disposable QA users and project names prefixed with qa-e2e-.
+      - Do not use production data.
+      - Registration may be used because the local database is test-owned.
+    zero_start:
+      db_path_pattern: ./temp/qa-{RUN_ID}/data.db
+      reset_command: Remove-Item -Recurse -Force ./temp/qa-{RUN_ID} -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force ./temp/qa-{RUN_ID} | Out-Null
+      startup_sequence:
+        - npm run build
+        - npm run build --prefix web
+        - $env:DB_PATH = '<absolute repo path>/temp/qa-{RUN_ID}/data.db'; $env:API_PORT = '17173'; $env:WEB_DIST_PATH = '<absolute repo path>/web/dist'; node dist/index.js
+
+default_target: local
+
+auth:
+  method: email-password
+  provider: custom
+  session_cookie: omt_session_id
+  api_token_header: Authorization: Bearer <token>
+
+personas:
+  - name: admin
+    description: Bootstrap admin created automatically when the temporary zero-start database is initialized; can manage projects, versions, tasks, tokens, members, dashboard, and system config.
+    email_pattern: bootstrap-admin-from-src-db-connection
+    credentials_source: bootstrap-default-from-source
+    secret_name: none
+    test_focus: [authentication, project-management, version-lifecycle, task-lifecycle, token-management, mcp-configuration, admin-pages]
+    cannot_do: [create invalid versions without names, complete versions with unfinished tasks]
+  - name: member
+    description: Regular member; can use normal task/project workflows but cannot access admin-only pages.
+    email_pattern: qa-member-{RUN_ID}@example.test
+    credentials_source: created-by-admin-or-register-after-bootstrap
+    secret_name: none
+    test_focus: [authentication, project-management, task-lifecycle, permission-boundaries]
+    cannot_do: [access members page, access dashboard page, access system config page]
+  - name: new_user
+    description: Fresh signup, no existing data.
+    email_pattern: qa-signup-{RUN_ID}@example.test
+    credentials_source: generated
+    secret_name: none
+    test_focus: [signup, first-run-empty-state]
+    cannot_do: [access protected routes before login]
+
+apps:
+  web:
+    path_patterns: [web/src/**, web/package.json, web/vite.config.ts, web/vitest.config.ts]
+    skill: qa-web
+    test_tool: agent-browser
+    qa_url: http://localhost:17173
+    dev_command: npm run build --prefix web
+    build_command: npm run build --prefix web
+  backend:
+    path_patterns: [src/api/**, src/services/**, src/db/**, src/types/**, package.json, tsconfig.json]
+    skill: qa-backend
+    test_tool: curl
+    qa_url: http://localhost:17173
+    dev_command: $env:DB_PATH = '<absolute repo path>/temp/qa-{RUN_ID}/data.db'; $env:API_PORT = '17173'; $env:WEB_DIST_PATH = '<absolute repo path>/web/dist'; node dist/index.js
+    build_command: npm run build
+  mcp:
+    path_patterns: [src/mcp/**, src/services/**, src/api/**, package.json, tsconfig.json]
+    skill: qa-mcp
+    test_tool: curl
+    qa_url: http://localhost:17173
+    dev_command: npm run mcp
+    build_command: npm run build
+
+feature_flags:
+  provider: none
+  dashboard_url: null
+  how_to_override: No feature flag provider was detected.
+
+integrations:
+  email:
+    provider: nodemailer
+    mode: log-fallback-when-smtp-not-configured
+    notes: Registration code is only mandatory in production. Local QA can register without a code.
+  captcha:
+    provider: hcaptcha
+    mode: dev-bypass
+    notes: Development uses test sitekey and server-side bypass behavior.
+
+cleanup:
+  auto_cleanup: true
+  strategy: reset-db
+  instructions: Always use a temporary DB_PATH under ./temp/qa-{RUN_ID} for QA. Stop the server and delete that directory after the run.
+
+failure_learning: suggest_in_report
+ci:
+  github_action: optional
+  preview_deployments: none
+  branch_code_strategy: local-unified-server
+  unified_port: 17173
+  zero_start: true
+  required_secrets:
+    - FACTORY_API_KEY

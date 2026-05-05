@@ -1,3 +1,9 @@
+# 项目规则
+
+> [oh-my-task 任务管理规则](.omt/rules.md)
+
+---
+
 # AGENTS.md - AI Coding Agent Guidelines
 
 This document provides guidelines for AI coding agents working in the oh-my-task repository.

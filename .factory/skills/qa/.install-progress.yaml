@@ -1,0 +1,15 @@
+phase: questionnaire-complete
+updated_at: 2026-05-05
+answers:
+  default_target: local
+  personas: admin+member_auto_create
+  test_scope: full_core_flows
+  github_action: optional
+  imagemagick: false
+  failure_learning: suggest_in_report
+  zero_start: true
+  unified_port: 17173
+analysis:
+  apps: [web, backend, mcp]
+  auth: custom email/password session cookie plus bearer token
+  environments: [local-unified-17173]

@@ -220,6 +220,36 @@ describe('SettingsPage', () => {
       })
     })
 
+    it('deletes token after confirmation', async () => {
+      mockTokenList.mockResolvedValue({
+        tokens: [
+          {
+            id: 'tok-1',
+            name: 'VS Code',
+            token: 'omt_***xyz',
+            last_used_at: null,
+            created_at: '2026-03-01T00:00:00.000Z',
+          },
+        ],
+      })
+      mockTokenDelete.mockResolvedValue(undefined)
+
+      const user = userEvent.setup()
+      render(<SettingsPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: '删除' }))
+      expect(screen.getByText('删除 Token')).toBeInTheDocument()
+      await user.click(screen.getAllByRole('button', { name: '删除' })[1])
+
+      await waitFor(() => {
+        expect(mockTokenDelete).toHaveBeenCalledWith('tok-1')
+      })
+    })
+
     it('shows empty state when no tokens', async () => {
       mockTokenList.mockResolvedValue({ tokens: [] })
 

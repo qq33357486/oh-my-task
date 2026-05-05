@@ -1,6 +1,6 @@
 {
   "name": "@qq33357486/oh-my-task",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "文档驱动的 AI 编程协作系统 - 通过 MCP 工具管理任务",
   "type": "module",
   "main": "dist/index.js",
@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:all": "tsx scripts/dev.ts",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-schema.cjs",
     "start": "node dist/index.js",
     "mcp": "tsx src/mcp/server.ts",
     "db:init": "tsx src/db/init.ts"
