@@ -9,7 +9,8 @@
 This document provides guidelines for AI coding agents working in the oh-my-task repository.
 
 ## 规则
-- 中文回复
+- 中文回复。
+- 提交的Git用中文说明。
 
 ## Project Overview
 
