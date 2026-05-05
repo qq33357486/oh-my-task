@@ -155,6 +155,21 @@ describe('SettingsPage', () => {
         expect(screen.getByText(/密码修改成功/)).toBeInTheDocument()
       })
     })
+
+    it('can toggle password field visibility', async () => {
+      const user = userEvent.setup()
+      render(<SettingsPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('当前密码')).toBeInTheDocument()
+      })
+
+      const currentPassword = screen.getByLabelText('当前密码') as HTMLInputElement
+      expect(currentPassword.type).toBe('password')
+
+      await user.click(screen.getAllByRole('button', { name: '显示密码' })[0])
+      expect(currentPassword.type).toBe('text')
+    })
   })
 
   // ==================== VAL-UI-031: Token 管理 ====================

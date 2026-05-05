@@ -71,6 +71,10 @@ describe('Express Server', () => {
   });
 
   describe('Session 中间件', () => {
+    it('启用 trust proxy 以支持反向代理后的 secure cookie', () => {
+      expect(app.get('trust proxy')).toBe(1);
+    });
+
     it('请求包含 session cookie 配置', async () => {
       const res = await request(app).get('/api/health');
 

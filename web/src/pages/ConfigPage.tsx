@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function ConfigPage() {
   const queryClient = useQueryClient();
@@ -140,8 +141,7 @@ export default function ConfigPage() {
               </div>
               <div className="space-y-2">
                 <Label>密码</Label>
-                <Input
-                  type="password"
+                <PasswordInput
                   value={formData.smtp_pass}
                   onChange={(e) => handleChange('smtp_pass', e.target.value)}
                   placeholder="••••••••"
@@ -211,8 +211,7 @@ export default function ConfigPage() {
               </div>
               <div className="space-y-2">
                 <Label>Secret Key</Label>
-                <Input
-                  type="password"
+                <PasswordInput
                   value={formData.hcaptcha_secret_key}
                   onChange={(e) => handleChange('hcaptcha_secret_key', e.target.value)}
                   placeholder="0x0000000000000000000000000000000000000000"

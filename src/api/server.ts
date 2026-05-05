@@ -22,6 +22,9 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.API_PORT || 17173;
 
+// 允许反向代理透传 HTTPS 状态，否则生产环境 secure session cookie 不会写入
+app.set('trust proxy', 1);
+
 // CORS 配置
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',

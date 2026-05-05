@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -169,9 +170,8 @@ export default function SettingsPage() {
             )}
             <div className="space-y-2">
               <Label htmlFor="current-password">当前密码</Label>
-              <Input
+              <PasswordInput
                 id="current-password"
-                type="password"
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 required
@@ -180,9 +180,8 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-password">新密码</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="至少8位，包含大小写字母和数字"
@@ -192,9 +191,8 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">确认新密码</Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

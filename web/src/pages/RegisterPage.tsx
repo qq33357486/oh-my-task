@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { authApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import PasswordInput from '@/components/PasswordInput';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 
@@ -185,9 +186,8 @@ export default function RegisterPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="password">密码</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="至少8位，包含大小写字母和数字"
@@ -215,9 +215,8 @@ export default function RegisterPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">确认密码</Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="请再次输入密码"

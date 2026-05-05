@@ -379,6 +379,39 @@ describe('ConfigPage', () => {
     expect(screen.getByText('Secret Key')).toBeInTheDocument()
   })
 
+  it('can toggle sensitive config field visibility', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          server_url: 'http://localhost:17173',
+          smtp_host: '',
+          smtp_port: '587',
+          smtp_user: '',
+          smtp_pass: 'secret',
+          smtp_from: '',
+          registration_enabled: '1',
+          hcaptcha_site_key: '',
+          hcaptcha_secret_key: '',
+        },
+      }),
+    })
+
+    const { default: ConfigPage } = await import('@/pages/ConfigPage')
+    render(<ConfigPage />, { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
+    })
+
+    const smtpPassword = screen.getByPlaceholderText('••••••••') as HTMLInputElement
+    expect(smtpPassword.type).toBe('password')
+
+    await userEvent.click(screen.getAllByRole('button', { name: '显示密码' })[0])
+    expect(smtpPassword.type).toBe('text')
+  })
+
   it('renders registration toggle', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

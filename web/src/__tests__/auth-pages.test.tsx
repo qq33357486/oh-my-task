@@ -116,6 +116,23 @@ describe('LoginPage', () => {
     })
   })
 
+  it('can toggle password visibility', async () => {
+    render(<LoginPage />, { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('密码')).toBeInTheDocument()
+    })
+
+    const passwordInput = screen.getByLabelText('密码') as HTMLInputElement
+    expect(passwordInput.type).toBe('password')
+
+    await userEvent.click(screen.getByRole('button', { name: '显示密码' }))
+    expect(passwordInput.type).toBe('text')
+
+    await userEvent.click(screen.getByRole('button', { name: '隐藏密码' }))
+    expect(passwordInput.type).toBe('password')
+  })
+
   it('hides register link when registration is disabled', async () => {
     vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: false, needs_setup: false })
 
@@ -268,6 +285,26 @@ describe('RegisterPage', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/login')
     })
   })
+
+  it('can toggle setup password visibility', async () => {
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: true })
+
+    render(<RegisterPage />, { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
+    })
+
+    await userEvent.type(screen.getByLabelText('邮箱'), 'admin@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '继续设置密码' }))
+
+    const passwordInput = await screen.findByLabelText('密码') as HTMLInputElement
+    expect(passwordInput.type).toBe('password')
+
+    const buttons = screen.getAllByRole('button', { name: '显示密码' })
+    await userEvent.click(buttons[0])
+    expect(passwordInput.type).toBe('text')
+  })
 })
 
 describe('ForgotPasswordPage', () => {
@@ -341,6 +378,18 @@ describe('ResetPasswordPage', () => {
     expect(screen.getByPlaceholderText('至少8位，含大小写字母和数字')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('再次输入新密码')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '重置密码' })).toBeInTheDocument()
+  })
+
+  it('can toggle reset password visibility', async () => {
+    window.history.pushState({}, '', '/reset-password?token=valid-token')
+
+    render(<ResetPasswordPage />, { wrapper: createWrapper() })
+
+    const newPwdInput = screen.getByPlaceholderText('至少8位，含大小写字母和数字') as HTMLInputElement
+    expect(newPwdInput.type).toBe('password')
+
+    await userEvent.click(screen.getAllByRole('button', { name: '显示密码' })[0])
+    expect(newPwdInput.type).toBe('text')
   })
 
   it('shows success and navigates to login after reset (VAL-UI-008)', async () => {
