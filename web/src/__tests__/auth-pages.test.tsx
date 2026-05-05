@@ -20,10 +20,11 @@ vi.mock('@/api', () => ({
     me: vi.fn().mockRejectedValue(new Error('Not authenticated')),
     login: vi.fn(),
     logout: vi.fn(),
+    sendEmailCode: vi.fn(),
     register: vi.fn(),
     forgotPassword: vi.fn(),
     resetPassword: vi.fn(),
-    getRegistrationStatus: vi.fn().mockResolvedValue({ enabled: true }),
+    getRegistrationStatus: vi.fn().mockResolvedValue({ enabled: true, needs_setup: false }),
   },
 }))
 
@@ -116,7 +117,7 @@ describe('LoginPage', () => {
   })
 
   it('hides register link when registration is disabled', async () => {
-    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: false })
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: false, needs_setup: false })
 
     render(<LoginPage />, { wrapper: createWrapper() })
 
@@ -132,32 +133,35 @@ describe('RegisterPage', () => {
   })
 
   it('renders register form with all fields (VAL-UI-004)', async () => {
-    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true })
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: false })
 
     render(<RegisterPage />, { wrapper: createWrapper() })
 
     // Wait for the registration status check to complete and form to render
     await waitFor(() => {
-      expect(screen.getByLabelText('用户名')).toBeInTheDocument()
       expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
-      expect(screen.getByLabelText('密码')).toBeInTheDocument()
-      expect(screen.getByLabelText('确认密码')).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: '注册' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发送验证码' })).toBeInTheDocument()
     expect(screen.getByText('已有账号？')).toBeInTheDocument()
     expect(screen.getByText('立即登录')).toBeInTheDocument()
   })
 
   it('shows password strength indicators in real-time (VAL-UI-005)', async () => {
-    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true })
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: false })
+    vi.mocked(authApi.sendEmailCode).mockResolvedValue(undefined)
 
     render(<RegisterPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('密码')).toBeInTheDocument()
+      expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
     })
+    await userEvent.type(screen.getByLabelText('邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
 
     // Type a short password - strength indicators should show
+    await waitFor(() => {
+      expect(screen.getByLabelText('密码')).toBeInTheDocument()
+    })
     await userEvent.type(screen.getByLabelText('密码'), 'abc')
 
     await waitFor(() => {
@@ -185,20 +189,25 @@ describe('RegisterPage', () => {
       role: 'member' as const,
       created_at: new Date().toISOString(),
     }
-    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true })
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: false })
+    vi.mocked(authApi.sendEmailCode).mockResolvedValue(undefined)
     vi.mocked(authApi.register).mockResolvedValue({ user: mockUser })
 
     render(<RegisterPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('用户名')).toBeInTheDocument()
+      expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
     })
 
-    await userEvent.type(screen.getByLabelText('用户名'), 'Test User')
     await userEvent.type(screen.getByLabelText('邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('验证码')).toBeInTheDocument()
+    })
+    await userEvent.type(screen.getByLabelText('验证码'), '123456')
     await userEvent.type(screen.getByLabelText('密码'), 'Password1')
     await userEvent.type(screen.getByLabelText('确认密码'), 'Password1')
-    await userEvent.click(screen.getByRole('button', { name: '注册' }))
+    await userEvent.click(screen.getByRole('button', { name: '完成注册' }))
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/login')
@@ -206,22 +215,57 @@ describe('RegisterPage', () => {
   })
 
   it('shows error when passwords do not match', async () => {
-    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true })
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: false })
+    vi.mocked(authApi.sendEmailCode).mockResolvedValue(undefined)
 
     render(<RegisterPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('用户名')).toBeInTheDocument()
+      expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
     })
 
-    await userEvent.type(screen.getByLabelText('用户名'), 'Test User')
     await userEvent.type(screen.getByLabelText('邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('密码')).toBeInTheDocument()
+    })
+    await userEvent.type(screen.getByLabelText('验证码'), '123456')
     await userEvent.type(screen.getByLabelText('密码'), 'Password1')
     await userEvent.type(screen.getByLabelText('确认密码'), 'Password2')
-    await userEvent.click(screen.getByRole('button', { name: '注册' }))
+    await userEvent.click(screen.getByRole('button', { name: '完成注册' }))
 
     await waitFor(() => {
       expect(screen.getByText('两次输入的密码不一致')).toBeInTheDocument()
+    })
+  })
+
+  it('initial setup creates first admin without email code', async () => {
+    const mockUser = {
+      id: '1',
+      name: 'Admin',
+      email: 'admin@test.com',
+      role: 'admin' as const,
+      created_at: new Date().toISOString(),
+    }
+    vi.mocked(authApi.getRegistrationStatus).mockResolvedValue({ enabled: true, needs_setup: true })
+    vi.mocked(authApi.register).mockResolvedValue({ user: mockUser })
+
+    render(<RegisterPage />, { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(screen.getByText('当前系统还没有管理员，请设置第一个管理员账号。')).toBeInTheDocument()
+    })
+
+    await userEvent.type(screen.getByLabelText('邮箱'), 'admin@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '继续设置密码' }))
+    await userEvent.type(screen.getByLabelText('密码'), 'Password1')
+    await userEvent.type(screen.getByLabelText('确认密码'), 'Password1')
+    await userEvent.click(screen.getByRole('button', { name: '创建管理员' }))
+
+    await waitFor(() => {
+      expect(authApi.sendEmailCode).not.toHaveBeenCalled()
+      expect(authApi.register).toHaveBeenCalledWith('admin@test.com', '', 'Password1')
+      expect(mockNavigate).toHaveBeenCalledWith('/login')
     })
   })
 })

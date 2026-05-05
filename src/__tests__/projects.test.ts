@@ -416,7 +416,7 @@ describe('DELETE /api/projects/:id', () => {
     await request(app)
       .post('/api/versions')
       .set('Cookie', user1Cookie)
-      .send({ project_id: projectId, name: 'v1' });
+      .send({ project_id: projectId, name: 'v1', due_date: '2026-12-31' });
 
     // 创建任务
     await request(app)

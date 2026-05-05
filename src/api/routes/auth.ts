@@ -82,6 +82,9 @@ router.post('/send-code', async (req: Request, res: Response) => {
 router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, code } = req.body;
+    const db = getDb();
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+    const isInitialSetup = userCount.count === 0;
 
     if (!email || !password) {
       res.status(400).json({ success: false, error: '缺少必填字段' });
@@ -89,23 +92,19 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     // 检查注册是否开启（数据库无用户时始终允许，用于创建第一个 admin）
-    if (!isRegistrationEnabled()) {
-      const db = getDb();
-      const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-      if (userCount.count > 0) {
-        res.status(403).json({ success: false, error: '注册功能已关闭' });
-        return;
-      }
+    if (!isRegistrationEnabled() && !isInitialSetup) {
+      res.status(403).json({ success: false, error: '注册功能已关闭' });
+      return;
     }
 
-    // 生产环境必须校验验证码；非生产环境 code 缺失则跳过
-    if (process.env.NODE_ENV === 'production') {
+    // 首次初始化管理员不需要邮箱验证码；普通生产注册必须校验验证码
+    if (!isInitialSetup && process.env.NODE_ENV === 'production') {
       if (!code) {
         res.status(400).json({ success: false, error: '缺少必填字段' });
         return;
       }
       verifyEmailCode(email, code);
-    } else if (code) {
+    } else if (!isInitialSetup && code) {
       verifyEmailCode(email, code);
     }
 
@@ -250,9 +249,13 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
 // 公开接口：查询注册是否开启（无需认证）
 router.get('/registration-status', (_req: Request, res: Response) => {
+  const db = getDb();
+  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+  const needsSetup = userCount.count === 0;
+
   res.json({
     success: true,
-    data: { enabled: isRegistrationEnabled() }
+    data: { enabled: needsSetup || isRegistrationEnabled(), needs_setup: needsSetup }
   });
 });
 

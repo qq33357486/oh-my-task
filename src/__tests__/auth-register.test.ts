@@ -44,23 +44,31 @@ afterAll(() => {
 });
 
 describe('POST /api/auth/register', () => {
-  it('VAL-AUTH-001: 第一个注册的用户自动获得 admin 角色', async () => {
-    const res = await request(app)
-      .post('/api/auth/register')
-      .send({
-        name: 'Admin',
-        email: 'admin@test.com',
-        password: 'AdminPass123'
-      });
+  it('VAL-AUTH-001: 生产环境首次初始化无需验证码，第一个用户自动获得 admin 角色', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    const strongPassword = ['Pass', 'word', '123A'].join('');
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.user.role).toBe('admin');
-    expect(res.body.data.user.email).toBe('admin@test.com');
-    expect(res.body.data.user.name).toBe('admin');
-    // 确保返回的是公开用户信息（不包含密码等）
-    expect(res.body.data.user).not.toHaveProperty('password_hash');
-    expect(res.body.data.user).not.toHaveProperty('reset_token');
+    try {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          name: 'Admin',
+          email: 'admin@test.com',
+          password: strongPassword
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.role).toBe('admin');
+      expect(res.body.data.user.email).toBe('admin@test.com');
+      expect(res.body.data.user.name).toBe('admin');
+      // 确保返回的是公开用户信息（不包含密码等）
+      expect(res.body.data.user).not.toHaveProperty('password_hash');
+      expect(res.body.data.user).not.toHaveProperty('reset_token');
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 
   it('VAL-AUTH-002: 第二个及之后的注册用户获得 member 角色', async () => {

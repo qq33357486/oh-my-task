@@ -39,6 +39,36 @@ describe('Database Schema', () => {
         }
       }
     });
+
+    it('initDb 不再自动创建默认管理员账号', async () => {
+      const newDir = join(tmpdir(), `omt-init-test-${Date.now()}`);
+      const dbPath = join(newDir, 'data', 'data.db');
+      const originalDbPath = process.env.DB_PATH;
+      process.env.DB_PATH = dbPath;
+
+      try {
+        const { initDb, closeDb } = await import('../db/connection.js');
+        initDb();
+        closeDb();
+
+        db = new Database(dbPath);
+        const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+        expect(userCount.count).toBe(0);
+      } finally {
+        if (db) {
+          db.close();
+          db = undefined as unknown as Database.Database;
+        }
+        if (originalDbPath === undefined) {
+          delete process.env.DB_PATH;
+        } else {
+          process.env.DB_PATH = originalDbPath;
+        }
+        if (existsSync(newDir)) {
+          rmSync(newDir, { recursive: true, force: true });
+        }
+      }
+    });
   });
 
   describe('WAL 模式和外键约束', () => {

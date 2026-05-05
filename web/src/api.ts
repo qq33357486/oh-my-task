@@ -100,6 +100,11 @@ export interface TokenWithPlain {
   created_at: string;
 }
 
+export interface RegistrationStatus {
+  enabled: boolean;
+  needs_setup: boolean;
+}
+
 // ==================== 认证 API ====================
 
 export const authApi = {
@@ -157,7 +162,7 @@ export const authApi = {
 
   // 查询注册是否开启（公开接口）
   getRegistrationStatus: () =>
-    fetchApi<{ enabled: boolean }>('/api/auth/registration-status'),
+    fetchApi<RegistrationStatus>('/api/auth/registration-status'),
 };
 
 // ==================== Token API ====================

@@ -20,11 +20,13 @@ export default function RegisterPage() {
   const [sending, setSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [registrationEnabled, setRegistrationEnabled] = useState<boolean | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
     authApi.getRegistrationStatus().then(data => {
       setRegistrationEnabled(data.enabled);
-      if (!data.enabled) {
+      setNeedsSetup(data.needs_setup);
+      if (!data.enabled && !data.needs_setup) {
         navigate('/login');
       }
     }).catch(() => setRegistrationEnabled(true));
@@ -48,6 +50,10 @@ export default function RegisterPage() {
     e.preventDefault();
     clearError();
     setValidationError('');
+    if (needsSetup) {
+      setStep('verify');
+      return;
+    }
     setSending(true);
     try {
       await authApi.sendEmailCode(email);
@@ -100,7 +106,7 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">注册</CardTitle>
+          <CardTitle className="text-2xl font-bold">{needsSetup ? '初始化管理员' : '注册'}</CardTitle>
         </CardHeader>
         <CardContent>
           {registrationEnabled === false ? (
@@ -109,6 +115,11 @@ export default function RegisterPage() {
             </div>
           ) : step === 'email' ? (
             <form onSubmit={handleSendCode} className="space-y-4">
+              {needsSetup && (
+                <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-sm text-primary">
+                  当前系统还没有管理员，请设置第一个管理员账号。
+                </div>
+              )}
               {validationError && (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
                   {validationError}
@@ -127,7 +138,7 @@ export default function RegisterPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={sending}>
-                {sending ? '发送中...' : '发送验证码'}
+                {needsSetup ? '继续设置密码' : (sending ? '发送中...' : '发送验证码')}
               </Button>
             </form>
           ) : (
@@ -137,33 +148,41 @@ export default function RegisterPage() {
                   {validationError || error}
                 </div>
               )}
-              <div className="text-sm text-muted-foreground">
-                验证码已发送至 <span className="font-medium text-foreground">{email}</span>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="code">验证码</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="code"
-                    type="text"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="6 位验证码"
-                    required
-                    maxLength={6}
-                    autoComplete="one-time-code"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={countdown > 0 || sending}
-                    onClick={handleResend}
-                    className="shrink-0"
-                  >
-                    {countdown > 0 ? `${countdown}s` : '重新发送'}
-                  </Button>
+              {needsSetup ? (
+                <div className="text-sm text-muted-foreground">
+                  管理员邮箱：<span className="font-medium text-foreground">{email}</span>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    验证码已发送至 <span className="font-medium text-foreground">{email}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="code">验证码</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="code"
+                        type="text"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        placeholder="6 位验证码"
+                        required
+                        maxLength={6}
+                        autoComplete="one-time-code"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={countdown > 0 || sending}
+                        onClick={handleResend}
+                        className="shrink-0"
+                      >
+                        {countdown > 0 ? `${countdown}s` : '重新发送'}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="password">密码</Label>
                 <Input
@@ -207,7 +226,7 @@ export default function RegisterPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? '注册中...' : '完成注册'}
+                {isLoading ? '提交中...' : (needsSetup ? '创建管理员' : '完成注册')}
               </Button>
               <Button
                 type="button"
@@ -220,10 +239,12 @@ export default function RegisterPage() {
             </form>
           )}
         </CardContent>
-        <CardFooter className="justify-center text-sm text-muted-foreground">
-          <span>已有账号？</span>
-          <Link to="/login" className="ml-1 text-primary hover:underline">立即登录</Link>
-        </CardFooter>
+        {!needsSetup && (
+          <CardFooter className="justify-center text-sm text-muted-foreground">
+            <span>已有账号？</span>
+            <Link to="/login" className="ml-1 text-primary hover:underline">立即登录</Link>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );

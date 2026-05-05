@@ -3,7 +3,6 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { mkdirSync } from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -73,16 +72,22 @@ export function initDb(): void {
 
   console.log('Database initialized successfully');
 
-  // 默认管理员账号（仅在 users 表为空时初始化）
+  const legacyAdmin = database.prepare(`
+    SELECT id, password_hash FROM users
+    WHERE email = ? AND role = 'admin'
+  `).get('admin@admin.com') as { id: string; password_hash: string } | undefined;
   const userCount = database.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-  if (userCount.count === 0) {
-    const passwordHash = bcrypt.hashSync('admin', 10);
-    const id = uuidv4();
-    database.prepare(`
-      INSERT INTO users (id, name, email, password_hash, role)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, 'admin', 'admin@admin.com', passwordHash, 'admin');
-    console.log('Default admin user created: admin@admin.com / admin');
+  const projectCount = database.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
+  const tokenCount = database.prepare('SELECT COUNT(*) as count FROM user_tokens').get() as { count: number };
+  if (
+    userCount.count === 1 &&
+    projectCount.count === 0 &&
+    tokenCount.count === 0 &&
+    legacyAdmin &&
+    bcrypt.compareSync('admin', legacyAdmin.password_hash)
+  ) {
+    database.prepare('DELETE FROM users WHERE id = ?').run(legacyAdmin.id);
+    console.log('Removed legacy default admin user; setup is required');
   }
 }
 

@@ -14,9 +14,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    authApi.getRegistrationStatus().then(data => setRegistrationEnabled(data.enabled)).catch(() => {});
+    authApi.getRegistrationStatus().then(data => {
+      setRegistrationEnabled(data.enabled);
+      setNeedsSetup(data.needs_setup);
+    }).catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,12 +75,18 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="justify-center gap-2 text-sm text-muted-foreground">
-          <Link to="/forgot-password" className="text-primary hover:underline">忘记密码？</Link>
-          {registrationEnabled && (
+          {needsSetup ? (
+            <Link to="/register" className="text-primary hover:underline">初始化管理员账号</Link>
+          ) : (
             <>
-              <span className="text-border">|</span>
-              <span>还没有账号？</span>
-              <Link to="/register" className="text-primary hover:underline">立即注册</Link>
+              <Link to="/forgot-password" className="text-primary hover:underline">忘记密码？</Link>
+              {registrationEnabled && (
+                <>
+                  <span className="text-border">|</span>
+                  <span>还没有账号？</span>
+                  <Link to="/register" className="text-primary hover:underline">立即注册</Link>
+                </>
+              )}
             </>
           )}
         </CardFooter>
