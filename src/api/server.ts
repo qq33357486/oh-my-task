@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.API_PORT || 3000;
+const PORT = process.env.API_PORT || 17173;
 
 // CORS 配置
 app.use(cors({

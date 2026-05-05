@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:17173';
 const COOKIE_JAR = path.join(__dirname, 'flow_versions_cookies.txt');
 const EVIDENCE_DIR = path.join('C:\\Users\\limen\\.factory\\missions\\7bc36ed2-c11c-4d72-8acc-13cda6d91e8c\\evidence\\core-api-mcp\\versions-api');
 
@@ -653,7 +653,7 @@ function writeReport(timestamp) {
     groupId: 'versions-api',
     testedAt: timestamp,
     isolation: {
-      apiUrl: 'http://localhost:3000',
+      apiUrl: 'http://localhost:17173',
       testUser: 'flow_versions_*@test.com',
       cookieJar: COOKIE_JAR
     },

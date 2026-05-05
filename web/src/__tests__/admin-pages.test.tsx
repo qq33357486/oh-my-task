@@ -324,7 +324,7 @@ describe('ConfigPage', () => {
       json: async () => ({
         success: true,
         data: {
-          server_url: 'http://localhost:3000',
+          server_url: 'http://localhost:17173',
           smtp_host: '',
           smtp_port: '587',
           smtp_user: '',
@@ -356,7 +356,7 @@ describe('ConfigPage', () => {
       json: async () => ({
         success: true,
         data: {
-          server_url: 'http://localhost:3000',
+          server_url: 'http://localhost:17173',
           smtp_host: '',
           smtp_port: '587',
           smtp_user: '',
@@ -385,7 +385,7 @@ describe('ConfigPage', () => {
       json: async () => ({
         success: true,
         data: {
-          server_url: 'http://localhost:3000',
+          server_url: 'http://localhost:17173',
           smtp_host: '',
           smtp_port: '587',
           smtp_user: '',
@@ -412,7 +412,7 @@ describe('ConfigPage', () => {
       json: async () => ({
         success: true,
         data: {
-          server_url: 'http://localhost:3000',
+          server_url: 'http://localhost:17173',
           smtp_host: '',
           smtp_port: '587',
           smtp_user: '',
@@ -439,7 +439,7 @@ describe('ConfigPage', () => {
       json: async () => ({
         success: true,
         data: {
-          server_url: 'http://localhost:3000',
+          server_url: 'http://localhost:17173',
           smtp_host: 'smtp.test.com',
           smtp_port: '587',
           smtp_user: 'test@test.com',

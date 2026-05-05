@@ -19,7 +19,7 @@ AI-driven task management with version lifecycle, smart scheduling, and MCP inte
 
 ```bash
 docker run -d --name oh-my-task \
-  -p 3000:3000 \
+  -p 17173:17173 \
   -v oh-my-task-data:/app/data \
   ghcr.io/qq33357486/oh-my-task:latest
 ```
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/qq33357486/oh-my-task:latest
     container_name: oh-my-task
     ports:
-      - "3000:3000"
+      - "17173:17173"
     volumes:
       - ./data:/app/data
     environment:
@@ -45,7 +45,7 @@ services:
 docker compose up -d
 ```
 
-Visit http://localhost:3000. The first registered user automatically becomes the admin.
+For Docker deployment, visit http://localhost:17173 to open the Web UI. The first registered user automatically becomes the admin.
 
 ### Local Development
 
@@ -60,8 +60,8 @@ npm run dev:all
 
 | Service | Address |
 |---------|---------|
-| Backend API | http://localhost:3000 |
-| Frontend UI | http://localhost:5173 |
+| Backend API | http://localhost:17173 |
+| Frontend UI (local dev) | http://localhost:5173 |
 
 ## Configure MCP
 
@@ -76,7 +76,7 @@ npm run dev:all
       "command": "npx",
       "args": ["@qq33357486/oh-my-task"],
       "env": {
-        "OMT_SERVER_URL": "http://localhost:3000",
+        "OMT_SERVER_URL": "http://localhost:17173",
         "OMT_TOKEN": "your-token",
         "OMT_PROJECT_NAME": "project-name"
       }
@@ -160,7 +160,7 @@ Automatically skips weekends and Chinese public holidays.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DB_PATH` | SQLite database path | `./data/data.db` |
-| `OMT_SERVER_URL` | API address (for MCP) | `http://localhost:3000` |
+| `OMT_SERVER_URL` | API address (for MCP) | `http://localhost:17173` |
 | `OMT_API_KEY` | API authentication key | `omt-admin-key` |
 
 ## More

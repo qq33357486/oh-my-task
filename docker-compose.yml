@@ -3,12 +3,12 @@ services:
     build: .
     container_name: oh-my-task
     ports:
-      - "3000:3000"
+      - "17173:17173"
     volumes:
       - ./data:/app/data
     environment:
       - NODE_ENV=production
-      - API_PORT=3000
+      - API_PORT=17173
       - DB_PATH=/app/data/data.db
       - WEB_DIST_PATH=/app/web/dist
     restart: unless-stopped

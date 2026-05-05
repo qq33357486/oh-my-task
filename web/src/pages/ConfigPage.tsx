@@ -79,7 +79,7 @@ export default function ConfigPage() {
                 type="url"
                 value={formData.server_url}
                 onChange={(e) => handleChange('server_url', e.target.value)}
-                placeholder="http://localhost:3000"
+                placeholder="http://localhost:17173"
               />
               <p className="text-xs text-muted-foreground">用于 MCP 客户端连接的服务器地址</p>
             </div>

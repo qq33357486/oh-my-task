@@ -21,7 +21,7 @@ export function getAllConfig(): SystemConfigMap {
   }
   
   return {
-    server_url: result.server_url || 'http://localhost:3000',
+    server_url: result.server_url || 'http://localhost:17173',
     smtp_host: result.smtp_host || '',
     smtp_port: result.smtp_port || '587',
     smtp_user: result.smtp_user || '',

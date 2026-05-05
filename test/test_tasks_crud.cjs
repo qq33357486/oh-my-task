@@ -6,7 +6,7 @@
 
 const http = require('http');
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = 'http://localhost:17173';
 const COOKIE_FILE = 'D:\\1 git\\oh-my-task\\flow_tasks_crud_cookies.txt';
 
 const fs = require('fs');

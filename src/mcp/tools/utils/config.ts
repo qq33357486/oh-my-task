@@ -13,7 +13,7 @@ export interface McpContext {
  */
 export function getMcpContextFromEnv(): McpContext {
   return {
-    serverUrl: process.env.OMT_SERVER_URL || 'http://localhost:3000',
+    serverUrl: process.env.OMT_SERVER_URL || 'http://localhost:17173',
     token: process.env.OMT_TOKEN || '',
     projectName: process.env.OMT_PROJECT_NAME,
   };

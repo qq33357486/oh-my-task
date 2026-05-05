@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
-const API_PORT = 3000;
+const API_PORT = 17173;
 const WEB_PORT = 5173;
 
 function killPort(port: number): void {

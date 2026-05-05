@@ -19,7 +19,7 @@ AI 驱动的任务管理，支持版本生命周期、智能排期、MCP 集成�
 
 ```bash
 docker run -d --name oh-my-task \
-  -p 3000:3000 \
+  -p 17173:17173 \
   -v oh-my-task-data:/app/data \
   ghcr.io/qq33357486/oh-my-task:latest
 ```
@@ -32,7 +32,7 @@ services:
     image: ghcr.io/qq33357486/oh-my-task:latest
     container_name: oh-my-task
     ports:
-      - "3000:3000"
+      - "17173:17173"
     volumes:
       - ./data:/app/data
     environment:
@@ -45,7 +45,7 @@ services:
 docker compose up -d
 ```
 
-访问 http://localhost:3000，首位注册用户自动成为管理员。
+Docker 部署时，访问 http://localhost:17173 打开 Web 界面，首位注册用户自动成为管理员。
 
 ### 本地开发
 
@@ -60,8 +60,8 @@ npm run dev:all
 
 | 服务 | 地址 |
 |------|------|
-| 后端 API | http://localhost:3000 |
-| 前端界面 | http://localhost:5173 |
+| 后端 API | http://localhost:17173 |
+| 前端界面（本地开发） | http://localhost:5173 |
 
 ## 配置 MCP
 
@@ -80,7 +80,7 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
       "command": "npx",
       "args": ["@qq33357486/oh-my-task"],
       "env": {
-        "OMT_SERVER_URL": "http://localhost:3000",
+        "OMT_SERVER_URL": "http://localhost:17173",
         "OMT_TOKEN": "你的Token",
         "OMT_PROJECT_NAME": "当前项目名称"
       }
@@ -98,7 +98,7 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
       "command": "npx",
       "args": ["@qq33357486/oh-my-task"],
       "env": {
-        "OMT_SERVER_URL": "http://localhost:3000",
+        "OMT_SERVER_URL": "http://localhost:17173",
         "OMT_TOKEN": "你的Token",
         "OMT_PROJECT_NAME": "项目名称"
       }
@@ -191,7 +191,7 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `DB_PATH` | SQLite 数据库路径 | `./data/data.db` |
-| `OMT_SERVER_URL` | API 地址（MCP 用） | `http://localhost:3000` |
+| `OMT_SERVER_URL` | API 地址（MCP 用） | `http://localhost:17173` |
 | `OMT_API_KEY` | API 认证密钥 | `omt-admin-key` |
 
 ## 更多

@@ -39,11 +39,11 @@ RUN mkdir -p /app/data
 
 # Environment variables
 ENV NODE_ENV=production
-ENV API_PORT=3000
+ENV API_PORT=17173
 ENV DB_PATH=/app/data/data.db
 ENV WEB_DIST_PATH=/app/web/dist
 
-EXPOSE 3000
+EXPOSE 17173
 
 # Use dumb-init to properly forward signals
 ENTRYPOINT ["dumb-init", "--"]

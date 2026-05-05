@@ -104,9 +104,12 @@ export default function SettingsPage() {
 
   const [serverUrl] = useState(() => {
     if (typeof window !== 'undefined') {
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
+      if (window.location.port && window.location.port !== '5173') {
+        return window.location.origin;
+      }
+      return `${window.location.protocol}//${window.location.hostname}:17173`;
     }
-    return 'http://localhost:3000';
+    return 'http://localhost:17173';
   });
 
   const latestToken = tokens.length > 0 ? tokens[0].token : '';

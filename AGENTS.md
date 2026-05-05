@@ -46,7 +46,7 @@ Start-Process -FilePath "cmd.exe" -ArgumentList "/c cd /d `"D:\06 Trade Git\oh-m
 
 # 3. 验证服务是否启动成功 (返回 200 表示成功)
 Start-Sleep -Seconds 5
-Invoke-WebRequest -Uri "http://localhost:3000/api/health" -UseBasicParsing | Select-Object StatusCode
+Invoke-WebRequest -Uri "http://localhost:17173/api/health" -UseBasicParsing | Select-Object StatusCode
 
 # 停止服务
 Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -54,7 +54,7 @@ Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force
 
 | 服务 | 地址 |
 |------|------|
-| 后端 API | http://localhost:3000 |
+| 后端 API | http://localhost:17173 |
 | 前端界面 | http://localhost:5173 |
 
 ---
@@ -367,7 +367,7 @@ const now = new Date().toISOString();
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DB_PATH` | SQLite database path | `./data/data.db` |
-| `OMT_SERVER_URL` | API server URL (MCP) | `http://localhost:3000` |
+| `OMT_SERVER_URL` | API server URL (MCP) | `http://localhost:17173` |
 | `OMT_API_KEY` | API authentication key | `omt-admin-key` |
 
 ## Common Gotchas
@@ -428,7 +428,7 @@ Start-Process -FilePath "cmd.exe" -ArgumentList "/c cd /d `"D:\06 Trade Git\oh-m
 
 # ✅ Verify service is running
 Start-Sleep -Seconds 5
-Invoke-WebRequest -Uri "http://localhost:3000/api/health" -UseBasicParsing | Select-Object StatusCode
+Invoke-WebRequest -Uri "http://localhost:17173/api/health" -UseBasicParsing | Select-Object StatusCode
 ```
 
 **Note**: When starting long-running dev servers, avoid using the Execute tool directly as it will timeout. Use `Start-Process` to run them in the background.

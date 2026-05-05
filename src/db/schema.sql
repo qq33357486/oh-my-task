@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- 初始系统配置
 -- ============================================
 INSERT OR IGNORE INTO system_config (key, value, description) VALUES
-    ('server_url', 'http://localhost:3000', '服务器 URL'),
+    ('server_url', 'http://localhost:17173', '服务器 URL'),
     ('smtp_host', '', 'SMTP 服务器地址'),
     ('smtp_port', '587', 'SMTP 端口'),
     ('smtp_user', '', 'SMTP 用户名'),
