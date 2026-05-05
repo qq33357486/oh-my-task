@@ -15,6 +15,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/db/**/*", "src/types/**/*", "src/__tests__/**/*", "src/api/**/*", "src/mcp/**/*", "src/services/**/*", "src/utils/**/*", "src/index.ts"],
-  "exclude": ["node_modules", "dist", "web"]
+  "include": ["src/db/**/*", "src/types/**/*", "src/api/**/*", "src/mcp/**/*", "src/services/**/*", "src/utils/**/*", "src/index.ts"],
+  "exclude": ["node_modules", "dist", "web", "src/__tests__"]
 }
