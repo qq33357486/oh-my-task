@@ -6,7 +6,7 @@ AI-driven task management with version lifecycle, smart scheduling, and MCP inte
 
 - **Version Management** — Create → Start/Lock → Complete → Archive, a clear lifecycle
 - **Smart Scheduling** — Automatically skips weekends and Chinese public holidays
-- **MCP Integration** — 10 tools for AI assistants to manage tasks directly
+- **MCP Integration** — 11 tools for AI assistants to manage tasks directly
 - **Admin Dashboard** — Statistics panel, user management, system configuration
 - **Permission System** — First registered user becomes admin automatically, Session + Bearer Token dual authentication
 - **Docker Deployment** — Zero-config one-click startup

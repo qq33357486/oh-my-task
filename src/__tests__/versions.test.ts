@@ -15,6 +15,7 @@ let user1Cookie: string;
 let user2Cookie: string;
 let user1Id: string;
 let user2Id: string;
+const DEFAULT_DUE_DATE = '2026-05-30';
 
 beforeAll(async () => {
   TEST_DIR = join(tmpdir(), `omt-versions-test-${Date.now()}`);
@@ -89,7 +90,7 @@ async function createVersion(cookie: string, projectId: string, name: string) {
   const res = await request(app)
     .post('/api/versions')
     .set('Cookie', cookie)
-    .send({ project_id: projectId, name });
+    .send({ project_id: projectId, name, due_date: DEFAULT_DUE_DATE });
   return res.body.data;
 }
 
@@ -110,7 +111,7 @@ describe('POST /api/versions', () => {
     const res = await request(app)
       .post('/api/versions')
       .set('Cookie', user1Cookie)
-      .send({ project_id: project.id, name: 'v1.0' });
+      .send({ project_id: project.id, name: 'v1.0', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -147,7 +148,7 @@ describe('POST /api/versions', () => {
     const res = await request(app)
       .post('/api/versions')
       .set('Cookie', user1Cookie)
-      .send({ name: 'v1.0' });
+      .send({ name: 'v1.0', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
@@ -157,7 +158,7 @@ describe('POST /api/versions', () => {
     const res = await request(app)
       .post('/api/versions')
       .set('Cookie', user1Cookie)
-      .send({ project_id: 'nonexistent', name: 'v1.0' });
+      .send({ project_id: 'nonexistent', name: 'v1.0', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
@@ -168,7 +169,7 @@ describe('POST /api/versions', () => {
     const res = await request(app)
       .post('/api/versions')
       .set('Cookie', user2Cookie)
-      .send({ project_id: project.id, name: 'v1.0' });
+      .send({ project_id: project.id, name: 'v1.0', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
@@ -179,7 +180,7 @@ describe('POST /api/versions', () => {
     const res = await request(app)
       .post('/api/versions')
       .set('Cookie', user1Cookie)
-      .send({ project_id: project.id, name: 'v1.0', description: '第一个版本' });
+      .send({ project_id: project.id, name: 'v1.0', description: '第一个版本', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(201);
     expect(res.body.data.description).toBe('第一个版本');
@@ -197,7 +198,17 @@ describe('POST /api/versions', () => {
 describe('GET /api/versions', () => {
   it('VAL-CORE-011: 返回项目的未归档版本列表', async () => {
     const project = await createProject(user1Cookie, '测试项目');
-    await createVersion(user1Cookie, project.id, 'v1.0');
+    const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
+    await request(app)
+      .post(`/api/versions/${v1.id}/start`)
+      .set('Cookie', user1Cookie);
+    const task = await createTask(user1Cookie, project.id, 'v1任务', v1.id);
+    await request(app)
+      .post(`/api/tasks/${task.id}/complete`)
+      .set('Cookie', user1Cookie);
+    await request(app)
+      .post(`/api/versions/${v1.id}/complete`)
+      .set('Cookie', user1Cookie);
     await createVersion(user1Cookie, project.id, 'v2.0');
 
     const res = await request(app)
@@ -213,6 +224,16 @@ describe('GET /api/versions', () => {
   it('归档版本不出现在列表中', async () => {
     const project = await createProject(user1Cookie, '测试项目');
     const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
+    await request(app)
+      .post(`/api/versions/${v1.id}/start`)
+      .set('Cookie', user1Cookie);
+    const task = await createTask(user1Cookie, project.id, 'v1任务', v1.id);
+    await request(app)
+      .post(`/api/tasks/${task.id}/complete`)
+      .set('Cookie', user1Cookie);
+    await request(app)
+      .post(`/api/versions/${v1.id}/complete`)
+      .set('Cookie', user1Cookie);
     await createVersion(user1Cookie, project.id, 'v2.0');
 
     // 归档 v1
@@ -320,24 +341,18 @@ describe('POST /api/versions/:id/start', () => {
     expect(res.body.data.locked_at).not.toBeNull();
   });
 
-  it('VAL-CORE-014: 已有活跃版本时 start 另一个返回 409', async () => {
+  it('VAL-CORE-014: 未结束版本时不能创建下一个版本', async () => {
     const project = await createProject(user1Cookie, '测试项目');
-    const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
-    const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
+    await createVersion(user1Cookie, project.id, 'v1.0');
 
-    // 启动 v1
-    await request(app)
-      .post(`/api/versions/${v1.id}/start`)
-      .set('Cookie', user1Cookie);
-
-    // 尝试启动 v2，应返回 409
     const res = await request(app)
-      .post(`/api/versions/${v2.id}/start`)
-      .set('Cookie', user1Cookie);
+      .post('/api/versions')
+      .set('Cookie', user1Cookie)
+      .send({ project_id: project.id, name: 'v2.0', due_date: DEFAULT_DUE_DATE });
 
     expect(res.status).toBe(409);
     expect(res.body.success).toBe(false);
-    expect(res.body.error).toContain('活跃版本');
+    expect(res.body.error).toContain('未结束版本');
   });
 
   it('已锁定的版本再次 start 返回幂等成功', async () => {
@@ -357,14 +372,24 @@ describe('POST /api/versions/:id/start', () => {
     expect(res2.status).toBe(200);
   });
 
-  it('归档后的活跃版本不影响新版本 start', async () => {
+  it('已完成并归档的版本后可创建并启动新版本', async () => {
     const project = await createProject(user1Cookie, '测试项目');
     const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
-    const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
 
     // 启动 v1
     await request(app)
       .post(`/api/versions/${v1.id}/start`)
+      .set('Cookie', user1Cookie);
+
+    // 完成 v1 前先创建任务并完成
+    const task = await createTask(user1Cookie, project.id, '任务1', v1.id);
+    await request(app)
+      .post(`/api/tasks/${task.id}/complete`)
+      .set('Cookie', user1Cookie);
+
+    // 完成 v1
+    await request(app)
+      .post(`/api/versions/${v1.id}/complete`)
       .set('Cookie', user1Cookie);
 
     // 归档 v1
@@ -372,7 +397,8 @@ describe('POST /api/versions/:id/start', () => {
       .post(`/api/versions/${v1.id}/archive`)
       .set('Cookie', user1Cookie);
 
-    // 现在可以启动 v2
+    // 现在可以创建并启动 v2
+    const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
     const res = await request(app)
       .post(`/api/versions/${v2.id}/start`)
       .set('Cookie', user1Cookie);
@@ -537,7 +563,6 @@ describe('POST /api/versions/:id/archive', () => {
   it('归档活跃版本后可启动新版本 VAL-CORE-046 + VAL-CROSS-010', async () => {
     const project = await createProject(user1Cookie, '测试项目');
     const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
-    const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
 
     // 启动 v1
     const startRes1 = await request(app)
@@ -545,11 +570,14 @@ describe('POST /api/versions/:id/archive', () => {
       .set('Cookie', user1Cookie);
     expect(startRes1.status).toBe(200);
 
-    // 尝试启动 v2（应失败，v1 活跃）
-    const startRes2 = await request(app)
-      .post(`/api/versions/${v2.id}/start`)
+    // 完成 v1 任务并结束版本
+    const task = await createTask(user1Cookie, project.id, '任务1', v1.id);
+    await request(app)
+      .post(`/api/tasks/${task.id}/complete`)
       .set('Cookie', user1Cookie);
-    expect(startRes2.status).toBe(409);
+    await request(app)
+      .post(`/api/versions/${v1.id}/complete`)
+      .set('Cookie', user1Cookie);
 
     // 归档 v1
     const archiveRes = await request(app)
@@ -557,7 +585,8 @@ describe('POST /api/versions/:id/archive', () => {
       .set('Cookie', user1Cookie);
     expect(archiveRes.status).toBe(200);
 
-    // 现在可以启动 v2
+    // 现在可以创建并启动 v2
+    const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
     const startRes3 = await request(app)
       .post(`/api/versions/${v2.id}/start`)
       .set('Cookie', user1Cookie);

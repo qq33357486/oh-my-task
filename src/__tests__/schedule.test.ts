@@ -121,7 +121,7 @@ async function createVersion(cookie: string, projectId: string, name: string) {
   const res = await request(app)
     .post('/api/versions')
     .set('Cookie', cookie)
-    .send({ project_id: projectId, name });
+    .send({ project_id: projectId, name, due_date: '2026-05-30' });
   return res.body.data;
 }
 

@@ -90,6 +90,10 @@ router.post('/', (req, res) => {
     res.status(400).json({ success: false, error: 'name 不能为空' });
     return;
   }
+  if (!due_date) {
+    res.status(400).json({ success: false, error: 'due_date 不能为空' });
+    return;
+  }
 
   // 验证项目归属
   const hasAccess = projectService.checkProjectOwnership(project_id, userId);

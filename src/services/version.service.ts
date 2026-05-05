@@ -33,7 +33,7 @@ export interface CreateVersionParams {
   name: string;
   description?: string;
   start_date?: string;
-  due_date?: string;
+  due_date: string;
 }
 
 export interface UpdateVersionParams {
@@ -121,6 +121,25 @@ export function createVersion(params: CreateVersionParams, userId: string): Vers
 
   if (!project) {
     return null;  // 无权限
+  }
+
+  if (!params.due_date) {
+    const err = new Error('due_date 不能为空') as Error & { statusCode: number };
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const unfinishedVersion = db.prepare(`
+    SELECT id FROM versions
+    WHERE project_id = ? AND completed_at IS NULL
+    ORDER BY sort_order ASC, created_at ASC
+    LIMIT 1
+  `).get(params.project_id);
+
+  if (unfinishedVersion) {
+    const err = new Error('该项目还有未结束版本，请先完成当前版本') as Error & { statusCode: number };
+    err.statusCode = 409;
+    throw err;
   }
 
   const id = uuidv4();

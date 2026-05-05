@@ -19,7 +19,7 @@ vi.mock('@/api', () => ({
   api: {
     getMe: vi.fn().mockResolvedValue({ user: { id: 'user-1', name: '测试用户', email: 'test@test.com', role: 'admin', created_at: '2026-01-01' } }),
     getProjects: vi.fn().mockResolvedValue([{ id: 'proj-1', name: '测试项目', description: null, owner_id: 'user-1', created_at: '2026-01-01' }]),
-    getVersions: vi.fn().mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: null, due_date: null, locked_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01' }]),
+    getVersions: vi.fn().mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: '2026-04-01', due_date: '2026-04-30', locked_at: '2026-04-01', completed_at: '2026-04-15', archived_at: null, sort_order: 0, created_at: '2026-01-01', updated_at: '2026-04-15' }]),
     getVersionStats: vi.fn().mockResolvedValue({ totalTasks: 3, doneTasks: 1, startDate: null, plannedDueDate: null, actualDueDate: null, delayDays: 0, deviationDays: 0, insertedTasks: 1, progress: 33 }),
     getTasks: vi.fn().mockResolvedValue([
       { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务一', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
@@ -184,7 +184,7 @@ describe('TasksPage', () => {
 
       // API should have been called
       await waitFor(() => {
-        expect(versionApi.create).toHaveBeenCalledWith('proj-1', '新版本')
+        expect(versionApi.create).toHaveBeenCalledWith('proj-1', '新版本', undefined, undefined, expect.any(String))
       })
     })
   })

@@ -1,10 +1,11 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
+import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
 
 export const activateTaskTool: Tool = {
   name: 'activate_task',
-  description: '激活任务（→ in_progress）',
+  description: '开始任务',
   inputSchema: {
     type: 'object',
     properties: {
@@ -22,6 +23,11 @@ export async function handleActivateTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
+  const config = getProjectConfigOrThrow(process.cwd());
+  if (!config.project_id) {
+    throw new Error('项目配置缺少 project_id');
+  }
+  await requireActiveVersionForProject(config.project_id, context);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}/activate`, {
     method: 'POST',

@@ -47,6 +47,7 @@ export interface Version {
   start_date: string | null;
   due_date: string | null;
   locked_at: string | null;
+  completed_at: string | null;
   archived_at: string | null;
   sort_order: number;
   created_at: string;
@@ -217,6 +218,14 @@ export const versionApi = {
   delete: (id: string) => 
     fetchApi<void>(`/api/versions/${id}`, {
       method: 'DELETE',
+    }),
+  start: (id: string) =>
+    fetchApi<Version>(`/api/versions/${id}/start`, {
+      method: 'POST',
+    }),
+  complete: (id: string) =>
+    fetchApi<Version>(`/api/versions/${id}/complete`, {
+      method: 'POST',
     }),
   archive: (id: string) => 
     fetchApi<{ name: string; tasks_archived: number }>(`/api/versions/${id}/archive`, {

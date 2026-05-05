@@ -1,10 +1,12 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpContext } from './utils/config.js';
 import type { TaskWithChildren } from '../../types/index.js';
+import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { fetchTaskDetail, formatTaskFull, parseBoolean, parsePositiveInteger } from './utils/task-query.js';
 
 export const getTaskTool: Tool = {
   name: 'get_task',
-  description: '获取任务详情，包含子任务树',
+  description: '获取任务及子任务',
   inputSchema: {
     type: 'object',
     properties: {
@@ -12,12 +14,35 @@ export const getTaskTool: Tool = {
         type: 'string',
         description: '任务ID',
       },
+      detail: {
+        type: 'string',
+        enum: ['summary', 'full'],
+        description: '详情级别，默认 summary',
+      },
+      depth: {
+        type: 'number',
+        description: '返回子任务深度，默认 3',
+      },
+      include_children: {
+        type: 'boolean',
+        description: '是否包含子任务，默认 true',
+      },
+      path: {
+        type: 'string',
+        description: '项目路径，默认当前目录',
+      },
     },
     required: ['task_id'],
   },
 };
 
-function formatTaskTree(task: TaskWithChildren, indent: number = 0): string {
+function formatTaskTree(
+  task: TaskWithChildren,
+  detail: 'summary' | 'full',
+  includeChildren: boolean,
+  maxDepth: number,
+  indent: number = 0
+): string {
   const prefix = '  '.repeat(indent);
   const statusEmoji: Record<string, string> = {
     planned: '📋',
@@ -29,15 +54,20 @@ function formatTaskTree(task: TaskWithChildren, indent: number = 0): string {
 
   let output = `${prefix}${emoji} ${task.title}
 ${prefix}   ID: ${task.id}
-${prefix}   状态: ${task.status}
-${prefix}   ${task.description ? `描述: ${task.description}` : ''}
-${prefix}   ${task.start_date ? `开始: ${task.start_date}` : ''} ${task.due_date ? `截止: ${task.due_date}` : ''}
-${prefix}   ${task.estimated_days ? `预估: ${task.estimated_days} 天` : ''}`;
+${prefix}   状态: ${task.status}`;
 
-  if (task.children && task.children.length > 0) {
+  if (task.due_date) {
+    output += `\n${prefix}   截止: ${task.due_date}`;
+  }
+
+  if (detail === 'full') {
+    output += `\n${formatTaskFull(task, `${prefix}   `)}`;
+  }
+
+  if (includeChildren && indent < maxDepth && task.children && task.children.length > 0) {
     output += `\n${prefix}   子任务 (${task.children.length}):\n`;
     for (const child of task.children) {
-      output += formatTaskTree(child, indent + 2) + '\n';
+      output += formatTaskTree(child, detail, includeChildren, maxDepth, indent + 2) + '\n';
     }
   }
 
@@ -49,24 +79,25 @@ export async function handleGetTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
-
-  const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}`, {
-    headers: {
-      'Authorization': `Bearer ${context.token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to get task');
+  const projectPath = (args.path as string) || process.cwd();
+  const config = getProjectConfigOrThrow(projectPath);
+  if (!config.project_id) {
+    throw new Error('项目配置缺少 project_id');
   }
+  await requireActiveVersionForProject(config.project_id, context);
 
-  const result = await response.json() as { data: TaskWithChildren };
+  const task = await fetchTaskDetail(context, taskId);
+  const detail = args.detail === 'full' ? 'full' : 'summary';
 
   return {
     content: [{
       type: 'text',
-      text: formatTaskTree(result.data),
+      text: formatTaskTree(
+        task,
+        detail,
+        parseBoolean(args.include_children, true),
+        parsePositiveInteger(args.depth, 3)
+      ),
     }],
   };
 }

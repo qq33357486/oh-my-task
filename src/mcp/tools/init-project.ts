@@ -16,11 +16,11 @@ export const initProjectTool: Tool = {
       },
       description: {
         type: 'string',
-        description: '项目描述（可选）',
+        description: '项目描述',
       },
       path: {
         type: 'string',
-        description: '项目路径（可选，默认当前目录）',
+        description: '项目路径，默认当前目录',
       },
     },
     required: ['name'],

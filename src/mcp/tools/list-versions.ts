@@ -18,13 +18,13 @@ interface Version {
 
 export const listVersionsTool: Tool = {
   name: 'list_versions',
-  description: '列出项目所有版本',
+  description: '列出版本',
   inputSchema: {
     type: 'object',
     properties: {
       path: {
         type: 'string',
-        description: '项目路径（可选，默认当前目录）',
+        description: '项目路径，默认当前目录',
       },
     },
     required: [],

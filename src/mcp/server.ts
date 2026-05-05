@@ -27,7 +27,7 @@ const mcpContext = getMcpContextFromEnv();
 const server = new Server(
   {
     name: 'oh-my-task',
-    version: '3.0.0',
+    version: '1.4.3',
   },
   {
     capabilities: {
@@ -36,7 +36,7 @@ const server = new Server(
   }
 );
 
-// 工具列表（3.0 版本 - 精简工具集）
+// 工具列表
 const tools = [
   initProjectTool,
   createVersionTool,
@@ -103,7 +103,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 export async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('MCP Server started (v3.0.0)');
+  console.error('MCP Server started (v1.4.3)');
 }
 
 // 如果直接运行此文件

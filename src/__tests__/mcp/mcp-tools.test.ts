@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import Database from 'better-sqlite3';
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
+import type { Server } from 'http';
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { handleGetCurrentTask } from '../../mcp/tools/get-current-task.js';
+import { handleGetTask } from '../../mcp/tools/get-task.js';
+import { handleListTasks } from '../../mcp/tools/list-tasks.js';
+import type { McpContext } from '../../mcp/tools/utils/config.js';
 
 // 每个测试用唯一的临时目录，避免并行测试冲突
 let TEST_DIR: string;
@@ -167,7 +172,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       const res = await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: 'v1.0' });
+        .send({ project_id: projectId, name: 'v1.0', due_date: '2026-05-30' });
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
@@ -192,15 +197,28 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
   // ========================
   describe('VAL-MCP-004: list_versions 列出版本并标记活跃', () => {
     it('返回项目的版本列表', async () => {
-      // 创建两个版本
+      // 创建第一个版本并结束
+      const v1 = await request(app)
+        .post('/api/versions')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, name: 'v1.0', due_date: '2026-05-30' });
+      await request(app)
+        .post(`/api/versions/${v1.body.data.id}/start`)
+        .set('Authorization', `Bearer ${user1Token}`);
+      const task = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: v1.body.data.id, title: 'v1任务' });
+      await request(app)
+        .post(`/api/tasks/${task.body.data.id}/complete`)
+        .set('Authorization', `Bearer ${user1Token}`);
+      await request(app)
+        .post(`/api/versions/${v1.body.data.id}/complete`)
+        .set('Authorization', `Bearer ${user1Token}`);
       await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: 'v1.0' });
-      await request(app)
-        .post('/api/versions')
-        .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: 'v2.0' });
+        .send({ project_id: projectId, name: 'v2.0', due_date: '2026-05-30' });
 
       const res = await request(app)
         .get(`/api/versions?project_id=${projectId}`)
@@ -223,7 +241,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       const vRes = await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: 'v1.0' });
+        .send({ project_id: projectId, name: 'v1.0', due_date: '2026-05-30' });
       const versionId = vRes.body.data.id;
 
       // 开始版本
@@ -253,8 +271,11 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       const vRes = await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: 'v1.0' });
+        .send({ project_id: projectId, name: 'v1.0', due_date: '2026-05-30' });
       versionId = vRes.body.data.id;
+      await request(app)
+        .post(`/api/versions/${versionId}/start`)
+        .set('Authorization', `Bearer ${user1Token}`);
     });
 
     it('创建任务成功，自动关联活跃版本', async () => {
@@ -415,6 +436,151 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
     });
   });
 
+  describe('MCP 任务查询瘦身', () => {
+    async function createActiveVersion(): Promise<string> {
+      const versionRes = await request(app)
+        .post('/api/versions')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, name: `v-query-${Date.now()}`, due_date: '2026-05-30' });
+      const versionId = versionRes.body.data.id;
+
+      await request(app)
+        .post(`/api/versions/${versionId}/start`)
+        .set('Authorization', `Bearer ${user1Token}`);
+
+      return versionId;
+    }
+
+    function createMcpProjectDir(): string {
+      const projectDir = join(TEST_DIR, `mcp-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      mkdirSync(projectDir, { recursive: true });
+      writeFileSync(join(projectDir, '.omt.json'), JSON.stringify({
+        project_id: projectId,
+        project_path: projectDir,
+        server_url: '',
+        created_at: new Date().toISOString(),
+      }));
+      return projectDir;
+    }
+
+    async function withMcpServer<T>(run: (context: McpContext) => Promise<T>): Promise<T> {
+      const server: Server = app.listen(0);
+      try {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          throw new Error('Failed to start test server');
+        }
+        return await run({
+          serverUrl: `http://127.0.0.1:${address.port}`,
+          token: user1Token,
+        });
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    }
+
+    it('list_tasks 默认只返回当前任务摘要，不返回完整任务列表', async () => {
+      const versionId = await createActiveVersion();
+      const projectDir = createMcpProjectDir();
+
+      const currentTask = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, title: '当前主任务', description: '当前详细描述' });
+      await request(app)
+        .post(`/api/tasks/${currentTask.body.data.id}/activate`)
+        .set('Authorization', `Bearer ${user1Token}`);
+      await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, title: '未激活任务', description: '不应出现在默认输出' });
+
+      await withMcpServer(async (context) => {
+        const result = await handleListTasks({ path: projectDir }, context);
+        const text = result.content[0].text;
+
+        expect(text).toContain('当前主任务');
+        expect(text).not.toContain('未激活任务');
+        expect(text).not.toContain('当前详细描述');
+      });
+    });
+
+    it('list_tasks outline 只返回任务关系摘要', async () => {
+      const versionId = await createActiveVersion();
+      const projectDir = createMcpProjectDir();
+      const parent = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, title: '父级概要任务', description: '父级详细描述' });
+      await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, parent_id: parent.body.data.id, title: '子级概要任务', description: '子级详细描述' });
+
+      await withMcpServer(async (context) => {
+        const result = await handleListTasks({ path: projectDir, view: 'outline' }, context);
+        const text = result.content[0].text;
+
+        expect(text).toContain('父级概要任务');
+        expect(text).toContain('子级概要任务');
+        expect(text).not.toContain('父级详细描述');
+        expect(text).not.toContain('子级详细描述');
+      });
+    });
+
+    it('get_task 默认返回摘要，detail=full 才返回完整字段', async () => {
+      const versionId = await createActiveVersion();
+      const projectDir = createMcpProjectDir();
+      const parent = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, title: '详情父任务', description: '完整描述字段' });
+
+      await withMcpServer(async (context) => {
+        const summary = await handleGetTask({ path: projectDir, task_id: parent.body.data.id }, context);
+        expect(summary.content[0].text).toContain('详情父任务');
+        expect(summary.content[0].text).not.toContain('完整描述字段');
+
+        const full = await handleGetTask({ path: projectDir, task_id: parent.body.data.id, detail: 'full' }, context);
+        expect(full.content[0].text).toContain('完整描述字段');
+      });
+    });
+
+    it('get_current_task 返回子任务进度并默认隐藏已完成子任务', async () => {
+      const versionId = await createActiveVersion();
+      const projectDir = createMcpProjectDir();
+      const parent = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, title: '进行中主任务' });
+      await request(app)
+        .post(`/api/tasks/${parent.body.data.id}/activate`)
+        .set('Authorization', `Bearer ${user1Token}`);
+      await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, parent_id: parent.body.data.id, title: '待办子任务' });
+      const doneChild = await request(app)
+        .post('/api/tasks')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ project_id: projectId, version_id: versionId, parent_id: parent.body.data.id, title: '已完成子任务' });
+      await request(app)
+        .post(`/api/tasks/${doneChild.body.data.id}/complete`)
+        .set('Authorization', `Bearer ${user1Token}`);
+
+      await withMcpServer(async (context) => {
+        const result = await handleGetCurrentTask({ path: projectDir }, context);
+        const text = result.content[0].text;
+
+        expect(text).toContain('进行中主任务');
+        expect(text).toContain('总数: 2');
+        expect(text).toContain('完成: 1');
+        expect(text).toContain('待办子任务');
+        expect(text).not.toContain('已完成子任务');
+      });
+    });
+  });
+
   // ========================
   // VAL-MCP-009: activate_task 激活任务
   // ========================
@@ -527,7 +693,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       const vRes = await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: '排期版本' });
+        .send({ project_id: projectId, name: '排期版本', due_date: '2026-05-30' });
       const versionId = vRes.body.data.id;
 
       await request(app)
@@ -620,7 +786,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       const vRes = await request(app)
         .post('/api/versions')
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ project_id: projectId, name: '插队测试版本' });
+        .send({ project_id: projectId, name: '插队测试版本', due_date: '2026-05-30' });
       const versionId = vRes.body.data.id;
 
       // 在版本开始前创建任务

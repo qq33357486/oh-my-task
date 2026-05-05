@@ -1,12 +1,11 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpContext } from './utils/config.js';
-import type { ProjectConfig, Task } from '../../types/index.js';
+import type { Task } from '../../types/index.js';
+import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
 
 export const createTaskTool: Tool = {
   name: 'create_task',
-  description: '创建任务或子任务，自动关联最新版本',
+  description: '创建任务或子任务',
   inputSchema: {
     type: 'object',
     properties: {
@@ -16,53 +15,40 @@ export const createTaskTool: Tool = {
       },
       description: {
         type: 'string',
-        description: '任务描述（可选）',
+        description: '任务描述',
       },
       parent_id: {
         type: 'string',
-        description: '父任务ID（可选）',
+        description: '父任务ID',
       },
       parent_title: {
         type: 'string',
-        description: '父任务标题（可选），精确匹配',
+        description: '父任务标题，精确匹配',
       },
       version_id: {
         type: 'string',
-        description: '版本ID（可选），默认自动使用最新版本',
+        description: '版本ID',
       },
       estimated_days: {
         type: 'number',
-        description: '预估工时（天）（可选）',
+        description: '预估天数',
       },
       start_date: {
         type: 'string',
-        description: '计划开始日期，格式 YYYY-MM-DD（可选）',
+        description: '计划开始日期，格式 YYYY-MM-DD',
       },
       due_date: {
         type: 'string',
-        description: '计划截止日期，格式 YYYY-MM-DD（可选）',
+        description: '计划截止日期，格式 YYYY-MM-DD',
       },
       path: {
         type: 'string',
-        description: '项目路径（可选，默认当前目录）',
+        description: '项目路径，默认当前目录',
       },
     },
     required: ['title'],
   },
 };
-
-function getProjectConfig(projectPath: string): ProjectConfig {
-  const configPath = join(projectPath, '.omt.json');
-  if (!existsSync(configPath)) {
-    throw new Error('项目未初始化。请先运行 init_project');
-  }
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
-}
-
-interface Version {
-  id: string;
-  name: string;
-}
 
 interface TaskResult {
   id: string;
@@ -78,9 +64,10 @@ interface TaskResult {
 async function findParentTaskByTitle(
   parentTitle: string,
   projectId: string,
+  versionId: string,
   context: McpContext
 ): Promise<string | null> {
-  const response = await fetch(`${context.serverUrl}/api/tasks?project_id=${projectId}`, {
+  const response = await fetch(`${context.serverUrl}/api/tasks?project_id=${projectId}&version_id=${versionId}`, {
     headers: { 'Authorization': `Bearer ${context.token}` },
   });
 
@@ -98,11 +85,13 @@ export async function handleCreateTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfig(projectPath);
+  const config = getProjectConfigOrThrow(projectPath);
 
   if (!config.project_id) {
     throw new Error('项目配置缺少 project_id，请重新初始化项目');
   }
+
+  const activeVersion = await requireActiveVersionForProject(config.project_id, context);
 
   let parentId: string | undefined = args.parent_id as string | undefined;
 
@@ -110,6 +99,7 @@ export async function handleCreateTask(
     const foundId = await findParentTaskByTitle(
       args.parent_title as string,
       config.project_id,
+      activeVersion.id,
       context
     );
     if (!foundId) {
@@ -118,24 +108,28 @@ export async function handleCreateTask(
     parentId = foundId;
   }
 
-  let versionId = args.version_id as string | undefined;
-  let versionName = '';
+  if (args.version_id && args.version_id !== activeVersion.id) {
+    throw new Error('请使用当前激活版本创建任务');
+  }
 
-  if (!versionId && !parentId) {
-    const versionsRes = await fetch(`${context.serverUrl}/api/versions?project_id=${config.project_id}`, {
+  if (parentId) {
+    const parentResponse = await fetch(`${context.serverUrl}/api/tasks/${parentId}`, {
       headers: { 'Authorization': `Bearer ${context.token}` },
     });
 
-    if (versionsRes.ok) {
-      const versionsData = await versionsRes.json() as { data: Version[] };
-      const versions = versionsData.data;
-      if (versions && versions.length > 0) {
-        const latestVersion = versions[versions.length - 1];
-        versionId = latestVersion.id;
-        versionName = latestVersion.name;
-      }
+    if (!parentResponse.ok) {
+      const error = await parentResponse.json() as { error?: string };
+      throw new Error(error.error || 'Failed to get parent task');
+    }
+
+    const parentResult = await parentResponse.json() as { data: Task };
+    if (parentResult.data.version_id && parentResult.data.version_id !== activeVersion.id) {
+      throw new Error('父任务不属于当前激活版本');
     }
   }
+
+  const versionId = activeVersion.id;
+  const versionName = activeVersion.name;
 
   const body: Record<string, unknown> = {
     project_id: config.project_id,

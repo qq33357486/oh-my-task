@@ -14,32 +14,32 @@ interface Version {
 
 export const createVersionTool: Tool = {
   name: 'create_version',
-  description: '创建版本（如 v1.0、Sprint-1）',
+  description: '创建版本（需指定 Deadline）',
   inputSchema: {
     type: 'object',
     properties: {
       name: {
         type: 'string',
-        description: '版本名称（如 v1.0、Sprint-1、2024-Q1）',
+        description: '版本名称',
       },
       description: {
         type: 'string',
-        description: '版本描述（可选）',
+        description: '版本描述',
       },
       start_date: {
         type: 'string',
-        description: '计划开始日期，格式 YYYY-MM-DD（可选）',
+        description: '计划开始日期，格式 YYYY-MM-DD',
       },
       due_date: {
         type: 'string',
-        description: '目标发布日期，格式 YYYY-MM-DD（可选）',
+        description: 'Deadline，格式 YYYY-MM-DD',
       },
       path: {
         type: 'string',
-        description: '项目路径（可选，默认当前目录）',
+        description: '项目路径，默认当前目录',
       },
     },
-    required: ['name'],
+    required: ['name', 'due_date'],
   },
 };
 

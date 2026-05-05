@@ -1,10 +1,11 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
+import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
 
 export const completeTaskTool: Tool = {
   name: 'complete_task',
-  description: '完成任务（→ done）',
+  description: '完成任务',
   inputSchema: {
     type: 'object',
     properties: {
@@ -22,6 +23,11 @@ export async function handleCompleteTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
+  const config = getProjectConfigOrThrow(process.cwd());
+  if (!config.project_id) {
+    throw new Error('项目配置缺少 project_id');
+  }
+  await requireActiveVersionForProject(config.project_id, context);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}/complete`, {
     method: 'POST',

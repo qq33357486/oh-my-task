@@ -96,7 +96,7 @@ async function createVersion(cookie: string, projectId: string, name: string) {
   const res = await request(app)
     .post('/api/versions')
     .set('Cookie', cookie)
-    .send({ project_id: projectId, name });
+    .send({ project_id: projectId, name, due_date: '2026-05-30' });
   return res.body.data;
 }
 
@@ -345,6 +345,17 @@ describe('GET /api/tasks — 任务列表', () => {
   it('按 version_id 过滤', async () => {
     const project = await createProject(user1Cookie, '测试项目');
     const v1 = await createVersion(user1Cookie, project.id, 'v1.0');
+    await startVersion(user1Cookie, v1.id);
+    const t1 = await createTask(user1Cookie, project.id, '完成版1任务', { version_id: v1.id });
+    await request(app)
+      .post(`/api/tasks/${t1.data.id}/complete`)
+      .set('Cookie', user1Cookie);
+    await request(app)
+      .post(`/api/versions/${v1.id}/complete`)
+      .set('Cookie', user1Cookie);
+    await request(app)
+      .delete(`/api/tasks/${t1.data.id}`)
+      .set('Cookie', user1Cookie);
     const v2 = await createVersion(user1Cookie, project.id, 'v2.0');
 
     await createTask(user1Cookie, project.id, 'V1任务', { version_id: v1.id });

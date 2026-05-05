@@ -1,12 +1,10 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { McpContext } from './utils/config.js';
-import type { ProjectConfig } from '../../types/index.js';
+import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
 
 export const autoScheduleTool: Tool = {
   name: 'auto_schedule',
-  description: '自动为 planned 任务分配日期',
+  description: '自动排期待办任务',
   inputSchema: {
     type: 'object',
     properties: {
@@ -16,20 +14,12 @@ export const autoScheduleTool: Tool = {
       },
       path: {
         type: 'string',
-        description: '项目路径（可选，默认当前目录）',
+        description: '项目路径，默认当前目录',
       },
     },
     required: ['start_date'],
   },
 };
-
-function getProjectConfig(projectPath: string): ProjectConfig {
-  const configPath = join(projectPath, '.omt.json');
-  if (!existsSync(configPath)) {
-    throw new Error('项目未初始化。请先运行 init_project');
-  }
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
-}
 
 interface ScheduleChange {
   task_id: string;
@@ -45,8 +35,14 @@ export async function handleAutoSchedule(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfig(projectPath);
+  const config = getProjectConfigOrThrow(projectPath);
   const startDate = args.start_date as string;
+
+  if (!config.project_id) {
+    throw new Error('项目配置缺少 project_id');
+  }
+
+  await requireActiveVersionForProject(config.project_id, context);
 
   const response = await fetch(`${context.serverUrl}/api/schedule/auto`, {
     method: 'POST',

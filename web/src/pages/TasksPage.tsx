@@ -34,6 +34,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import FlowView from '@/components/FlowView'
 
 // 3 状态系统（与后端一致）
 const STATUS_CONFIG: Record<string, { label: string; emoji: string }> = {
@@ -48,9 +49,28 @@ const STATUS_STYLES: Record<string, string> = {
   done: 'bg-success/15 text-success',
 }
 
-import FlowView from '@/components/FlowView'
+const VERSION_DEADLINE_OPTIONS = [
+  { label: '7 天后', days: 7 },
+  { label: '14 天后', days: 14 },
+  { label: '30 天后', days: 30 },
+  { label: '60 天后', days: 60 },
+]
 
 type ViewType = 'tree' | 'kanban' | 'flow'
+
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getDeadlineDate(days: number): string {
+  const date = new Date()
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() + days)
+  return formatDateForInput(date)
+}
 
 export default function TasksPage() {
   const [view, setView] = useState<ViewType>('tree')
@@ -64,6 +84,7 @@ export default function TasksPage() {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newVersionName, setNewVersionName] = useState('')
+  const [newVersionDeadline, setNewVersionDeadline] = useState<string>(String(VERSION_DEADLINE_OPTIONS[1].days))
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const queryClient = useQueryClient()
 
@@ -80,8 +101,13 @@ export default function TasksPage() {
     enabled: !!effectiveProject,
   })
 
-  // Auto-select first version
-  const effectiveVersion = selectedVersion || (versions && versions.length > 0 ? versions[0].id : '')
+  const defaultVersionId = useMemo(() => {
+    if (!versions || versions.length === 0) return ''
+    const openVersion = [...versions].reverse().find((v) => !v.completed_at)
+    return openVersion?.id || versions[versions.length - 1].id
+  }, [versions])
+
+  const effectiveVersion = selectedVersion || defaultVersionId
 
   // 版本统计
   const { data: versionStats } = useQuery({
@@ -95,6 +121,12 @@ export default function TasksPage() {
     () => versions?.find((v) => v.id === effectiveVersion),
     [versions, effectiveVersion],
   )
+
+  const hasOpenVersion = useMemo(
+    () => Boolean(versions?.some((v) => !v.completed_at)),
+    [versions],
+  )
+  const canEditCurrentVersion = Boolean(currentVersion && !currentVersion.completed_at)
 
   // 获取任务列表
   const { data: tasks, isLoading, error } = useQuery({
@@ -166,11 +198,30 @@ export default function TasksPage() {
   })
 
   const createVersionMutation = useMutation({
-    mutationFn: (name: string) => versionApi.create(effectiveProject, name),
+    mutationFn: ({ name, dueDate }: { name: string; dueDate: string }) =>
+      versionApi.create(effectiveProject, name, undefined, undefined, dueDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions'] })
       setShowCreateVersion(false)
+      setSelectedVersion('')
       setNewVersionName('')
+      setNewVersionDeadline(String(VERSION_DEADLINE_OPTIONS[1].days))
+    },
+  })
+
+  const startVersionMutation = useMutation({
+    mutationFn: (id: string) => versionApi.start(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['versions'] })
+      queryClient.invalidateQueries({ queryKey: ['versionStats'] })
+    },
+  })
+
+  const completeVersionMutation = useMutation({
+    mutationFn: (id: string) => versionApi.complete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['versions'] })
+      queryClient.invalidateQueries({ queryKey: ['versionStats'] })
     },
   })
 
@@ -290,6 +341,7 @@ export default function TasksPage() {
             size="xs"
             onClick={() => setShowCreateVersion(true)}
             title="创建版本"
+            disabled={hasOpenVersion}
           >
             ＋ 版本
           </Button>
@@ -317,8 +369,13 @@ export default function TasksPage() {
         <VersionStatsCard
           stats={versionStats}
           version={currentVersion}
+          canEdit={canEditCurrentVersion}
           onUpdateStartDate={(date) => updateVersionMutation.mutate({ id: effectiveVersion, start_date: date })}
           onUpdateDueDate={(date) => updateVersionMutation.mutate({ id: effectiveVersion, due_date: date })}
+          onStartVersion={() => startVersionMutation.mutate(effectiveVersion)}
+          onCompleteVersion={() => completeVersionMutation.mutate(effectiveVersion)}
+          isStarting={startVersionMutation.isPending}
+          isCompleting={completeVersionMutation.isPending}
         />
       )}
 
@@ -365,9 +422,11 @@ export default function TasksPage() {
           </div>
 
           {/* 创建任务按钮 */}
-          <div className="mb-4">
-            <Button onClick={() => setShowCreateTask(true)}>+ 创建任务</Button>
-          </div>
+          {canEditCurrentVersion && (
+            <div className="mb-4">
+              <Button onClick={() => setShowCreateTask(true)}>+ 创建任务</Button>
+            </div>
+          )}
         </>
       )}
 
@@ -445,8 +504,13 @@ export default function TasksPage() {
         isOpen={showCreateVersion}
         name={newVersionName}
         onNameChange={setNewVersionName}
-        onCreate={() => createVersionMutation.mutate(newVersionName)}
-        onCancel={() => { setShowCreateVersion(false); setNewVersionName('') }}
+        deadlineDays={newVersionDeadline}
+        onDeadlineChange={setNewVersionDeadline}
+        onCreate={() => createVersionMutation.mutate({
+          name: newVersionName,
+          dueDate: getDeadlineDate(Number(newVersionDeadline)),
+        })}
+        onCancel={() => { setShowCreateVersion(false); setNewVersionName(''); setNewVersionDeadline(String(VERSION_DEADLINE_OPTIONS[1].days)) }}
         isLoading={createVersionMutation.isPending}
       />
 
@@ -491,20 +555,36 @@ function CreateProjectDialog({ isOpen, name, onNameChange, onCreate, onCancel, i
   )
 }
 
-function CreateVersionDialog({ isOpen, name, onNameChange, onCreate, onCancel, isLoading }: {
-  isOpen: boolean; name: string; onNameChange: (v: string) => void
-  onCreate: () => void; onCancel: () => void; isLoading: boolean
+function CreateVersionDialog({ isOpen, name, deadlineDays, onNameChange, onDeadlineChange, onCreate, onCancel, isLoading }: {
+  isOpen: boolean; name: string; deadlineDays: string; onNameChange: (v: string) => void
+  onDeadlineChange: (v: string) => void; onCreate: () => void; onCancel: () => void; isLoading: boolean
 }) {
+  const deadline = VERSION_DEADLINE_OPTIONS.find((option) => String(option.days) === deadlineDays) || VERSION_DEADLINE_OPTIONS[1]
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>创建版本</DialogTitle>
-          <DialogDescription>输入版本名称创建一个新版本</DialogDescription>
+          <DialogDescription>输入版本名称并选择 Deadline 创建一个新版本</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor="version-name">版本名称</Label>
           <Input id="version-name" placeholder="请输入版本名称" value={name} onChange={(e) => onNameChange(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="version-deadline">Deadline</Label>
+          <select
+            id="version-deadline"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+            value={deadlineDays}
+            onChange={(e) => onDeadlineChange(e.target.value)}
+          >
+            {VERSION_DEADLINE_OPTIONS.map((option) => (
+              <option key={option.days} value={option.days}>{option.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">预计交付日期：{deadline.label}（{getDeadlineDate(deadline.days)}）</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isLoading}>取消</Button>
@@ -947,11 +1027,16 @@ function SortableKanbanCard({ task }: { task: Task }) {
 interface VersionStatsCardProps {
   stats: VersionStats
   version: Version
+  canEdit: boolean
   onUpdateStartDate: (date: string) => void
   onUpdateDueDate: (date: string) => void
+  onStartVersion: () => void
+  onCompleteVersion: () => void
+  isStarting: boolean
+  isCompleting: boolean
 }
 
-function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }: VersionStatsCardProps) {
+function VersionStatsCard({ stats, version, canEdit, onUpdateStartDate, onUpdateDueDate, onStartVersion, onCompleteVersion, isStarting, isCompleting }: VersionStatsCardProps) {
   const [isEditingStartDate, setIsEditingStartDate] = useState(false)
   const [editStartDate, setEditStartDate] = useState(version.start_date || '')
   const [isEditingDate, setIsEditingDate] = useState(false)
@@ -981,7 +1066,7 @@ function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <span>🚀</span><span>开始时间</span>
             </div>
-            {isEditingStartDate ? (
+            {canEdit && isEditingStartDate ? (
               <div className="flex items-center gap-1">
                 <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)}
                   className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
@@ -989,10 +1074,13 @@ function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }
                 <Button variant="ghost" size="icon-xs" onClick={() => setIsEditingStartDate(false)}>✕</Button>
               </div>
             ) : (
-              <button className="group flex items-center gap-1 rounded px-1 py-0.5 text-sm text-foreground hover:bg-muted"
-                onClick={() => setIsEditingStartDate(true)}>
+              <button
+                className="group flex items-center gap-1 rounded px-1 py-0.5 text-sm text-foreground hover:bg-muted disabled:cursor-default disabled:hover:bg-transparent"
+                onClick={() => canEdit && setIsEditingStartDate(true)}
+                disabled={!canEdit}
+              >
                 {formatDate(stats.startDate)}
-                <span className="opacity-0 transition-opacity group-hover:opacity-100">✏️</span>
+                {canEdit && <span className="opacity-0 transition-opacity group-hover:opacity-100">✏️</span>}
               </button>
             )}
           </div>
@@ -1000,7 +1088,7 @@ function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <span>📅</span><span>计划交付</span>
             </div>
-            {isEditingDate ? (
+            {canEdit && isEditingDate ? (
               <div className="flex items-center gap-1">
                 <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
                   className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
@@ -1008,10 +1096,13 @@ function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }
                 <Button variant="ghost" size="icon-xs" onClick={() => setIsEditingDate(false)}>✕</Button>
               </div>
             ) : (
-              <button className="group flex items-center gap-1 rounded px-1 py-0.5 text-sm text-foreground hover:bg-muted"
-                onClick={() => setIsEditingDate(true)}>
+              <button
+                className="group flex items-center gap-1 rounded px-1 py-0.5 text-sm text-foreground hover:bg-muted disabled:cursor-default disabled:hover:bg-transparent"
+                onClick={() => canEdit && setIsEditingDate(true)}
+                disabled={!canEdit}
+              >
                 {formatDate(stats.plannedDueDate)}
-                <span className="opacity-0 transition-opacity group-hover:opacity-100">✏️</span>
+                {canEdit && <span className="opacity-0 transition-opacity group-hover:opacity-100">✏️</span>}
               </button>
             )}
           </div>
@@ -1035,6 +1126,18 @@ function VersionStatsCard({ stats, version, onUpdateStartDate, onUpdateDueDate }
           {version.locked_at && (
             <Badge variant="outline" className="ml-auto self-center border-warning/30 text-warning">🔒 已锁定</Badge>
           )}
+          <div className="ml-auto flex flex-wrap gap-2 self-center">
+            {!version.locked_at && !version.completed_at && (
+              <Button size="sm" variant="secondary" onClick={onStartVersion} disabled={isStarting}>
+                {isStarting ? '开始中...' : '开始版本'}
+              </Button>
+            )}
+            {version.locked_at && !version.completed_at && (
+              <Button size="sm" onClick={onCompleteVersion} disabled={isCompleting || stats.totalTasks === 0 || stats.doneTasks !== stats.totalTasks}>
+                {isCompleting ? '完成中...' : '完成版本'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* 第二行：任务统计 + 进度条 */}
