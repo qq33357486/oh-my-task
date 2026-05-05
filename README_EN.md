@@ -47,21 +47,37 @@ docker compose up -d
 
 For Docker deployment, visit http://localhost:17173 to open the Web UI. The first registered user automatically becomes the admin.
 
-### Local Development
+### Local Run (Unified Port)
 
 ```bash
 # Install dependencies
 npm install
 cd web && npm install && cd ..
 
-# Start backend + frontend
-npm run dev:all
+# Build backend and frontend
+npm run build
+cd web && npm run build && cd ..
+
+# Start the unified service
+WEB_DIST_PATH=web/dist API_PORT=17173 npm start
 ```
 
-| Service | Address |
-|---------|---------|
-| Backend API | http://localhost:17173 |
-| Frontend UI (local dev) | http://localhost:5173 |
+PowerShell:
+
+```powershell
+$env:WEB_DIST_PATH = "web/dist"; $env:API_PORT = "17173"; npm start
+```
+
+Visit http://localhost:17173 to open the Web UI. The API and MCP use the same address.
+
+### Frontend HMR Debugging (Optional)
+
+```bash
+npm run dev
+cd web && npm run dev
+```
+
+The Vite debug port `http://localhost:5173` is only for frontend hot reload and proxies API calls to `http://localhost:17173`. Production, Docker, and functional QA use the unified `17173` port.
 
 ## Configure MCP
 
@@ -98,6 +114,7 @@ npm run dev:all
 | `delete_task` | Delete task |
 | `create_version` | Create version |
 | `list_versions` | List versions |
+| `get_current_task` | Get the current in-progress main task and subtasks |
 | `auto_schedule` | Auto schedule (skip holidays) |
 
 ## Usage Scenarios
@@ -147,7 +164,15 @@ Complete version v1.0 → All tasks completed
 Archive version v1.0  → Move to archive
 ```
 
-### 7. Auto Scheduling
+### 7. Current Task
+
+```
+What am I working on now?
+```
+
+Returns the current in-progress main task and its subtasks for the current project.
+
+### 8. Auto Scheduling
 
 ```
 Auto schedule tasks in v1.0, starting from next Monday
@@ -159,9 +184,12 @@ Automatically skips weekends and Chinese public holidays.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `API_PORT` | Unified Web/API service port | `17173` |
 | `DB_PATH` | SQLite database path | `./data/data.db` |
+| `WEB_DIST_PATH` | Frontend build output directory | `web/dist` |
 | `OMT_SERVER_URL` | API address (for MCP) | `http://localhost:17173` |
-| `OMT_API_KEY` | API authentication key | `omt-admin-key` |
+| `OMT_TOKEN` | MCP Bearer Token | none |
+| `OMT_PROJECT_NAME` | Default MCP project name | none |
 
 ## More
 

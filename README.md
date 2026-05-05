@@ -47,21 +47,37 @@ docker compose up -d
 
 Docker 部署时，访问 http://localhost:17173 打开 Web 界面，首位注册用户自动成为管理员。
 
-### 本地开发
+### 本地运行（统一端口）
 
 ```bash
 # 安装依赖
 npm install
 cd web && npm install && cd ..
 
-# 启动后端 + 前端
-npm run dev:all
+# 构建前后端
+npm run build
+cd web && npm run build && cd ..
+
+# 启动统一服务
+WEB_DIST_PATH=web/dist API_PORT=17173 npm start
 ```
 
-| 服务 | 地址 |
-|------|------|
-| 后端 API | http://localhost:17173 |
-| 前端界面（本地开发） | http://localhost:5173 |
+PowerShell：
+
+```powershell
+$env:WEB_DIST_PATH = "web/dist"; $env:API_PORT = "17173"; npm start
+```
+
+访问 http://localhost:17173 打开 Web 界面，API 与 MCP 也使用同一地址。
+
+### 前端热更新调试（可选）
+
+```bash
+npm run dev
+cd web && npm run dev
+```
+
+Vite 调试端口 `http://localhost:5173` 仅用于前端热更新，并通过代理访问 `http://localhost:17173` 的 API；正式使用、Docker 和功能 QA 都使用统一端口 `17173`。
 
 ## 配置 MCP
 
@@ -190,9 +206,12 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `API_PORT` | Web/API 统一服务端口 | `17173` |
 | `DB_PATH` | SQLite 数据库路径 | `./data/data.db` |
+| `WEB_DIST_PATH` | 前端构建产物目录 | `web/dist` |
 | `OMT_SERVER_URL` | API 地址（MCP 用） | `http://localhost:17173` |
-| `OMT_API_KEY` | API 认证密钥 | `omt-admin-key` |
+| `OMT_TOKEN` | MCP Bearer Token | 无 |
+| `OMT_PROJECT_NAME` | MCP 默认项目名称 | 无 |
 
 ## 更多
 
