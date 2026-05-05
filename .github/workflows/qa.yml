@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   qa:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Functional QA (optional)
     runs-on: ubuntu-latest
     timeout-minutes: 25
