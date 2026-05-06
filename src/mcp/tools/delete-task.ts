@@ -1,6 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 
 export const deleteTaskTool: Tool = {
   name: 'delete_task',
@@ -22,11 +22,8 @@ export async function handleDeleteTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
-  const config = getProjectConfigOrThrow(process.cwd());
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id');
-  }
-  await requireActiveVersionForProject(config.project_id, context);
+  const project = await resolveMcpProject(context);
+  await requireActiveVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}`, {
     method: 'DELETE',

@@ -1,15 +1,5 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import type { ProjectConfig, Version } from '../../../types/index.js';
+import type { Version } from '../../../types/index.js';
 import type { McpContext } from './config.js';
-
-export function getProjectConfigOrThrow(projectPath: string): ProjectConfig {
-  const configPath = join(projectPath, '.omt.json');
-  if (!existsSync(configPath)) {
-    throw new Error('项目未初始化。请先运行 init_project');
-  }
-  return JSON.parse(readFileSync(configPath, 'utf-8')) as ProjectConfig;
-}
 
 export async function fetchVersionsForProject(
   projectId: string,
@@ -40,11 +30,13 @@ export async function getActiveVersionForProject(
 
 export async function requireActiveVersionForProject(
   projectId: string,
-  context: McpContext
+  context: McpContext,
+  projectName?: string
 ): Promise<Version> {
   const activeVersion = await getActiveVersionForProject(projectId, context);
   if (!activeVersion) {
-    throw new Error('当前没有激活版本，请先创建并开始一个版本');
+    const label = projectName ? `项目「${projectName}」` : '当前项目';
+    throw new Error(`${label}当前没有已开始的版本。\n请先到 Web 端创建版本，并点击“开始版本”后再使用 MCP 管理任务。`);
   }
   return activeVersion;
 }

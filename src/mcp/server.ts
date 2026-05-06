@@ -9,8 +9,6 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-// 导入工具
-import { initProjectTool, handleInitProject } from './tools/init-project.js';
 import { createVersionTool, handleCreateVersion } from './tools/create-version.js';
 import { listVersionsTool, handleListVersions } from './tools/list-versions.js';
 import { createTaskTool, handleCreateTask } from './tools/create-task.js';
@@ -60,7 +58,6 @@ function getPackageVersion(): string {
 
 // 工具列表
 const tools = [
-  initProjectTool,
   createVersionTool,
   listVersionsTool,
   createTaskTool,
@@ -84,8 +81,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
-      case 'init_project':
-        return await handleInitProject(args, mcpContext);
       case 'create_version':
         return await handleCreateVersion(args, mcpContext);
       case 'list_versions':
@@ -125,7 +120,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 export async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('MCP Server started (v1.4.15)');
+  console.error(`MCP Server started (v${packageVersion})`);
 }
 
 // 如果直接运行此文件

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import Database from 'better-sqlite3';
 import type { Server } from 'http';
-import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { handleGetCurrentTask } from '../../mcp/tools/get-current-task.js';
@@ -110,9 +110,9 @@ beforeEach(async () => {
 
 describe('MCP Tools — 通过 HTTP API 模拟', () => {
   // ========================
-  // VAL-MCP-001: init_project 自动创建项目
+  // VAL-MCP-001: 项目 API 创建项目
   // ========================
-  describe('VAL-MCP-001: init_project 自动创建项目', () => {
+  describe('VAL-MCP-001: 项目 API 创建项目', () => {
     it('项目不存在时创建新项目', async () => {
       const res = await request(app)
         .post('/api/projects')
@@ -145,9 +145,9 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
   });
 
   // ========================
-  // VAL-MCP-002: init_project 已有项目返回现有
+  // VAL-MCP-002: 项目 API 列出项目
   // ========================
-  describe('VAL-MCP-002: init_project 已有项目返回现有', () => {
+  describe('VAL-MCP-002: 项目 API 列出项目', () => {
     it('通过 GET /api/projects 获取现有项目列表', async () => {
       const res = await request(app)
         .get('/api/projects')
@@ -451,18 +451,6 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       return versionId;
     }
 
-    function createMcpProjectDir(): string {
-      const projectDir = join(TEST_DIR, `mcp-project-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      mkdirSync(projectDir, { recursive: true });
-      writeFileSync(join(projectDir, '.omt.json'), JSON.stringify({
-        project_id: projectId,
-        project_path: projectDir,
-        server_url: '',
-        created_at: new Date().toISOString(),
-      }));
-      return projectDir;
-    }
-
     async function withMcpServer<T>(run: (context: McpContext) => Promise<T>): Promise<T> {
       const server: Server = app.listen(0);
       try {
@@ -473,15 +461,46 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         return await run({
           serverUrl: `http://127.0.0.1:${address.port}`,
           token: user1Token,
+          projectName: 'MCP测试项目',
         });
       } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
       }
     }
 
+    it('未配置 OMT_PROJECT_NAME 时提示配置项目名称', async () => {
+      await withMcpServer(async (context) => {
+        await expect(handleGetCurrentTask({}, { ...context, projectName: undefined }))
+          .rejects.toThrow('MCP 未配置项目名称');
+      });
+    });
+
+    it('OMT_PROJECT_NAME 不正确时提示检查配置或到 Web 创建项目', async () => {
+      await withMcpServer(async (context) => {
+        await expect(handleGetCurrentTask({}, { ...context, projectName: '不存在的项目' }))
+          .rejects.toThrow('请检查 MCP 配置中的 OMT_PROJECT_NAME 是否与 Web 端项目名称完全一致');
+      });
+    });
+
+    it('项目存在但没有已开始版本时提示到 Web 开始版本', async () => {
+      await withMcpServer(async (context) => {
+        await expect(handleGetCurrentTask({}, context))
+          .rejects.toThrow('当前没有已开始的版本');
+      });
+    });
+
+    it('项目和已开始版本存在但无进行中主任务时返回空状态', async () => {
+      await createActiveVersion();
+
+      await withMcpServer(async (context) => {
+        const result = await handleGetCurrentTask({}, context);
+
+        expect(result.content[0].text).toContain('当前版本暂无进行中主任务');
+      });
+    });
+
     it('list_tasks 默认只返回当前任务摘要，不返回完整任务列表', async () => {
       const versionId = await createActiveVersion();
-      const projectDir = createMcpProjectDir();
 
       const currentTask = await request(app)
         .post('/api/tasks')
@@ -496,7 +515,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         .send({ project_id: projectId, version_id: versionId, title: '未激活任务', description: '不应出现在默认输出' });
 
       await withMcpServer(async (context) => {
-        const result = await handleListTasks({ path: projectDir }, context);
+        const result = await handleListTasks({}, context);
         const text = result.content[0].text;
 
         expect(text).toContain('当前主任务');
@@ -507,7 +526,6 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
 
     it('list_tasks outline 只返回任务关系摘要', async () => {
       const versionId = await createActiveVersion();
-      const projectDir = createMcpProjectDir();
       const parent = await request(app)
         .post('/api/tasks')
         .set('Authorization', `Bearer ${user1Token}`)
@@ -518,7 +536,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         .send({ project_id: projectId, version_id: versionId, parent_id: parent.body.data.id, title: '子级概要任务', description: '子级详细描述' });
 
       await withMcpServer(async (context) => {
-        const result = await handleListTasks({ path: projectDir, view: 'outline' }, context);
+        const result = await handleListTasks({ view: 'outline' }, context);
         const text = result.content[0].text;
 
         expect(text).toContain('父级概要任务');
@@ -530,25 +548,23 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
 
     it('get_task 默认返回摘要，detail=full 才返回完整字段', async () => {
       const versionId = await createActiveVersion();
-      const projectDir = createMcpProjectDir();
       const parent = await request(app)
         .post('/api/tasks')
         .set('Authorization', `Bearer ${user1Token}`)
         .send({ project_id: projectId, version_id: versionId, title: '详情父任务', description: '完整描述字段' });
 
       await withMcpServer(async (context) => {
-        const summary = await handleGetTask({ path: projectDir, task_id: parent.body.data.id }, context);
+        const summary = await handleGetTask({ task_id: parent.body.data.id }, context);
         expect(summary.content[0].text).toContain('详情父任务');
         expect(summary.content[0].text).not.toContain('完整描述字段');
 
-        const full = await handleGetTask({ path: projectDir, task_id: parent.body.data.id, detail: 'full' }, context);
+        const full = await handleGetTask({ task_id: parent.body.data.id, detail: 'full' }, context);
         expect(full.content[0].text).toContain('完整描述字段');
       });
     });
 
     it('get_current_task 返回子任务进度并默认隐藏已完成子任务', async () => {
       const versionId = await createActiveVersion();
-      const projectDir = createMcpProjectDir();
       const parent = await request(app)
         .post('/api/tasks')
         .set('Authorization', `Bearer ${user1Token}`)
@@ -569,7 +585,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         .set('Authorization', `Bearer ${user1Token}`);
 
       await withMcpServer(async (context) => {
-        const result = await handleGetCurrentTask({ path: projectDir }, context);
+        const result = await handleGetCurrentTask({}, context);
         const text = result.content[0].text;
 
         expect(text).toContain('进行中主任务');

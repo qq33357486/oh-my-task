@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 import {
   fetchTaskDetail,
   fetchTasks,
@@ -17,10 +17,6 @@ export const getCurrentTaskTool: Tool = {
   inputSchema: {
     type: 'object',
     properties: {
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
-      },
       include_done_children: {
         type: 'boolean',
         description: '是否显示已完成子任务，默认 false',
@@ -42,17 +38,11 @@ export async function handleGetCurrentTask(
   args: Record<string, unknown>,
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfigOrThrow(projectPath);
-
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id');
-  }
-
-  const activeVersion = await requireActiveVersionForProject(config.project_id, context);
+  const project = await resolveMcpProject(context);
+  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
 
   const params = new URLSearchParams();
-  params.append('project_id', config.project_id);
+  params.append('project_id', project.id);
   params.append('version_id', activeVersion.id);
   params.append('status', 'in_progress');
   params.append('parent_id', 'null');
@@ -63,7 +53,7 @@ export async function handleGetCurrentTask(
     return {
       content: [{
         type: 'text',
-        text: '无进行中主任务。可使用 list_tasks view=outline 查看任务结构。',
+        text: `项目「${project.name}」当前版本暂无进行中主任务。\n可以先创建任务，或使用 list_tasks 查看当前版本任务结构。`,
       }],
     };
   }

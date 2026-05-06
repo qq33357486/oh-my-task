@@ -1,6 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 
 export const autoScheduleTool: Tool = {
   name: 'auto_schedule',
@@ -11,10 +11,6 @@ export const autoScheduleTool: Tool = {
       start_date: {
         type: 'string',
         description: '排期开始日期，格式 YYYY-MM-DD',
-      },
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
       },
     },
     required: ['start_date'],
@@ -34,15 +30,10 @@ export async function handleAutoSchedule(
   args: Record<string, unknown>,
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfigOrThrow(projectPath);
+  const project = await resolveMcpProject(context);
   const startDate = args.start_date as string;
 
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id');
-  }
-
-  await requireActiveVersionForProject(config.project_id, context);
+  await requireActiveVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/schedule/auto`, {
     method: 'POST',
@@ -50,7 +41,7 @@ export async function handleAutoSchedule(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${context.token}`,
     },
-    body: JSON.stringify({ project_id: config.project_id, start_date: startDate }),
+    body: JSON.stringify({ project_id: project.id, start_date: startDate }),
   });
 
   if (!response.ok) {

@@ -167,16 +167,6 @@ export interface ListTasksParams {
   status?: TaskStatus;
 }
 
-// 项目配置文件 (.omt.json)
-export interface ProjectConfig {
-  project_id?: string;
-  project_name?: string;
-  project_path: string;
-  server_url: string;
-  token?: string;
-  created_at: string;
-}
-
 // 认证上下文
 export interface AuthContext {
   user: User;

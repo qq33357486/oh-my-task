@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 import {
   buildTaskTree,
   fetchTaskDetail,
@@ -29,10 +29,6 @@ export const listTasksTool: Tool = {
       parent_id: {
         type: 'string',
         description: '父任务ID',
-      },
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
       },
       view: {
         type: 'string',
@@ -124,21 +120,15 @@ export async function handleListTasks(
   args: Record<string, unknown>,
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfigOrThrow(projectPath);
-
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id');
-  }
-
-  const activeVersion = await requireActiveVersionForProject(config.project_id, context);
+  const project = await resolveMcpProject(context);
+  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
   const view = (args.view as ListTasksView) || 'current';
   const detail = (args.detail as TaskDetail) || 'compact';
   const limit = parsePositiveInteger(args.limit, 50);
   const depth = parsePositiveInteger(args.depth, 3);
 
   const params = new URLSearchParams();
-  params.append('project_id', config.project_id);
+  params.append('project_id', project.id);
   params.append('version_id', activeVersion.id);
 
   if (view === 'current') {
@@ -150,7 +140,7 @@ export async function handleListTasks(
       return {
         content: [{
           type: 'text',
-          text: '无进行中主任务。可使用 list_tasks view=outline 查看任务结构。',
+          text: `项目「${project.name}」当前版本暂无进行中主任务。\n可以先创建任务，或使用 list_tasks 查看当前版本任务结构。`,
         }],
       };
     }

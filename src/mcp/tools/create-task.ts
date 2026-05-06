@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 
 export const createTaskTool: Tool = {
   name: 'create_task',
@@ -40,10 +40,6 @@ export const createTaskTool: Tool = {
       due_date: {
         type: 'string',
         description: '计划截止日期，格式 YYYY-MM-DD',
-      },
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
       },
     },
     required: ['title'],
@@ -84,21 +80,15 @@ export async function handleCreateTask(
   args: Record<string, unknown>,
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfigOrThrow(projectPath);
-
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id，请重新初始化项目');
-  }
-
-  const activeVersion = await requireActiveVersionForProject(config.project_id, context);
+  const project = await resolveMcpProject(context);
+  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
 
   let parentId: string | undefined = args.parent_id as string | undefined;
 
   if (!parentId && args.parent_title) {
     const foundId = await findParentTaskByTitle(
       args.parent_title as string,
-      config.project_id,
+      project.id,
       activeVersion.id,
       context
     );
@@ -132,7 +122,7 @@ export async function handleCreateTask(
   const versionName = activeVersion.name;
 
   const body: Record<string, unknown> = {
-    project_id: config.project_id,
+    project_id: project.id,
     version_id: versionId,
     title: args.title,
     description: args.description,

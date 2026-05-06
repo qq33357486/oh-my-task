@@ -1,11 +1,12 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import type { ProjectConfig } from '../../../types/index.js';
-
 export interface McpContext {
   serverUrl: string;
   token: string;
   projectName?: string;
+}
+
+export interface McpProject {
+  id: string;
+  name: string;
 }
 
 /**
@@ -17,60 +18,6 @@ export function getMcpContextFromEnv(): McpContext {
     token: process.env.OMT_TOKEN || '',
     projectName: process.env.OMT_PROJECT_NAME,
   };
-}
-
-/**
- * 读取项目配置文件
- */
-export function readProjectConfig(projectPath?: string): ProjectConfig | null {
-  const configPath = join(projectPath || process.cwd(), '.omt.json');
-  
-  if (!existsSync(configPath)) {
-    return null;
-  }
-  
-  try {
-    return JSON.parse(readFileSync(configPath, 'utf-8')) as ProjectConfig;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 获取项目的 project_id（兼容新旧格式）
- */
-export function getProjectId(config: ProjectConfig, context: McpContext): string | null {
-  // 新格式：通过 project_name 查询
-  if (config.project_name && !config.project_id) {
-    // 需要从 API 查询 project_id
-    return null;  // 由调用方处理
-  }
-  
-  // 旧格式或已有 project_id
-  return config.project_id || null;
-}
-
-/**
- * 获取认证 Token（优先使用配置中的 token，其次使用环境变量）
- */
-export function getAuthToken(config: ProjectConfig | null, context: McpContext): string {
-  // 优先级：配置文件 token > 环境变量 token > 环境变量 api_key
-  return config?.token || context.token;
-}
-
-/**
- * 获取项目路径
- */
-export function getProjectPath(): string {
-  return process.cwd();
-}
-
-/**
- * 检查项目是否已初始化
- */
-export function isProjectInitialized(projectPath?: string): boolean {
-  const configPath = join(projectPath || process.cwd(), '.omt.json');
-  return existsSync(configPath);
 }
 
 /**
@@ -98,4 +45,21 @@ export async function resolveProjectId(
   } catch {
     return null;
   }
+}
+
+/**
+ * 解析当前 MCP 配置绑定的唯一项目
+ */
+export async function resolveMcpProject(context: McpContext): Promise<McpProject> {
+  const projectName = context.projectName?.trim();
+  if (!projectName) {
+    throw new Error('MCP 未配置项目名称。\n请在 MCP 配置中设置 OMT_PROJECT_NAME，值必须与 Web 端项目名称完全一致。');
+  }
+
+  const projectId = await resolveProjectId(projectName, context);
+  if (!projectId) {
+    throw new Error(`未找到项目：${projectName}。\n请检查 MCP 配置中的 OMT_PROJECT_NAME 是否与 Web 端项目名称完全一致；如果项目还不存在，请先到 Web 端创建项目。`);
+  }
+
+  return { id: projectId, name: projectName };
 }

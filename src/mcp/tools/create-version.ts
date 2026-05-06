@@ -1,8 +1,5 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
-import type { ProjectConfig } from '../../types/index.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
 
 interface Version {
   id: string;
@@ -34,32 +31,19 @@ export const createVersionTool: Tool = {
         type: 'string',
         description: 'Deadline，格式 YYYY-MM-DD',
       },
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
-      },
     },
     required: ['name', 'due_date'],
   },
 };
 
-function getProjectConfig(projectPath: string): ProjectConfig {
-  const configPath = join(projectPath, '.omt.json');
-  if (!existsSync(configPath)) {
-    throw new Error('项目未初始化。请先运行 init_project');
-  }
-  return JSON.parse(readFileSync(configPath, 'utf-8'));
-}
-
 export async function handleCreateVersion(
   args: Record<string, unknown>,
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfig(projectPath);
+  const project = await resolveMcpProject(context);
 
   const body = {
-    project_id: config.project_id,
+    project_id: project.id,
     name: args.name,
     description: args.description,
     start_date: args.start_date,

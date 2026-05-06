@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import type { McpContext } from './utils/config.js';
+import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { TaskWithChildren } from '../../types/index.js';
-import { getProjectConfigOrThrow, requireActiveVersionForProject } from './utils/version.js';
+import { requireActiveVersionForProject } from './utils/version.js';
 import { fetchTaskDetail, formatTaskFull, parseBoolean, parsePositiveInteger } from './utils/task-query.js';
 
 export const getTaskTool: Tool = {
@@ -26,10 +26,6 @@ export const getTaskTool: Tool = {
       include_children: {
         type: 'boolean',
         description: '是否包含子任务，默认 true',
-      },
-      path: {
-        type: 'string',
-        description: '项目路径，默认当前目录',
       },
     },
     required: ['task_id'],
@@ -79,12 +75,8 @@ export async function handleGetTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
-  const projectPath = (args.path as string) || process.cwd();
-  const config = getProjectConfigOrThrow(projectPath);
-  if (!config.project_id) {
-    throw new Error('项目配置缺少 project_id');
-  }
-  await requireActiveVersionForProject(config.project_id, context);
+  const project = await resolveMcpProject(context);
+  await requireActiveVersionForProject(project.id, context, project.name);
 
   const task = await fetchTaskDetail(context, taskId);
   const detail = args.detail === 'full' ? 'full' : 'summary';
