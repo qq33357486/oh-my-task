@@ -170,7 +170,7 @@ export default function SettingsPage() {
         "oh-my-task": {
           type: "stdio",
           command: "npx",
-          args: ["-y", "@qq33357486/oh-my-task"],
+          args: ["-y", "@qq33357486/oh-my-task@latest"],
           env: {
             OMT_SERVER_URL: serverUrl,
             OMT_TOKEN: t,

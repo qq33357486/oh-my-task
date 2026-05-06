@@ -438,7 +438,7 @@ describe('SettingsPage', () => {
         expect(preElement!.textContent).toContain('oh-my-task')
         expect(preElement!.textContent).toContain('"type": "stdio"')
         expect(preElement!.textContent).toContain('"args": [')
-        expect(preElement!.textContent).toContain('"@qq33357486/oh-my-task"')
+        expect(preElement!.textContent).toContain('"@qq33357486/oh-my-task@latest"')
         expect(preElement!.textContent).not.toContain('/path/to/oh-my-task/src/mcp/server.ts')
         expect(preElement!.textContent).toContain('OMT_SERVER_URL')
         expect(preElement!.textContent).toContain('OMT_TOKEN')
