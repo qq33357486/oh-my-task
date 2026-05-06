@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { createUser, loginUser, getUserById, toPublicUser, changePassword, generateResetToken, resetPassword, sendEmailCode, verifyEmailCode } from '../../services/user.service.js';
 import { isRegistrationEnabled } from '../../services/config.service.js';
+import { ensureDefaultToken } from '../../services/token.service.js';
 import { getDb } from '../../db/connection.js';
 
 const router = Router();
@@ -109,6 +110,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     const user = await createUser({ email, password, code: code || '' });
+    ensureDefaultToken(user.id);
 
     req.session.userId = user.id;
 
@@ -136,6 +138,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const user = await loginUser({ email, password });
+    ensureDefaultToken(user.id);
 
     req.session.userId = user.id;
 

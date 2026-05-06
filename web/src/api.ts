@@ -89,6 +89,7 @@ export interface Token {
   id: string;
   name: string;
   token: string;  // 掩码后的
+  plain_token?: string;  // 完整 token（仅用于 MCP 配置复制）
   last_used_at: string | null;
   created_at: string;
 }

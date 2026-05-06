@@ -22,7 +22,8 @@ router.get('/', (req: Request, res: Response) => {
   // 脱敏处理
   const maskedTokens = tokens.map(t => ({
     ...t,
-    token: maskToken(t.token)
+    token: maskToken(t.token),
+    plain_token: t.token
   }));
 
   res.json({

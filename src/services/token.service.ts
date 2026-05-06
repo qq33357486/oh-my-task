@@ -65,6 +65,25 @@ export function createToken(params: CreateTokenParams): TokenWithPlain {
 }
 
 /**
+ * 确保用户至少有一个默认 Token
+ */
+export function ensureDefaultToken(userId: string): TokenWithPlain | null {
+  const db = getDb();
+  const existing = db.prepare(`
+    SELECT id FROM user_tokens WHERE user_id = ? ORDER BY created_at ASC LIMIT 1
+  `).get(userId);
+
+  if (existing) {
+    return null;
+  }
+
+  return createToken({
+    user_id: userId,
+    name: '默认 MCP Token'
+  });
+}
+
+/**
  * 根据 Token 值查找
  */
 export function findTokenByValue(tokenValue: string): UserToken | null {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -16,8 +16,9 @@ vi.mock('react-router-dom', async () => {
 
 // Mock navigator.clipboard
 const mockWriteText = vi.fn().mockResolvedValue(undefined)
-Object.assign(navigator, {
-  clipboard: { writeText: mockWriteText },
+Object.defineProperty(navigator, 'clipboard', {
+  value: { writeText: mockWriteText },
+  configurable: true,
 })
 
 // Mock the api module
@@ -61,6 +62,10 @@ function createWrapper() {
 describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: mockWriteText },
+      configurable: true,
+    })
     mockTokenList.mockResolvedValue({ tokens: [] })
     mockProjectList.mockResolvedValue([])
     mockChangePassword.mockResolvedValue(undefined)
@@ -186,6 +191,7 @@ describe('SettingsPage', () => {
             id: 'tok-1',
             name: 'VS Code',
             token: 'omt_***xyz',
+            plain_token: 'full-token-value-for-copy',
             last_used_at: '2026-04-01T00:00:00.000Z',
             created_at: '2026-03-01T00:00:00.000Z',
           },
@@ -210,6 +216,33 @@ describe('SettingsPage', () => {
       expect(screen.getByText('从未使用')).toBeInTheDocument()
     })
 
+    it('copies full token from existing token list', async () => {
+      mockTokenList.mockResolvedValue({
+        tokens: [
+          {
+            id: 'tok-1',
+            name: 'VS Code',
+            token: 'omt_***xyz',
+            plain_token: 'full-token-value-for-copy',
+            last_used_at: null,
+            created_at: '2026-03-01T00:00:00.000Z',
+          },
+        ],
+      })
+
+      render(<SettingsPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByText('omt_***xyz')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: '复制' }))
+
+      await waitFor(() => {
+        expect(mockWriteText).toHaveBeenCalledWith('full-token-value-for-copy')
+      })
+    })
+
     it('shows create token input and button', async () => {
       render(<SettingsPage />, { wrapper: createWrapper() })
 
@@ -227,6 +260,7 @@ describe('SettingsPage', () => {
             id: 'tok-1',
             name: 'VS Code',
             token: 'omt_***xyz',
+            plain_token: 'full-token-value-for-copy',
             last_used_at: null,
             created_at: '2026-03-01T00:00:00.000Z',
           },
@@ -247,6 +281,7 @@ describe('SettingsPage', () => {
             id: 'tok-1',
             name: 'VS Code',
             token: 'omt_***xyz',
+            plain_token: 'full-token-value-for-copy',
             last_used_at: null,
             created_at: '2026-03-01T00:00:00.000Z',
           },
@@ -366,6 +401,7 @@ describe('SettingsPage', () => {
             id: 'tok-1',
             name: 'VS Code',
             token: 'omt_***xyz',
+            plain_token: 'full-token-value-for-copy',
             last_used_at: null,
             created_at: '2026-03-01T00:00:00.000Z',
           },
@@ -377,14 +413,16 @@ describe('SettingsPage', () => {
       await waitFor(() => {
         expect(screen.getByText('MCP 配置示例')).toBeInTheDocument()
       })
-      // The JSON is rendered inside a <pre> tag, so look for key config fields
-      const preElement = screen.getByText('配置内容').closest('.rounded-lg')?.querySelector('pre')
-      expect(preElement).toBeTruthy()
-      expect(preElement!.textContent).toContain('mcpServers')
-      expect(preElement!.textContent).toContain('oh-my-task')
-      expect(preElement!.textContent).toContain('OMT_SERVER_URL')
-      expect(preElement!.textContent).toContain('OMT_TOKEN')
-      expect(preElement!.textContent).toContain('OMT_PROJECT_NAME')
+      await waitFor(() => {
+        const preElement = screen.getByText('配置内容').closest('.rounded-lg')?.querySelector('pre')
+        expect(preElement).toBeTruthy()
+        expect(preElement!.textContent).toContain('mcpServers')
+        expect(preElement!.textContent).toContain('oh-my-task')
+        expect(preElement!.textContent).toContain('OMT_SERVER_URL')
+        expect(preElement!.textContent).toContain('OMT_TOKEN')
+        expect(preElement!.textContent).toContain('full-token-value-for-copy')
+        expect(preElement!.textContent).toContain('OMT_PROJECT_NAME')
+      })
     })
 
     it('displays project selector when projects exist', async () => {
@@ -504,6 +542,8 @@ describe('SettingsPage', () => {
       await waitFor(() => {
         expect(screen.getByText('请先创建 Token 以自动填充配置')).toBeInTheDocument()
       })
+      const preElement = screen.getByText('配置内容').closest('.rounded-lg')?.querySelector('pre')
+      expect(preElement!.textContent).toContain('请先创建您的 token')
     })
   })
 

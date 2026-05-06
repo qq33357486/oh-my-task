@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { getDb } from '../db/connection.js';
 
 // 每个测试用唯一的临时目录，避免并行测试冲突
 let TEST_DIR: string;
@@ -66,6 +67,14 @@ describe('POST /api/auth/register', () => {
       // 确保返回的是公开用户信息（不包含密码等）
       expect(res.body.data.user).not.toHaveProperty('password_hash');
       expect(res.body.data.user).not.toHaveProperty('reset_token');
+
+      const db = getDb();
+      const tokenRow = db.prepare(`
+        SELECT name, token FROM user_tokens WHERE user_id = ?
+      `).get(res.body.data.user.id) as { name: string; token: string } | undefined;
+      expect(tokenRow).toBeDefined();
+      expect(tokenRow!.name).toBe('默认 MCP Token');
+      expect(tokenRow!.token).toMatch(/^omt_[a-f0-9]+$/);
     } finally {
       process.env.NODE_ENV = originalNodeEnv;
     }
@@ -83,6 +92,13 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.user.role).toBe('member');
+
+    const db = getDb();
+    const tokenRow = db.prepare(`
+      SELECT name, token FROM user_tokens WHERE user_id = ?
+    `).get(res.body.data.user.id) as { name: string; token: string } | undefined;
+    expect(tokenRow).toBeDefined();
+    expect(tokenRow!.name).toBe('默认 MCP Token');
   });
 
   it('VAL-AUTH-003: 使用已注册的邮箱再次注册返回 409 错误', async () => {

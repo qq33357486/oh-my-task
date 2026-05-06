@@ -10,6 +10,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import PasswordInput from '@/components/PasswordInput';
 
 const EXAMPLE_PROJECT_NAME = '请输入你的项目名称';
+const EMPTY_TOKEN_MESSAGE = '请先创建您的 token';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -104,10 +105,35 @@ export default function SettingsPage() {
   };
 
   const handleCopy = async (text: string, id?: string) => {
-    await navigator.clipboard.writeText(text);
+    await copyTextToClipboard(text);
     if (id) {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // 使用下方 textarea 兜底
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+      return document.execCommand('copy');
+    } finally {
+      document.body.removeChild(textarea);
     }
   };
 
@@ -130,10 +156,10 @@ export default function SettingsPage() {
     return 'http://localhost:17173';
   });
 
-  const latestToken = tokens.length > 0 ? tokens[0].token : '';
+  const latestToken = tokens.length > 0 ? tokens[0].plain_token || tokens[0].token : '';
 
   const generateMcpConfig = (token?: string, projectName?: string) => {
-    const t = token || 'omt_xxx...';
+    const t = token || EMPTY_TOKEN_MESSAGE;
     const pn = projectName || EXAMPLE_PROJECT_NAME;
     return JSON.stringify({
       mcpServers: {
@@ -151,9 +177,11 @@ export default function SettingsPage() {
   };
 
   const handleCopyMcpConfig = async () => {
-    await navigator.clipboard.writeText(generateMcpConfig(latestToken, effectiveMcpProjectName));
-    setMcpConfigCopied(true);
-    setTimeout(() => setMcpConfigCopied(false), 2000);
+    const copied = await copyTextToClipboard(generateMcpConfig(latestToken, effectiveMcpProjectName));
+    if (copied) {
+      setMcpConfigCopied(true);
+      setTimeout(() => setMcpConfigCopied(false), 2000);
+    }
   };
 
   return (
@@ -300,7 +328,7 @@ export default function SettingsPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              onClick={() => handleCopy(token.token, token.id)}
+                              onClick={() => handleCopy(token.plain_token || token.token, token.id)}
                             >
                               {copiedId === token.id ? '已复制' : '复制'}
                             </Button>

@@ -229,6 +229,7 @@ describe('GET /api/tokens', () => {
     expect(tokenItem.token).not.toBe(plainToken);
     // 新格式：omt_***abc（前4位 + *** + 后3位）
     expect(tokenItem.token).toMatch(/^omt_\*{3}[a-f0-9]{3}$/);
+    expect(tokenItem.plain_token).toBe(plainToken);
   });
 
   it('未认证时列出 Token 返回 401', async () => {
@@ -287,7 +288,7 @@ describe('GET /api/tokens', () => {
   });
 
   it('空列表返回空数组', async () => {
-    // 用新用户（没有 token）
+    // 新用户登录后会自动获得默认 token
     const cookie = await setupUserAndLogin(
       { name: 'EmptyUser', email: `empty-${Date.now()}@example.com`, password: 'TestPass123' },
       'empty-user-1'
@@ -298,7 +299,9 @@ describe('GET /api/tokens', () => {
       .set('Cookie', cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.tokens).toEqual([]);
+    expect(res.body.data.tokens).toHaveLength(1);
+    expect(res.body.data.tokens[0].name).toBe('默认 MCP Token');
+    expect(res.body.data.tokens[0].plain_token).toMatch(/^omt_[a-f0-9]+$/);
   });
 });
 

@@ -1,5 +1,8 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { existsSync, readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -22,12 +25,13 @@ import { getMcpContextFromEnv } from './tools/utils/config.js';
 
 // 从环境变量获取 MCP 上下文
 const mcpContext = getMcpContextFromEnv();
+const packageVersion = getPackageVersion();
 
 // 创建 MCP Server
 const server = new Server(
   {
     name: 'oh-my-task',
-    version: '1.4.10',
+    version: packageVersion,
   },
   {
     capabilities: {
@@ -35,6 +39,23 @@ const server = new Server(
     },
   }
 );
+
+function getPackageVersion(): string {
+  let currentDir = dirname(fileURLToPath(import.meta.url));
+
+  for (let depth = 0; depth < 5; depth += 1) {
+    const packagePath = join(currentDir, 'package.json');
+    if (existsSync(packagePath)) {
+      const content = JSON.parse(readFileSync(packagePath, 'utf-8')) as { version?: unknown };
+      if (typeof content.version === 'string' && content.version) {
+        return content.version;
+      }
+    }
+    currentDir = dirname(currentDir);
+  }
+
+  return '0.0.0';
+}
 
 // 工具列表
 const tools = [
