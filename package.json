@@ -1,6 +1,6 @@
 {
   "name": "@qq33357486/oh-my-task",
-  "version": "1.4.18",
+  "version": "1.4.19",
   "description": "文档驱动的 AI 编程协作系统 - 通过 MCP 工具管理任务",
   "type": "module",
   "main": "dist/index.js",
