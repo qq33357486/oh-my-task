@@ -164,8 +164,9 @@ export default function SettingsPage() {
     return JSON.stringify({
       mcpServers: {
         "oh-my-task": {
+          type: "stdio",
           command: "npx",
-          args: ["tsx", "/path/to/oh-my-task/src/mcp/server.ts"],
+          args: ["-y", "@qq33357486/oh-my-task"],
           env: {
             OMT_SERVER_URL: serverUrl,
             OMT_TOKEN: t,
@@ -452,7 +453,7 @@ export default function SettingsPage() {
                 ）
               </li>
               <li>
-                将 <code className="text-xs bg-muted rounded px-1 py-0.5">args</code> 中的路径替换为 oh-my-task 项目的实际路径
+                确认本机已安装 Node.js，MCP 客户端会通过 <code className="text-xs bg-muted rounded px-1 py-0.5">npx</code> 自动启动 oh-my-task MCP 服务
               </li>
               <li>
                 确认 <code className="text-xs bg-muted rounded px-1 py-0.5">OMT_PROJECT_NAME</code> 为上方选择的项目名称

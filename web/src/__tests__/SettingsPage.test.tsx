@@ -418,6 +418,10 @@ describe('SettingsPage', () => {
         expect(preElement).toBeTruthy()
         expect(preElement!.textContent).toContain('mcpServers')
         expect(preElement!.textContent).toContain('oh-my-task')
+        expect(preElement!.textContent).toContain('"type": "stdio"')
+        expect(preElement!.textContent).toContain('"args": [')
+        expect(preElement!.textContent).toContain('"@qq33357486/oh-my-task"')
+        expect(preElement!.textContent).not.toContain('/path/to/oh-my-task/src/mcp/server.ts')
         expect(preElement!.textContent).toContain('OMT_SERVER_URL')
         expect(preElement!.textContent).toContain('OMT_TOKEN')
         expect(preElement!.textContent).toContain('full-token-value-for-copy')
@@ -532,6 +536,7 @@ describe('SettingsPage', () => {
       expect(screen.getByText('配置说明')).toBeInTheDocument()
       // Claude Desktop appears in multiple places (description + instructions), use getAllByText
       expect(screen.getAllByText(/Claude Desktop/).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText(/自动启动 oh-my-task MCP 服务/)).toBeInTheDocument()
     })
 
     it('shows warning when no tokens exist', async () => {
