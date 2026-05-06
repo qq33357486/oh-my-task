@@ -44,7 +44,7 @@ vi.mock('@/api', () => ({
 }))
 
 import { BrowserRouter } from 'react-router-dom'
-import SettingsPage from '@/pages/SettingsPage'
+import SettingsPage, { getDefaultMcpServerUrl } from '@/pages/SettingsPage'
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -386,6 +386,24 @@ describe('SettingsPage', () => {
 
   // ==================== VAL-UI-033: MCP 配置生成器 ====================
   describe('MCP 配置生成器 (VAL-UI-033)', () => {
+    it('uses origin without adding port for deployed site URL', () => {
+      expect(getDefaultMcpServerUrl({
+        protocol: 'https:',
+        hostname: 'task.duojie.games',
+        port: '',
+        origin: 'https://task.duojie.games',
+      })).toBe('https://task.duojie.games')
+    })
+
+    it('maps Vite dev port to backend port', () => {
+      expect(getDefaultMcpServerUrl({
+        protocol: 'http:',
+        hostname: 'localhost',
+        port: '5173',
+        origin: 'http://localhost:5173',
+      })).toBe('http://localhost:17173')
+    })
+
     it('displays MCP configuration section', async () => {
       render(<SettingsPage />, { wrapper: createWrapper() })
 

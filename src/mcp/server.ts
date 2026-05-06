@@ -124,7 +124,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 export async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('MCP Server started (v1.4.13)');
+  console.error('MCP Server started (v1.4.14)');
 }
 
 // 如果直接运行此文件

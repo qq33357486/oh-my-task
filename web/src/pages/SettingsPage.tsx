@@ -12,6 +12,18 @@ import PasswordInput from '@/components/PasswordInput';
 const EXAMPLE_PROJECT_NAME = '请输入你的项目名称';
 const EMPTY_TOKEN_MESSAGE = '请先创建您的 token';
 
+type LocationParts = Pick<Location, 'protocol' | 'hostname' | 'port' | 'origin'>;
+
+export function getDefaultMcpServerUrl(location?: LocationParts): string {
+  const loc = location || (typeof window !== 'undefined' ? window.location : null);
+  if (!loc) {
+    return 'http://localhost:17173';
+  }
+  if (loc.port === '5173') {
+    return `${loc.protocol}//${loc.hostname}:17173`;
+  }
+  return loc.origin;
+}
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [newTokenName, setNewTokenName] = useState('');
@@ -146,15 +158,7 @@ export default function SettingsPage() {
     ? mcpProjectName
     : projects[0]?.name || EXAMPLE_PROJECT_NAME;
 
-  const [serverUrl] = useState(() => {
-    if (typeof window !== 'undefined') {
-      if (window.location.port && window.location.port !== '5173') {
-        return window.location.origin;
-      }
-      return `${window.location.protocol}//${window.location.hostname}:17173`;
-    }
-    return 'http://localhost:17173';
-  });
+  const [serverUrl] = useState(() => getDefaultMcpServerUrl());
 
   const latestToken = tokens.length > 0 ? tokens[0].plain_token || tokens[0].token : '';
 
