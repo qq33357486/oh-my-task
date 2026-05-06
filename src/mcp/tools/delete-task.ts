@@ -1,6 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireWorkingVersionForProject } from './utils/version.js';
 
 export const deleteTaskTool: Tool = {
   name: 'delete_task',
@@ -23,7 +23,7 @@ export async function handleDeleteTask(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
   const project = await resolveMcpProject(context);
-  await requireActiveVersionForProject(project.id, context, project.name);
+  await requireWorkingVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}`, {
     method: 'DELETE',

@@ -23,7 +23,7 @@ router.post('/reschedule', async (req, res) => {
 
 // POST /api/schedule/auto - 自动排期
 router.post('/auto', async (req, res) => {
-  const { project_id, start_date } = req.body;
+  const { project_id, start_date, version_id } = req.body;
   
   if (!project_id || !start_date) {
     res.status(400).json({ success: false, error: 'project_id and start_date are required' });
@@ -31,7 +31,7 @@ router.post('/auto', async (req, res) => {
   }
 
   try {
-    const result = await scheduleService.autoSchedule(project_id, start_date);
+    const result = await scheduleService.autoSchedule(project_id, start_date, version_id);
     res.json({ success: true, data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to auto schedule';

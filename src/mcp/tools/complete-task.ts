@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireStartedVersionForProject } from './utils/version.js';
 
 export const completeTaskTool: Tool = {
   name: 'complete_task',
@@ -24,7 +24,7 @@ export async function handleCompleteTask(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
   const project = await resolveMcpProject(context);
-  await requireActiveVersionForProject(project.id, context, project.name);
+  await requireStartedVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}/complete`, {
     method: 'POST',

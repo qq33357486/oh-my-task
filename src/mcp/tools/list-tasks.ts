@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireWorkingVersionForProject } from './utils/version.js';
 import {
   buildTaskTree,
   fetchTaskDetail,
@@ -121,7 +121,7 @@ export async function handleListTasks(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const project = await resolveMcpProject(context);
-  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
+  const workingVersion = await requireWorkingVersionForProject(project.id, context, project.name);
   const view = (args.view as ListTasksView) || 'current';
   const detail = (args.detail as TaskDetail) || 'compact';
   const limit = parsePositiveInteger(args.limit, 50);
@@ -129,7 +129,7 @@ export async function handleListTasks(
 
   const params = new URLSearchParams();
   params.append('project_id', project.id);
-  params.append('version_id', activeVersion.id);
+  params.append('version_id', workingVersion.id);
 
   if (view === 'current') {
     params.append('status', 'in_progress');
@@ -137,10 +137,24 @@ export async function handleListTasks(
     const currentTasks = await fetchTasks(context, params);
 
     if (currentTasks.length === 0) {
+      const allTaskParams = new URLSearchParams();
+      allTaskParams.append('project_id', project.id);
+      allTaskParams.append('version_id', workingVersion.id);
+      const allTasks = await fetchTasks(context, allTaskParams);
+      if (allTasks.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`,
+          }],
+        };
+      }
       return {
         content: [{
           type: 'text',
-          text: `项目「${project.name}」当前版本暂无进行中主任务。\n可以先创建任务，或使用 list_tasks 查看当前版本任务结构。`,
+          text: workingVersion.locked_at
+            ? `项目「${project.name}」当前版本暂无进行中主任务。\n可以使用 list_tasks 查看任务结构，或使用 activate_task 开始一个任务。`
+            : `项目「${project.name}」的版本「${workingVersion.name}」还没有开始。\n请先规划任务并排期；准备执行时使用 start_version 开始版本。`,
         }],
       };
     }
@@ -162,6 +176,15 @@ export async function handleListTasks(
   if (args.parent_id !== undefined) params.append('parent_id', args.parent_id as string);
 
   let tasks = await fetchTasks(context, params);
+
+  if (tasks.length === 0) {
+    return {
+      content: [{
+        type: 'text',
+        text: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`,
+      }],
+    };
+  }
 
   if (!parseBoolean(args.include_done, true)) {
     tasks = tasks.filter((task) => task.status !== 'done');

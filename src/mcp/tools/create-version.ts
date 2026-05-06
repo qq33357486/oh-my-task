@@ -11,7 +11,7 @@ interface Version {
 
 export const createVersionTool: Tool = {
   name: 'create_version',
-  description: '创建版本（需指定 Deadline）',
+  description: '创建草稿版本',
   inputSchema: {
     type: 'object',
     properties: {
@@ -29,10 +29,10 @@ export const createVersionTool: Tool = {
       },
       due_date: {
         type: 'string',
-        description: 'Deadline，格式 YYYY-MM-DD',
+        description: 'Deadline，格式 YYYY-MM-DD；可稍后通过 auto_schedule 自动计算',
       },
     },
-    required: ['name', 'due_date'],
+    required: ['name'],
   },
 };
 
@@ -70,7 +70,7 @@ export async function handleCreateVersion(
   return {
     content: [{
       type: 'text',
-      text: `版本创建成功。\n名称: ${version.name}\nID: ${version.id}${version.start_date ? `\n开始: ${version.start_date}` : ''}${version.due_date ? `\n截止: ${version.due_date}` : ''}`,
+      text: `版本创建成功。\n名称: ${version.name}\nID: ${version.id}${version.start_date ? `\n开始: ${version.start_date}` : ''}${version.due_date ? `\n截止: ${version.due_date}` : ''}\n下一步：使用 create_task 规划这个版本的任务。`,
     }],
   };
 }

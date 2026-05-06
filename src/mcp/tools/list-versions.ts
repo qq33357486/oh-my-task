@@ -57,10 +57,11 @@ export async function handleListVersions(
     const isCompleted = !!v.completed_at;
     const isArchived = !!v.archived_at;
 
-    let status = '';
+    let status = '[草稿]';
     if (isArchived) status = '[归档]';
     else if (isCompleted) status = '[完成]';
     else if (isActive) status = '[活跃]';
+    else if (v.start_date || v.due_date) status = '[已排期]';
 
     const dates = [v.start_date, v.due_date].filter(Boolean).join(' ~ ') || '';
     return `  ${v.name}${status ? ' ' + status : ''}${dates ? ' (' + dates + ')' : ''}\n    ID: ${v.id}`;

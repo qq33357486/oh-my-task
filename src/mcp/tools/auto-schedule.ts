@@ -1,6 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireWorkingVersionForProject } from './utils/version.js';
 
 export const autoScheduleTool: Tool = {
   name: 'auto_schedule',
@@ -33,7 +33,7 @@ export async function handleAutoSchedule(
   const project = await resolveMcpProject(context);
   const startDate = args.start_date as string;
 
-  await requireActiveVersionForProject(project.id, context, project.name);
+  const workingVersion = await requireWorkingVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/schedule/auto`, {
     method: 'POST',
@@ -41,7 +41,7 @@ export async function handleAutoSchedule(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${context.token}`,
     },
-    body: JSON.stringify({ project_id: project.id, start_date: startDate }),
+    body: JSON.stringify({ project_id: project.id, version_id: workingVersion.id, start_date: startDate }),
   });
 
   if (!response.ok) {
@@ -49,19 +49,27 @@ export async function handleAutoSchedule(
     throw new Error(error.error || 'Failed to auto schedule');
   }
 
-  const result = await response.json() as { data: { changes: ScheduleChange[] } };
+  const result = await response.json() as { data: { changes: ScheduleChange[]; version?: { start_date: string; due_date: string } } };
   const changes = result.data.changes;
 
   if (changes.length === 0) {
     return {
-      content: [{ type: 'text', text: '没有需要排期的任务。' }],
+      content: [{ type: 'text', text: `版本「${workingVersion.name}」还没有需要排期的任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。` }],
     };
   }
 
-  const lines = [`排期完成，共 ${changes.length} 个任务：\n`];
+  const lines = [
+    `排期完成。`,
+    `版本: ${workingVersion.name}`,
+    result.data.version ? `开始: ${result.data.version.start_date}` : '',
+    result.data.version ? `预计截止: ${result.data.version.due_date}` : '',
+    `已排期任务: ${changes.length} 个`,
+    '',
+  ].filter(Boolean);
   for (const change of changes) {
     lines.push(`• ${change.title}: ${change.new_start}${change.new_due ? ` ~ ${change.new_due}` : ''}`);
   }
+  lines.push('\n准备执行时，请使用 start_version 开始版本。');
 
   return {
     content: [{ type: 'text', text: lines.join('\n') }],

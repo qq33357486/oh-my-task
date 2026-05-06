@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { TaskWithChildren } from '../../types/index.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireWorkingVersionForProject } from './utils/version.js';
 import { fetchTaskDetail, formatTaskFull, parseBoolean, parsePositiveInteger } from './utils/task-query.js';
 
 export const getTaskTool: Tool = {
@@ -76,7 +76,7 @@ export async function handleGetTask(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
   const project = await resolveMcpProject(context);
-  await requireActiveVersionForProject(project.id, context, project.name);
+  await requireWorkingVersionForProject(project.id, context, project.name);
 
   const task = await fetchTaskDetail(context, taskId);
   const detail = args.detail === 'full' ? 'full' : 'summary';

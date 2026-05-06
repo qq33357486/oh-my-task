@@ -8,6 +8,12 @@ import { tmpdir } from 'os';
 import { handleGetCurrentTask } from '../../mcp/tools/get-current-task.js';
 import { handleGetTask } from '../../mcp/tools/get-task.js';
 import { handleListTasks } from '../../mcp/tools/list-tasks.js';
+import { handleCreateVersion } from '../../mcp/tools/create-version.js';
+import { handleCreateTask } from '../../mcp/tools/create-task.js';
+import { handleAutoSchedule } from '../../mcp/tools/auto-schedule.js';
+import { handleStartVersion } from '../../mcp/tools/start-version.js';
+import { handleCompleteVersion } from '../../mcp/tools/complete-version.js';
+import { handleCompleteTask } from '../../mcp/tools/complete-task.js';
 import type { McpContext } from '../../mcp/tools/utils/config.js';
 
 // 每个测试用唯一的临时目录，避免并行测试冲突
@@ -482,20 +488,57 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       });
     });
 
-    it('项目存在但没有已开始版本时提示到 Web 开始版本', async () => {
+    it('项目存在但没有版本时提示先创建版本', async () => {
       await withMcpServer(async (context) => {
         await expect(handleGetCurrentTask({}, context))
-          .rejects.toThrow('当前没有已开始的版本');
+          .rejects.toThrow('请先使用 create_version 创建一个版本');
       });
     });
 
-    it('项目和已开始版本存在但无进行中主任务时返回空状态', async () => {
+    it('MCP 可创建草稿版本、规划任务、排期、开始并完成版本', async () => {
+      await withMcpServer(async (context) => {
+        const versionResult = await handleCreateVersion({ name: 'MCP 草稿版本' }, context);
+        expect(versionResult.content[0].text).toContain('下一步：使用 create_task');
+
+        const taskResult = await handleCreateTask({ title: '规划任务', estimated_days: 2 }, context);
+        expect(taskResult.content[0].text).toContain('规划任务');
+
+        const listResult = await handleListTasks({ view: 'outline' }, context);
+        expect(listResult.content[0].text).toContain('规划任务');
+
+        await expect(handleGetCurrentTask({}, context))
+          .rejects.toThrow('准备执行时使用 start_version 开始版本');
+
+        const scheduleResult = await handleAutoSchedule({ start_date: '2026-05-06' }, context);
+        expect(scheduleResult.content[0].text).toContain('准备执行时，请使用 start_version 开始版本');
+
+        const startResult = await handleStartVersion({}, context);
+        expect(startResult.content[0].text).toContain('版本已开始');
+
+        const currentBeforeActivate = await handleGetCurrentTask({}, context);
+        expect(currentBeforeActivate.content[0].text).toContain('暂无进行中主任务');
+
+        const listAll = await handleListTasks({ view: 'list' }, context);
+        const taskId = listAll.content[0].text.match(/ID: ([^ |]+)/)?.[1];
+        expect(taskId).toBeTruthy();
+
+        await request(app)
+          .post(`/api/tasks/${taskId}/activate`)
+          .set('Authorization', `Bearer ${user1Token}`);
+        await handleCompleteTask({ task_id: taskId }, context);
+
+        const completeResult = await handleCompleteVersion({}, context);
+        expect(completeResult.content[0].text).toContain('版本已完成');
+      });
+    });
+
+    it('项目和已开始版本存在但无任务时提示先规划任务', async () => {
       await createActiveVersion();
 
       await withMcpServer(async (context) => {
         const result = await handleGetCurrentTask({}, context);
 
-        expect(result.content[0].text).toContain('当前版本暂无进行中主任务');
+        expect(result.content[0].text).toContain('请先使用 create_task 规划这个版本的任务');
       });
     });
 

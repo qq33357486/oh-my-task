@@ -342,10 +342,19 @@ export function getNextWorkdaySync(date: Date): Date {
  * 自动排期：为项目中未排期的任务自动分配日期（异步版本）
  * 如果 start_date 不是工作日，自动跳到下一个工作日
  */
-export async function autoSchedule(projectId: string, startDate: string): Promise<RescheduleResult> {
+export async function autoSchedule(projectId: string, startDate: string, versionId?: string): Promise<RescheduleResult> {
   const db = getDb();
   const changes: TaskScheduleChange[] = [];
   const now = new Date().toISOString();
+
+  if (versionId) {
+    const version = db.prepare('SELECT id FROM versions WHERE id = ? AND project_id = ?').get(versionId, projectId);
+    if (!version) {
+      const err = new Error('版本不存在或不属于该项目') as Error & { statusCode: number };
+      err.statusCode = 404;
+      throw err;
+    }
+  }
 
   // 预加载节假日数据
   const startYear = parseDate(startDate).getFullYear();
@@ -355,12 +364,12 @@ export async function autoSchedule(projectId: string, startDate: string): Promis
   // 如果 start_date 不是工作日，自动跳到下一个工作日
   let currentDate = formatDate(getNextWorkdaySync(parseDate(startDate)));
 
-  // 获取所有顶层任务（按 sort_order 排序，排除已删除）
+  const versionFilter = versionId ? 'AND version_id = ?' : '';
   const tasks = db.prepare(`
     SELECT * FROM tasks
-    WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL
+    WHERE project_id = ? AND parent_id IS NULL AND deleted_at IS NULL ${versionFilter}
     ORDER BY sort_order ASC
-  `).all(projectId) as Task[];
+  `).all(...(versionId ? [projectId, versionId] : [projectId])) as Task[];
   
   for (const task of tasks) {
     const taskStart = currentDate;
@@ -385,6 +394,21 @@ export async function autoSchedule(projectId: string, startDate: string): Promis
     currentDate = formatDate(addWorkdaysSync(parseDate(taskDue), 1));
   }
   
+  if (versionId && changes.length > 0) {
+    const dueDates = changes.map(change => change.new_due).filter((date): date is string => Boolean(date));
+    const versionDueDate = dueDates[dueDates.length - 1] || changes[changes.length - 1].new_start;
+    db.prepare('UPDATE versions SET start_date = ?, due_date = ?, updated_at = ? WHERE id = ?')
+      .run(changes[0].new_start, versionDueDate, now, versionId);
+    return {
+      changes,
+      version: {
+        id: versionId,
+        start_date: changes[0].new_start,
+        due_date: versionDueDate,
+      },
+    };
+  }
+
   return { changes };
 }
 
@@ -496,6 +520,11 @@ export interface TaskScheduleChange {
 
 export interface RescheduleResult {
   changes: TaskScheduleChange[];
+  version?: {
+    id: string;
+    start_date: string;
+    due_date: string;
+  };
 }
 
 export interface HolidayInput {

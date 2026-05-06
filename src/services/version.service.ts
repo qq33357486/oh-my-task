@@ -10,6 +10,7 @@ export interface Version {
   start_date: string | null;
   due_date: string | null;
   locked_at: string | null;
+  completed_at: string | null;
   archived_at: string | null;
   sort_order: number;
   created_at: string;
@@ -33,7 +34,7 @@ export interface CreateVersionParams {
   name: string;
   description?: string;
   start_date?: string;
-  due_date: string;
+  due_date?: string;
 }
 
 export interface UpdateVersionParams {
@@ -121,12 +122,6 @@ export function createVersion(params: CreateVersionParams, userId: string): Vers
 
   if (!project) {
     return null;  // 无权限
-  }
-
-  if (!params.due_date) {
-    const err = new Error('due_date 不能为空') as Error & { statusCode: number };
-    err.statusCode = 400;
-    throw err;
   }
 
   const unfinishedVersion = db.prepare(`
@@ -275,7 +270,7 @@ export function startVersion(versionId: string): Version {
   // 检查同一项目是否已有未归档的活跃版本
   const activeVersion = db.prepare(`
     SELECT id FROM versions
-    WHERE project_id = ? AND locked_at IS NOT NULL AND archived_at IS NULL AND id != ?
+    WHERE project_id = ? AND locked_at IS NOT NULL AND completed_at IS NULL AND archived_at IS NULL AND id != ?
   `).get(version.project_id, versionId);
 
   if (activeVersion) {

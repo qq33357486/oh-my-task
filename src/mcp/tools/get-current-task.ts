@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { getWorkingVersionForProject } from './utils/version.js';
 import {
   fetchTaskDetail,
   fetchTasks,
@@ -39,21 +39,46 @@ export async function handleGetCurrentTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const project = await resolveMcpProject(context);
-  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
+  const activeVersion = await getWorkingVersionForProject(project.id, context);
+
+  if (!activeVersion) {
+    throw new Error(`项目「${project.name}」还没有版本。\n请先使用 create_version 创建一个版本，然后规划任务。`);
+  }
 
   const params = new URLSearchParams();
   params.append('project_id', project.id);
   params.append('version_id', activeVersion.id);
+
+  if (!activeVersion.locked_at || activeVersion.completed_at || activeVersion.archived_at) {
+    const allTasks = await fetchTasks(context, params);
+    if (allTasks.length === 0) {
+      throw new Error(`项目「${project.name}」的版本「${activeVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`);
+    }
+    throw new Error(`项目「${project.name}」已有版本「${activeVersion.name}」，但尚未开始。\n请先规划任务并排期；准备执行时使用 start_version 开始版本。`);
+  }
+
   params.append('status', 'in_progress');
   params.append('parent_id', 'null');
 
   const tasks = await fetchTasks(context, params);
 
   if (!tasks || tasks.length === 0) {
+    const allTaskParams = new URLSearchParams();
+    allTaskParams.append('project_id', project.id);
+    allTaskParams.append('version_id', activeVersion.id);
+    const allTasks = await fetchTasks(context, allTaskParams);
+    if (allTasks.length === 0) {
+      return {
+        content: [{
+          type: 'text',
+          text: `项目「${project.name}」的版本「${activeVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`,
+        }],
+      };
+    }
     return {
       content: [{
         type: 'text',
-        text: `项目「${project.name}」当前版本暂无进行中主任务。\n可以先创建任务，或使用 list_tasks 查看当前版本任务结构。`,
+        text: `项目「${project.name}」当前版本暂无进行中主任务。\n可以使用 list_tasks 查看任务结构，或使用 activate_task 开始一个任务。`,
       }],
     };
   }

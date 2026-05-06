@@ -11,6 +11,8 @@ import {
 
 import { createVersionTool, handleCreateVersion } from './tools/create-version.js';
 import { listVersionsTool, handleListVersions } from './tools/list-versions.js';
+import { startVersionTool, handleStartVersion } from './tools/start-version.js';
+import { completeVersionTool, handleCompleteVersion } from './tools/complete-version.js';
 import { createTaskTool, handleCreateTask } from './tools/create-task.js';
 import { listTasksTool, handleListTasks } from './tools/list-tasks.js';
 import { getTaskTool, handleGetTask } from './tools/get-task.js';
@@ -60,6 +62,8 @@ function getPackageVersion(): string {
 const tools = [
   createVersionTool,
   listVersionsTool,
+  startVersionTool,
+  completeVersionTool,
   createTaskTool,
   listTasksTool,
   getTaskTool,
@@ -85,6 +89,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return await handleCreateVersion(args, mcpContext);
       case 'list_versions':
         return await handleListVersions(args, mcpContext);
+      case 'start_version':
+        return await handleStartVersion(args, mcpContext);
+      case 'complete_version':
+        return await handleCompleteVersion(args, mcpContext);
       case 'create_task':
         return await handleCreateTask(args, mcpContext);
       case 'list_tasks':

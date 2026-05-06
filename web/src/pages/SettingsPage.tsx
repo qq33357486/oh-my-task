@@ -466,7 +466,7 @@ export default function SettingsPage() {
             </ol>
             <div className="text-xs text-muted-foreground border-t pt-2">
               <p className="font-medium text-foreground mb-1">支持的工具：</p>
-              <p>create_version、list_versions、create_task、list_tasks、get_task、activate_task、complete_task、delete_task、auto_schedule、get_current_task</p>
+              <p>create_version、list_versions、start_version、complete_version、create_task、list_tasks、get_task、activate_task、complete_task、delete_task、auto_schedule、get_current_task</p>
             </div>
           </div>
         </CardContent>

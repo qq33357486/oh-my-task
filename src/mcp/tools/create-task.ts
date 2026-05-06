@@ -1,7 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
-import { requireActiveVersionForProject } from './utils/version.js';
+import { requireWorkingVersionForProject } from './utils/version.js';
 
 export const createTaskTool: Tool = {
   name: 'create_task',
@@ -81,7 +81,7 @@ export async function handleCreateTask(
   context: McpContext
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const project = await resolveMcpProject(context);
-  const activeVersion = await requireActiveVersionForProject(project.id, context, project.name);
+  const workingVersion = await requireWorkingVersionForProject(project.id, context, project.name);
 
   let parentId: string | undefined = args.parent_id as string | undefined;
 
@@ -89,7 +89,7 @@ export async function handleCreateTask(
     const foundId = await findParentTaskByTitle(
       args.parent_title as string,
       project.id,
-      activeVersion.id,
+      workingVersion.id,
       context
     );
     if (!foundId) {
@@ -98,8 +98,8 @@ export async function handleCreateTask(
     parentId = foundId;
   }
 
-  if (args.version_id && args.version_id !== activeVersion.id) {
-    throw new Error('请使用当前激活版本创建任务');
+  if (args.version_id && args.version_id !== workingVersion.id) {
+    throw new Error(`请使用当前版本「${workingVersion.name}」创建任务`);
   }
 
   if (parentId) {
@@ -113,13 +113,13 @@ export async function handleCreateTask(
     }
 
     const parentResult = await parentResponse.json() as { data: Task };
-    if (parentResult.data.version_id && parentResult.data.version_id !== activeVersion.id) {
-      throw new Error('父任务不属于当前激活版本');
+    if (parentResult.data.version_id && parentResult.data.version_id !== workingVersion.id) {
+      throw new Error('父任务不属于当前版本');
     }
   }
 
-  const versionId = activeVersion.id;
-  const versionName = activeVersion.name;
+  const versionId = workingVersion.id;
+  const versionName = workingVersion.name;
 
   const body: Record<string, unknown> = {
     project_id: project.id,
