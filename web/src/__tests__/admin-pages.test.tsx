@@ -331,8 +331,6 @@ describe('ConfigPage', () => {
           smtp_pass: '',
           smtp_from: '',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })
@@ -350,7 +348,7 @@ describe('ConfigPage', () => {
     expect(screen.getByText('发件人邮箱')).toBeInTheDocument()
   })
 
-  it('renders hCaptcha config fields', async () => {
+  it('does not render human verification config fields', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -363,8 +361,6 @@ describe('ConfigPage', () => {
           smtp_pass: '',
           smtp_from: '',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })
@@ -373,10 +369,11 @@ describe('ConfigPage', () => {
     render(<ConfigPage />, { wrapper: createWrapper() })
 
     await waitFor(() => {
-      expect(screen.getByText('hCaptcha 配置')).toBeInTheDocument()
+      expect(screen.getByText('系统配置')).toBeInTheDocument()
     })
-    expect(screen.getByText('Site Key')).toBeInTheDocument()
-    expect(screen.getByText('Secret Key')).toBeInTheDocument()
+    expect(screen.queryByText('人机验证 配置')).not.toBeInTheDocument()
+    expect(screen.queryByText('Site Key')).not.toBeInTheDocument()
+    expect(screen.queryByText('Secret Key')).not.toBeInTheDocument()
   })
 
   it('can toggle sensitive config field visibility', async () => {
@@ -392,8 +389,6 @@ describe('ConfigPage', () => {
           smtp_pass: 'secret',
           smtp_from: '',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })
@@ -412,6 +407,45 @@ describe('ConfigPage', () => {
     expect(smtpPassword.type).toBe('text')
   })
 
+  it('can send test email', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          server_url: 'http://localhost:17173',
+          smtp_host: 'smtp.test.com',
+          smtp_port: '587',
+          smtp_user: 'test@test.com',
+          smtp_pass: 'secret',
+          smtp_from: 'noreply@test.com',
+          registration_enabled: '1',
+        },
+      }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: { message: '测试邮件已发送' },
+      }),
+    })
+
+    const { default: ConfigPage } = await import('@/pages/ConfigPage')
+    render(<ConfigPage />, { wrapper: createWrapper() })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '测试发邮件' })).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: '测试发邮件' }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/config/test-email', expect.objectContaining({ method: 'POST' }))
+      expect(screen.getByText('测试邮件已发送')).toBeInTheDocument()
+    })
+  })
+
   it('renders registration toggle', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -425,8 +459,6 @@ describe('ConfigPage', () => {
           smtp_pass: '',
           smtp_from: '',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })
@@ -452,8 +484,6 @@ describe('ConfigPage', () => {
           smtp_pass: '',
           smtp_from: '',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })
@@ -479,8 +509,6 @@ describe('ConfigPage', () => {
           smtp_pass: 'secret',
           smtp_from: 'noreply@test.com',
           registration_enabled: '1',
-          hcaptcha_site_key: '',
-          hcaptcha_secret_key: '',
         },
       }),
     })

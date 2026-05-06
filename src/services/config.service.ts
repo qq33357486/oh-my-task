@@ -1,5 +1,15 @@
 import { getDb } from '../db/connection.js';
-import type { SystemConfig, SystemConfigMap } from '../types/index.js';
+import type { SystemConfigMap } from '../types/index.js';
+
+const ALLOWED_CONFIG_KEYS: Array<keyof SystemConfigMap> = [
+  'server_url',
+  'smtp_host',
+  'smtp_port',
+  'smtp_user',
+  'smtp_pass',
+  'smtp_from',
+  'registration_enabled',
+];
 
 export function getConfig(key: string): string | null {
   const db = getDb();
@@ -28,8 +38,6 @@ export function getAllConfig(): SystemConfigMap {
     smtp_pass: result.smtp_pass || '',
     smtp_from: result.smtp_from || '',
     registration_enabled: result.registration_enabled || '1',
-    hcaptcha_site_key: result.hcaptcha_site_key || '',
-    hcaptcha_secret_key: result.hcaptcha_secret_key || '',
   };
 }
 
@@ -39,6 +47,10 @@ export function isRegistrationEnabled(): boolean {
 }
 
 export function setConfig(key: string, value: string): void {
+  if (!isAllowedConfigKey(key)) {
+    throw new Error(`不允许修改配置项: ${key}`);
+  }
+
   const db = getDb();
   db.prepare(`
     INSERT INTO system_config (key, value, updated_at) 
@@ -56,8 +68,12 @@ export function setMultipleConfig(configs: Partial<SystemConfigMap>): void {
   `);
   
   for (const [key, value] of Object.entries(configs)) {
-    if (value !== undefined) {
+    if (value !== undefined && isAllowedConfigKey(key)) {
       stmt.run(key, value, value);
     }
   }
+}
+
+export function isAllowedConfigKey(key: string): key is keyof SystemConfigMap {
+  return ALLOWED_CONFIG_KEYS.includes(key as keyof SystemConfigMap);
 }

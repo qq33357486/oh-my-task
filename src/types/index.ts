@@ -199,6 +199,4 @@ export interface SystemConfigMap {
   smtp_pass: string;
   smtp_from: string;
   registration_enabled: string;
-  hcaptcha_site_key: string;
-  hcaptcha_secret_key: string;
 }

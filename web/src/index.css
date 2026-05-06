@@ -87,6 +87,6 @@
 }
 
 ::selection {
-  background: rgba(125, 211, 252, 0.3);
-  color: var(--color-foreground);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
 }

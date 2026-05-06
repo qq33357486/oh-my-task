@@ -162,9 +162,7 @@ INSERT OR IGNORE INTO system_config (key, value, description) VALUES
     ('smtp_user', '', 'SMTP 用户名'),
     ('smtp_pass', '', 'SMTP 密码'),
     ('smtp_from', '', '发件人邮箱'),
-    ('registration_enabled', '1', '是否开放注册'),
-    ('hcaptcha_site_key', '', 'hCaptcha Site Key'),
-    ('hcaptcha_secret_key', '', 'hCaptcha Secret Key');
+    ('registration_enabled', '1', '是否开放注册');
 
 -- ============================================
 -- 索引

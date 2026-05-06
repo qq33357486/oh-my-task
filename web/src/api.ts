@@ -339,8 +339,6 @@ export interface SystemConfig {
   smtp_pass: string;
   smtp_from: string;
   registration_enabled: string;
-  hcaptcha_site_key: string;
-  hcaptcha_secret_key: string;
 }
 
 export const configApi = {
@@ -351,6 +349,13 @@ export const configApi = {
   update: (config: Partial<SystemConfig>) =>
     fetchApi<SystemConfig>('/api/config', {
       method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+
+  // 发送测试邮件
+  testEmail: (config: Partial<SystemConfig> & { to?: string }) =>
+    fetchApi<{ message: string }>('/api/config/test-email', {
+      method: 'POST',
       body: JSON.stringify(config),
     }),
   

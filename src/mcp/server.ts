@@ -27,7 +27,7 @@ const mcpContext = getMcpContextFromEnv();
 const server = new Server(
   {
     name: 'oh-my-task',
-    version: '1.4.3',
+    version: '1.4.10',
   },
   {
     capabilities: {

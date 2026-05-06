@@ -11,6 +11,7 @@ import PasswordInput from '@/components/PasswordInput';
 export default function ConfigPage() {
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
+  const [testMessage, setTestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['config'],
@@ -27,8 +28,6 @@ export default function ConfigPage() {
     smtp_pass: data?.smtp_pass ?? '',
     smtp_from: data?.smtp_from ?? '',
     registration_enabled: data?.registration_enabled ?? '1',
-    hcaptcha_site_key: data?.hcaptcha_site_key ?? '',
-    hcaptcha_secret_key: data?.hcaptcha_secret_key ?? '',
     ...localOverrides,
   }), [data, localOverrides]);
 
@@ -50,9 +49,18 @@ export default function ConfigPage() {
     updateMutation.mutate(formData);
   };
 
-  const testSmtpConnection = async () => {
-    alert('邮件发送测试功能需要后端实现。当前配置已保存。');
-  };
+  const testEmailMutation = useMutation({
+    mutationFn: () => configApi.testEmail(formData),
+    onMutate: () => {
+      setTestMessage(null);
+    },
+    onSuccess: (result) => {
+      setTestMessage({ type: 'success', text: result.message });
+    },
+    onError: (error: Error) => {
+      setTestMessage({ type: 'error', text: error.message || '测试邮件发送失败' });
+    },
+  });
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-8 text-muted-foreground">加载中...</div>;
@@ -164,60 +172,16 @@ export default function ConfigPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={testSmtpConnection}
-              disabled={!formData.smtp_host}
+              onClick={() => testEmailMutation.mutate()}
+              disabled={!formData.smtp_host || testEmailMutation.isPending}
             >
-              测试连接
+              {testEmailMutation.isPending ? '发送中...' : '测试发邮件'}
             </Button>
-          </CardContent>
-        </Card>
-
-        {/* hCaptcha 配置 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>hCaptcha 配置</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              配置 hCaptcha 人机验证。开启后，注册和登录页面将显示验证码。
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer text-sm">
-                <input
-                  type="checkbox"
-                  checked={!!formData.hcaptcha_site_key && !!formData.hcaptcha_secret_key}
-                  onChange={(e) => {
-                    if (!e.target.checked) {
-                      handleChange('hcaptcha_site_key', '')
-                      handleChange('hcaptcha_secret_key', '')
-                    }
-                  }}
-                  className="rounded border-border"
-                />
-                启用 hCaptcha 验证
-              </label>
-              <p className="text-xs text-muted-foreground">填写下方 Site Key 和 Secret Key 后自动启用</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 max-w-lg">
-              <div className="space-y-2">
-                <Label>Site Key</Label>
-                <Input
-                  type="text"
-                  value={formData.hcaptcha_site_key}
-                  onChange={(e) => handleChange('hcaptcha_site_key', e.target.value)}
-                  placeholder="10000000-ffff-ffff-ffff-000000000001"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Secret Key</Label>
-                <PasswordInput
-                  value={formData.hcaptcha_secret_key}
-                  onChange={(e) => handleChange('hcaptcha_secret_key', e.target.value)}
-                  placeholder="0x0000000000000000000000000000000000000000"
-                />
-              </div>
-            </div>
+            {testMessage && (
+              <p className={testMessage.type === 'success' ? 'text-sm text-success' : 'text-sm text-destructive'}>
+                {testMessage.text}
+              </p>
+            )}
           </CardContent>
         </Card>
 

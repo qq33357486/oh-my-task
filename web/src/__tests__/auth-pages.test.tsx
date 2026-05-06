@@ -28,12 +28,6 @@ vi.mock('@/api', () => ({
   },
 }))
 
-// Mock Captcha component (HCaptcha requires external script)
-vi.mock('@/components/Captcha', () => ({
-  default: () => <div data-testid="captcha">CAPTCHA</div>,
-  resetCaptcha: vi.fn(),
-}))
-
 import { BrowserRouter } from 'react-router-dom'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'

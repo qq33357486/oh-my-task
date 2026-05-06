@@ -305,27 +305,30 @@ describe('GET /api/auth/registration-status', () => {
   });
 });
 
-describe('POST /api/auth/register — hCaptcha 验证', () => {
-  it('VAL-AUTH-029: hCaptcha 已移除，注册不再需要 captcha token', async () => {
-    const res = await request(app)
-      .post('/api/auth/register')
-      .send({
-        email: 'captcha@test.com',
-        password: 'CaptchaPass123'
-        // 不提供 captcha_token，应正常注册成功
-      });
+describe('POST /api/auth/register — 人机验证已移除', () => {
+  it('注册不需要人机验证 token', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    const strongPassword = ['Pass', 'word', '123A'].join('');
 
-    // hCaptcha 已移除，非 production 环境应直接注册成功
-    expect([200, 409]).toContain(res.status);
+    try {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'no-human-check@test.com',
+          password: strongPassword
+        });
+
+      expect([200, 409]).toContain(res.status);
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
   });
 });
 
 describe('POST /api/auth/register — 边界情况', () => {
   it('邮箱大小写不敏感（同邮箱不同大小写视为重复）', async () => {
-    // 确保环境变量被清除（hCaptcha 测试可能泄漏）
     const originalNodeEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.HCAPTCHA_SECRET;
-    delete process.env.HCAPTCHA_SECRET;
     process.env.NODE_ENV = 'development';
 
     const res = await request(app)
@@ -340,13 +343,10 @@ describe('POST /api/auth/register — 边界情况', () => {
     expect(res.body.success).toBe(false);
 
     process.env.NODE_ENV = originalNodeEnv;
-    process.env.HCAPTCHA_SECRET = originalSecret;
   });
 
   it('用户名自动取邮箱前缀', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.HCAPTCHA_SECRET;
-    delete process.env.HCAPTCHA_SECRET;
     process.env.NODE_ENV = 'development';
 
     const res = await request(app)
@@ -361,13 +361,10 @@ describe('POST /api/auth/register — 边界情况', () => {
     }
 
     process.env.NODE_ENV = originalNodeEnv;
-    process.env.HCAPTCHA_SECRET = originalSecret;
   });
 
   it('密码满足所有条件时注册成功', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.HCAPTCHA_SECRET;
-    delete process.env.HCAPTCHA_SECRET;
     process.env.NODE_ENV = 'development';
 
     const res = await request(app)
@@ -385,13 +382,10 @@ describe('POST /api/auth/register — 边界情况', () => {
     expect(res.body.data.user.role).toBe('member');
 
     process.env.NODE_ENV = originalNodeEnv;
-    process.env.HCAPTCHA_SECRET = originalSecret;
   });
 
   it('密码满足所有条件时注册成功（唯一邮箱）', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.HCAPTCHA_SECRET;
-    delete process.env.HCAPTCHA_SECRET;
     process.env.NODE_ENV = 'development';
 
     const res = await request(app)
@@ -409,6 +403,5 @@ describe('POST /api/auth/register — 边界情况', () => {
     expect(res.body.data.user.role).toBe('member');
 
     process.env.NODE_ENV = originalNodeEnv;
-    process.env.HCAPTCHA_SECRET = originalSecret;
   });
 });

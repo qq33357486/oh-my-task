@@ -25,6 +25,7 @@ const mockChangePassword = vi.fn()
 const mockTokenList = vi.fn()
 const mockTokenCreate = vi.fn()
 const mockTokenDelete = vi.fn()
+const mockProjectList = vi.fn()
 
 vi.mock('@/api', () => ({
   authApi: {
@@ -35,6 +36,9 @@ vi.mock('@/api', () => ({
     list: () => mockTokenList(),
     create: (...args: unknown[]) => mockTokenCreate(...args),
     delete: (...args: unknown[]) => mockTokenDelete(...args),
+  },
+  projectApi: {
+    list: () => mockProjectList(),
   },
 }))
 
@@ -58,6 +62,7 @@ describe('SettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockTokenList.mockResolvedValue({ tokens: [] })
+    mockProjectList.mockResolvedValue([])
     mockChangePassword.mockResolvedValue(undefined)
     mockTokenCreate.mockResolvedValue({
       token: {
@@ -382,13 +387,50 @@ describe('SettingsPage', () => {
       expect(preElement!.textContent).toContain('OMT_PROJECT_NAME')
     })
 
-    it('displays project name input', async () => {
+    it('displays project selector when projects exist', async () => {
+      mockProjectList.mockResolvedValue([
+        { id: 'proj-1', name: '官网改版', description: null, owner_id: '1', created_at: '2026-03-01T00:00:00.000Z' },
+        { id: 'proj-2', name: '移动端', description: null, owner_id: '1', created_at: '2026-03-02T00:00:00.000Z' },
+      ])
+
       render(<SettingsPage />, { wrapper: createWrapper() })
 
       await waitFor(() => {
-        expect(screen.getByText('MCP 配置示例')).toBeInTheDocument()
+        expect(screen.getByLabelText('项目名称')).toHaveValue('官网改版')
       })
-      expect(screen.getByLabelText('项目名称')).toBeInTheDocument()
+      expect(screen.getByText('已自动使用现有项目，可直接复制配置。')).toBeInTheDocument()
+      expect(screen.getByText('注意：每个项目需要单独使用一份 MCP 配置，MCP 配置是项目级别的，不是全局配置。')).toBeInTheDocument()
+    })
+
+    it('uses project name prompt when no projects exist', async () => {
+      render(<SettingsPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('项目名称')).toHaveValue('请输入你的项目名称')
+      })
+      expect(screen.getByText('当前暂无项目，请将该项目名替换为你的实际项目名称。')).toBeInTheDocument()
+
+      const preElement = screen.getByText('配置内容').closest('.rounded-lg')?.querySelector('pre')
+      expect(preElement!.textContent).toContain('"OMT_PROJECT_NAME": "请输入你的项目名称"')
+    })
+
+    it('updates MCP config when selected project changes', async () => {
+      mockProjectList.mockResolvedValue([
+        { id: 'proj-1', name: '官网改版', description: null, owner_id: '1', created_at: '2026-03-01T00:00:00.000Z' },
+        { id: 'proj-2', name: '移动端', description: null, owner_id: '1', created_at: '2026-03-02T00:00:00.000Z' },
+      ])
+
+      const user = userEvent.setup()
+      render(<SettingsPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('项目名称')).toHaveValue('官网改版')
+      })
+
+      await user.selectOptions(screen.getByLabelText('项目名称'), '移动端')
+
+      const preElement = screen.getByText('配置内容').closest('.rounded-lg')?.querySelector('pre')
+      expect(preElement!.textContent).toContain('"OMT_PROJECT_NAME": "移动端"')
     })
 
     it('has copy button for configuration', async () => {
@@ -439,7 +481,7 @@ describe('SettingsPage', () => {
       expect(preElement).toBeTruthy()
       expect(preElement!.textContent).toContain('mcpServers')
       expect(preElement!.textContent).toContain('omt_***xyz')
-      expect(preElement!.textContent).toContain('my-project')
+      expect(preElement!.textContent).toContain('请输入你的项目名称')
     })
 
     it('displays configuration instructions', async () => {

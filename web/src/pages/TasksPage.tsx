@@ -49,13 +49,6 @@ const STATUS_STYLES: Record<string, string> = {
   done: 'bg-success/15 text-success',
 }
 
-const VERSION_DEADLINE_OPTIONS = [
-  { label: '7 天后', days: 7 },
-  { label: '14 天后', days: 14 },
-  { label: '30 天后', days: 30 },
-  { label: '60 天后', days: 60 },
-]
-
 type ViewType = 'tree' | 'kanban' | 'flow'
 
 function formatDateForInput(date: Date): string {
@@ -63,13 +56,6 @@ function formatDateForInput(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-function getDeadlineDate(days: number): string {
-  const date = new Date()
-  date.setHours(0, 0, 0, 0)
-  date.setDate(date.getDate() + days)
-  return formatDateForInput(date)
 }
 
 export default function TasksPage() {
@@ -84,7 +70,7 @@ export default function TasksPage() {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newVersionName, setNewVersionName] = useState('')
-  const [newVersionDeadline, setNewVersionDeadline] = useState<string>(String(VERSION_DEADLINE_OPTIONS[1].days))
+  const [newVersionDeadline, setNewVersionDeadline] = useState<string>(() => formatDateForInput(new Date()))
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const queryClient = useQueryClient()
 
@@ -205,7 +191,7 @@ export default function TasksPage() {
       setShowCreateVersion(false)
       setSelectedVersion('')
       setNewVersionName('')
-      setNewVersionDeadline(String(VERSION_DEADLINE_OPTIONS[1].days))
+      setNewVersionDeadline(formatDateForInput(new Date()))
     },
   })
 
@@ -504,13 +490,13 @@ export default function TasksPage() {
         isOpen={showCreateVersion}
         name={newVersionName}
         onNameChange={setNewVersionName}
-        deadlineDays={newVersionDeadline}
+        deadlineDate={newVersionDeadline}
         onDeadlineChange={setNewVersionDeadline}
         onCreate={() => createVersionMutation.mutate({
           name: newVersionName,
-          dueDate: getDeadlineDate(Number(newVersionDeadline)),
+          dueDate: newVersionDeadline,
         })}
-        onCancel={() => { setShowCreateVersion(false); setNewVersionName(''); setNewVersionDeadline(String(VERSION_DEADLINE_OPTIONS[1].days)) }}
+        onCancel={() => { setShowCreateVersion(false); setNewVersionName(''); setNewVersionDeadline(formatDateForInput(new Date())) }}
         isLoading={createVersionMutation.isPending}
       />
 
@@ -555,12 +541,10 @@ function CreateProjectDialog({ isOpen, name, onNameChange, onCreate, onCancel, i
   )
 }
 
-function CreateVersionDialog({ isOpen, name, deadlineDays, onNameChange, onDeadlineChange, onCreate, onCancel, isLoading }: {
-  isOpen: boolean; name: string; deadlineDays: string; onNameChange: (v: string) => void
+function CreateVersionDialog({ isOpen, name, deadlineDate, onNameChange, onDeadlineChange, onCreate, onCancel, isLoading }: {
+  isOpen: boolean; name: string; deadlineDate: string; onNameChange: (v: string) => void
   onDeadlineChange: (v: string) => void; onCreate: () => void; onCancel: () => void; isLoading: boolean
 }) {
-  const deadline = VERSION_DEADLINE_OPTIONS.find((option) => String(option.days) === deadlineDays) || VERSION_DEADLINE_OPTIONS[1]
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
       <DialogContent>
@@ -574,17 +558,13 @@ function CreateVersionDialog({ isOpen, name, deadlineDays, onNameChange, onDeadl
         </div>
         <div className="space-y-2">
           <Label htmlFor="version-deadline">Deadline</Label>
-          <select
+          <Input
             id="version-deadline"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-            value={deadlineDays}
+            type="date"
+            value={deadlineDate}
             onChange={(e) => onDeadlineChange(e.target.value)}
-          >
-            {VERSION_DEADLINE_OPTIONS.map((option) => (
-              <option key={option.days} value={option.days}>{option.label}</option>
-            ))}
-          </select>
-          <p className="text-xs text-muted-foreground">预计交付日期：{deadline.label}（{getDeadlineDate(deadline.days)}）</p>
+          />
+          <p className="text-xs text-muted-foreground">预计交付日期：{deadlineDate}</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isLoading}>取消</Button>

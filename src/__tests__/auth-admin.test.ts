@@ -1,9 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import Database from 'better-sqlite3';
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+
+vi.mock('nodemailer', () => ({
+  default: {
+    createTransport: vi.fn(() => ({
+      sendMail: vi.fn().mockResolvedValue(undefined),
+    })),
+  },
+}));
 
 // 每个测试用唯一的临时目录，避免并行测试冲突
 let TEST_DIR: string;
@@ -415,6 +423,69 @@ describe('PUT /api/config', () => {
       .put('/api/config')
       .set('Cookie', memberCookie)
       .send({ registration_enabled: '0' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+// ============================================
+// POST /api/config/test-email — 测试邮件发送
+// ============================================
+describe('POST /api/config/test-email', () => {
+  beforeEach(async () => {
+    const db = new Database(TEST_DB_PATH);
+    db.prepare('DELETE FROM users');
+    db.close();
+
+    adminCookie = await setupUserAndLogin(ADMIN_USER, adminId, 'admin');
+    memberCookie = await setupUserAndLogin(MEMBER_USER, memberId, 'member');
+  });
+
+  it('管理员可以发送测试邮件', async () => {
+    const res = await request(app)
+      .post('/api/config/test-email')
+      .set('Cookie', adminCookie)
+      .send({
+        smtp_host: 'smtp.example.com',
+        smtp_port: '587',
+        smtp_user: 'admin@example.com',
+        smtp_pass: 'secret',
+        smtp_from: 'noreply@example.com',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.message).toBe('测试邮件已发送');
+  });
+
+  it('SMTP 配置不完整时返回 400', async () => {
+    const res = await request(app)
+      .post('/api/config/test-email')
+      .set('Cookie', adminCookie)
+      .send({
+        smtp_host: '',
+        smtp_port: '587',
+        smtp_user: 'admin@example.com',
+        smtp_pass: 'secret',
+        smtp_from: 'noreply@example.com',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('非管理员发送测试邮件返回 403', async () => {
+    const res = await request(app)
+      .post('/api/config/test-email')
+      .set('Cookie', memberCookie)
+      .send({
+        smtp_host: 'smtp.example.com',
+        smtp_port: '587',
+        smtp_user: 'member@example.com',
+        smtp_pass: 'secret',
+        smtp_from: 'noreply@example.com',
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);

@@ -216,8 +216,7 @@ describe('Database Schema', () => {
       expect(keys).toContain('smtp_pass');
       expect(keys).toContain('smtp_from');
       expect(keys).toContain('registration_enabled');
-      expect(keys).toContain('hcaptcha_site_key');
-      expect(keys).toContain('hcaptcha_secret_key');
+      expect(keys).toHaveLength(7);
     });
   });
 

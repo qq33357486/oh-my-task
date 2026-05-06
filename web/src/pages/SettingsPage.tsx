@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tokenApi, authApi, type Token, type TokenWithPlain } from '@/api';
+import { tokenApi, authApi, projectApi, type Token, type TokenWithPlain } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PasswordInput from '@/components/PasswordInput';
+
+const EXAMPLE_PROJECT_NAME = '请输入你的项目名称';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -72,6 +74,11 @@ export default function SettingsPage() {
     queryFn: () => tokenApi.list(),
   });
 
+  const { data: projectsData, isLoading: isProjectsLoading } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectApi.list(),
+  });
+
   const createMutation = useMutation({
     mutationFn: (name: string) => tokenApi.create(name),
     onSuccess: (data) => {
@@ -105,6 +112,13 @@ export default function SettingsPage() {
   };
 
   const tokens = tokensData?.tokens || [];
+  const projects = projectsData || [];
+  const [mcpProjectName, setMcpProjectName] = useState(EXAMPLE_PROJECT_NAME);
+  const [mcpConfigCopied, setMcpConfigCopied] = useState(false);
+  const selectedProjectExists = projects.some((project) => project.name === mcpProjectName);
+  const effectiveMcpProjectName = selectedProjectExists
+    ? mcpProjectName
+    : projects[0]?.name || EXAMPLE_PROJECT_NAME;
 
   const [serverUrl] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -120,7 +134,7 @@ export default function SettingsPage() {
 
   const generateMcpConfig = (token?: string, projectName?: string) => {
     const t = token || 'omt_xxx...';
-    const pn = projectName || 'my-project';
+    const pn = projectName || EXAMPLE_PROJECT_NAME;
     return JSON.stringify({
       mcpServers: {
         "oh-my-task": {
@@ -136,11 +150,8 @@ export default function SettingsPage() {
     }, null, 2);
   };
 
-  const [mcpProjectName, setMcpProjectName] = useState('my-project');
-  const [mcpConfigCopied, setMcpConfigCopied] = useState(false);
-
   const handleCopyMcpConfig = async () => {
-    await navigator.clipboard.writeText(generateMcpConfig(latestToken, mcpProjectName));
+    await navigator.clipboard.writeText(generateMcpConfig(latestToken, effectiveMcpProjectName));
     setMcpConfigCopied(true);
     setTimeout(() => setMcpConfigCopied(false), 2000);
   };
@@ -341,16 +352,36 @@ export default function SettingsPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+            <p className="text-sm font-bold text-warning">
+              注意：每个项目需要单独使用一份 MCP 配置，MCP 配置是项目级别的，不是全局配置。
+            </p>
+          </div>
+
           <div className="max-w-md space-y-2">
             <Label htmlFor="mcp-project-name">项目名称</Label>
-            <Input
+            <select
               id="mcp-project-name"
-              type="text"
-              value={mcpProjectName}
+              value={effectiveMcpProjectName}
               onChange={(e) => setMcpProjectName(e.target.value)}
-              placeholder="请输入项目名称"
-            />
-            <p className="text-xs text-muted-foreground">请修改为您的实际项目名称</p>
+              disabled={isProjectsLoading}
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30"
+            >
+              {projects.length > 0 ? (
+                projects.map((project) => (
+                  <option key={project.id} value={project.name}>
+                    {project.name}
+                  </option>
+                ))
+              ) : (
+                <option value={EXAMPLE_PROJECT_NAME}>{EXAMPLE_PROJECT_NAME}</option>
+              )}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {projects.length > 0
+                ? '已自动使用现有项目，可直接复制配置。'
+                : '当前暂无项目，请将该项目名替换为你的实际项目名称。'}
+            </p>
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden">
@@ -366,7 +397,7 @@ export default function SettingsPage() {
               </Button>
             </div>
             <pre className="p-4 text-xs overflow-x-auto bg-muted/30 text-foreground font-mono">
-              {generateMcpConfig(latestToken, mcpProjectName)}
+              {generateMcpConfig(latestToken, effectiveMcpProjectName)}
             </pre>
             {!latestToken && (
               <p className="px-4 py-2 text-xs text-warning border-t border-border">
@@ -396,7 +427,7 @@ export default function SettingsPage() {
                 将 <code className="text-xs bg-muted rounded px-1 py-0.5">args</code> 中的路径替换为 oh-my-task 项目的实际路径
               </li>
               <li>
-                将 <code className="text-xs bg-muted rounded px-1 py-0.5">OMT_PROJECT_NAME</code> 替换为您的项目名称
+                确认 <code className="text-xs bg-muted rounded px-1 py-0.5">OMT_PROJECT_NAME</code> 为上方选择的项目名称
               </li>
               <li>重启 Claude Desktop，即可在对话中使用 oh-my-task MCP 工具管理任务</li>
             </ol>

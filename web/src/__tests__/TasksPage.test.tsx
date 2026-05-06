@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 
+function todayForInput(): string {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 // Mock useNavigate
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -174,6 +182,10 @@ describe('TasksPage', () => {
         expect(screen.getByPlaceholderText('请输入版本名称')).toBeInTheDocument()
       })
 
+      const deadlineInput = screen.getByLabelText('Deadline')
+      expect(deadlineInput).toHaveAttribute('type', 'date')
+      expect(deadlineInput).toHaveValue(todayForInput())
+
       // Fill in version name
       const input = screen.getByPlaceholderText('请输入版本名称')
       await user.type(input, '新版本')
@@ -184,7 +196,7 @@ describe('TasksPage', () => {
 
       // API should have been called
       await waitFor(() => {
-        expect(versionApi.create).toHaveBeenCalledWith('proj-1', '新版本', undefined, undefined, expect.any(String))
+        expect(versionApi.create).toHaveBeenCalledWith('proj-1', '新版本', undefined, undefined, todayForInput())
       })
     })
   })
