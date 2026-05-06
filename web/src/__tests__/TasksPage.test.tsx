@@ -386,7 +386,7 @@ describe('TasksPage', () => {
 
   describe('VAL-UI-029: MCP 任务入口提示', () => {
     it('does not render task creation controls and shows MCP guidance', async () => {
-      vi.mocked(api.getVersions).mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: '2026-04-01', due_date: '2026-04-30', locked_at: '2026-04-01', completed_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01', updated_at: '2026-04-15' }])
+      vi.mocked(api.getVersions).mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: '2026-04-01', due_date: '2026-04-30', locked_at: '2026-04-01', completed_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01' }])
 
       render(<TasksPage />, { wrapper: createWrapper() })
 
