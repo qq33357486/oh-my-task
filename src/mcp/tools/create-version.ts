@@ -1,5 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
+import { formatAiPrompt, formatOperationFailed } from './utils/ai-prompt.js';
 
 interface Version {
   id: string;
@@ -61,7 +62,7 @@ export async function handleCreateVersion(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to create version');
+    throw new Error(error.error || formatOperationFailed('创建版本'));
   }
 
   const result = await response.json() as { data: Version };
@@ -70,7 +71,14 @@ export async function handleCreateVersion(
   return {
     content: [{
       type: 'text',
-      text: `版本创建成功。\n名称: ${version.name}\nID: ${version.id}${version.start_date ? `\n开始: ${version.start_date}` : ''}${version.due_date ? `\n截止: ${version.due_date}` : ''}\n下一步：使用 create_task 规划这个版本的任务。`,
+      text: formatAiPrompt({
+        status: `已创建草稿版本「${version.name}」。`,
+        relay: '请告诉用户版本已创建，接下来可以开始规划这个版本要完成的任务。',
+        next: '询问用户这个版本要做哪些任务，并尽量收集每个任务的预估天数。',
+        collect: ['任务标题', '任务说明', 'estimated_days'],
+        tool: 'create_task',
+        data: `版本: ${version.name}\nID: ${version.id}${version.start_date ? `\n开始: ${version.start_date}` : ''}${version.due_date ? `\n截止: ${version.due_date}` : ''}`,
+      }),
     }],
   };
 }

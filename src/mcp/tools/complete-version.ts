@@ -2,6 +2,7 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import { requireStartedVersionForProject } from './utils/version.js';
 import type { Version } from '../../types/index.js';
+import { formatAiPrompt, formatOperationFailed } from './utils/ai-prompt.js';
 
 export const completeVersionTool: Tool = {
   name: 'complete_version',
@@ -27,7 +28,7 @@ export async function handleCompleteVersion(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to complete version');
+    throw new Error(error.error || formatOperationFailed('完成版本'));
   }
 
   const result = await response.json() as { data: Version };
@@ -36,7 +37,14 @@ export async function handleCompleteVersion(
   return {
     content: [{
       type: 'text',
-      text: `版本已完成。\n版本: ${completedVersion.name}\nID: ${completedVersion.id}\n可以使用 create_version 创建下一个版本。`,
+      text: formatAiPrompt({
+        status: `版本「${completedVersion.name}」已完成。`,
+        relay: '请告诉用户这个版本已经收尾完成。',
+        next: '询问是否要创建下一个版本；如果需要，收集新版本名称。',
+        collect: ['下一个版本名称（如需继续）'],
+        tool: 'create_version',
+        data: `版本: ${completedVersion.name}\nID: ${completedVersion.id}`,
+      }),
     }],
   };
 }

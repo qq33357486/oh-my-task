@@ -3,6 +3,7 @@ import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { TaskWithChildren } from '../../types/index.js';
 import { requireWorkingVersionForProject } from './utils/version.js';
 import { fetchTaskDetail, formatTaskFull, parseBoolean, parsePositiveInteger } from './utils/task-query.js';
+import { formatAiPrompt } from './utils/ai-prompt.js';
 
 export const getTaskTool: Tool = {
   name: 'get_task',
@@ -76,7 +77,7 @@ export async function handleGetTask(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
   const project = await resolveMcpProject(context);
-  await requireWorkingVersionForProject(project.id, context, project.name);
+  const version = await requireWorkingVersionForProject(project.id, context, project.name);
 
   const task = await fetchTaskDetail(context, taskId);
   const detail = args.detail === 'full' ? 'full' : 'summary';
@@ -84,12 +85,18 @@ export async function handleGetTask(
   return {
     content: [{
       type: 'text',
-      text: formatTaskTree(
-        task,
-        detail,
-        parseBoolean(args.include_children, true),
-        parsePositiveInteger(args.depth, 3)
-      ),
+      text: formatAiPrompt({
+        status: `已获取版本「${version.name}」中的任务「${task.title}」。`,
+        relay: '请根据用户问题转述任务信息，重点说明状态、截止时间和子任务进度。',
+        next: '根据用户意图继续开始、完成、删除或查看子任务。',
+        tool: ['activate_task', 'complete_task', 'delete_task'],
+        data: formatTaskTree(
+          task,
+          detail,
+          parseBoolean(args.include_children, true),
+          parsePositiveInteger(args.depth, 3)
+        ),
+      }),
     }],
   };
 }

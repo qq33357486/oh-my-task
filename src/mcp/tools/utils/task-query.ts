@@ -1,5 +1,6 @@
 import type { McpContext } from './config.js';
 import type { Task, TaskWithChildren } from '../../../types/index.js';
+import { formatAiPrompt, formatOperationFailed } from './ai-prompt.js';
 
 export type TaskDetail = 'compact' | 'summary' | 'full';
 
@@ -33,7 +34,7 @@ export async function fetchTasks(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to list tasks');
+    throw new Error(error.error || formatOperationFailed('获取任务列表'));
   }
 
   const result = await response.json() as { data: Task[] };
@@ -52,7 +53,7 @@ export async function fetchTaskDetail(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to get task');
+    throw new Error(error.error || formatOperationFailed('获取任务详情'));
   }
 
   const result = await response.json() as { data: TaskWithChildren };
@@ -110,7 +111,13 @@ export function formatCurrentTaskSummary(task: TaskWithChildren, options: Curren
     lines.push(`已隐藏 done 子项 ${doneCount} 个，可传 include_done_children=true 查看。`);
   }
 
-  return lines.join('\n');
+  return formatAiPrompt({
+    status: `当前进行中的主任务是「${task.title}」。`,
+    relay: '请用摘要形式告诉用户当前任务、子任务进度和可继续处理的事项。',
+    next: '根据用户意图继续查看任务详情、处理子任务或完成当前任务。',
+    tool: ['get_task', 'complete_task'],
+    data: lines.join('\n'),
+  });
 }
 
 export function buildTaskTree(tasks: Task[]): TaskWithChildren[] {

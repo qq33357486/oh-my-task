@@ -2,6 +2,7 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
 import { requireWorkingVersionForProject } from './utils/version.js';
+import { formatAiPrompt } from './utils/ai-prompt.js';
 import {
   buildTaskTree,
   fetchTaskDetail,
@@ -62,7 +63,12 @@ export const listTasksTool: Tool = {
 
 function formatCompactTaskList(tasks: Task[], limit: number): string {
   if (tasks.length === 0) {
-    return '没有找到任务。';
+    return formatAiPrompt({
+      status: '没有找到符合条件的任务。',
+      relay: '请告诉用户当前筛选条件下没有任务。',
+      next: '可以询问用户是否要调整筛选条件，或新增任务。',
+      tool: 'create_task',
+    });
   }
 
   const visibleTasks = tasks.slice(0, limit);
@@ -72,13 +78,24 @@ function formatCompactTaskList(tasks: Task[], limit: number): string {
   });
 
   const suffix = tasks.length > visibleTasks.length ? `\n\n已省略 ${tasks.length - visibleTasks.length} 个任务，可提高 limit 查看。` : '';
-  return `共 ${tasks.length} 个任务（精简列表）：\n\n${lines.join('\n\n')}${suffix}`;
+  return formatAiPrompt({
+    status: `已获取 ${tasks.length} 个任务。`,
+    relay: '请把任务列表按用户容易理解的方式转述，并根据用户意图引导选择要开始、查看或调整的任务。',
+    next: '如果用户要开始执行某个任务，调用 activate_task；如果要看详情，调用 get_task。',
+    tool: ['activate_task', 'get_task'],
+    data: `共 ${tasks.length} 个任务（精简列表）：\n\n${lines.join('\n\n')}${suffix}`,
+  });
 }
 
 function formatOutline(tasks: Task[], depth: number, limit: number): string {
   const roots = buildTaskTree(tasks);
   if (roots.length === 0) {
-    return '没有找到任务。';
+    return formatAiPrompt({
+      status: '没有找到可展示的任务结构。',
+      relay: '请告诉用户当前没有可展示的任务结构。',
+      next: '可以询问用户是否要新增任务，或调整筛选条件。',
+      tool: 'create_task',
+    });
   }
 
   let count = 0;
@@ -102,18 +119,36 @@ function formatOutline(tasks: Task[], depth: number, limit: number): string {
     lines.push(`已省略 ${tasks.length - count} 个任务，可提高 limit/depth 查看。`);
   }
 
-  return lines.join('\n');
+  return formatAiPrompt({
+    status: `已获取 ${tasks.length} 个任务的结构摘要。`,
+    relay: '请向用户总结任务结构，并询问下一步要开始哪个任务或是否继续补充任务。',
+    next: '如果用户选择任务执行，调用 activate_task；如果继续规划，调用 create_task。',
+    tool: ['activate_task', 'create_task'],
+    data: lines.join('\n'),
+  });
 }
 
 function formatFullList(tasks: Task[], limit: number): string {
   if (tasks.length === 0) {
-    return '没有找到任务。';
+    return formatAiPrompt({
+      status: '没有找到符合条件的任务。',
+      relay: '请告诉用户当前筛选条件下没有任务。',
+      next: '可以询问用户是否要调整筛选条件，或新增任务。',
+      tool: 'create_task',
+    });
   }
 
-  return tasks
+  const data = tasks
     .slice(0, limit)
     .map((task, index) => `${index + 1}. ${formatTaskFull(task, '   ')}`)
     .join('\n\n');
+  return formatAiPrompt({
+    status: `已获取 ${Math.min(tasks.length, limit)} 个任务详情。`,
+    relay: '请按用户关注点转述任务详情，不要一次性展开无关字段。',
+    next: '根据用户意图继续查看、开始、完成或调整任务。',
+    tool: ['get_task', 'activate_task', 'complete_task'],
+    data,
+  });
 }
 
 export async function handleListTasks(
@@ -145,7 +180,13 @@ export async function handleListTasks(
         return {
           content: [{
             type: 'text',
-            text: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`,
+            text: formatAiPrompt({
+              status: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。`,
+              relay: '请告诉用户版本已存在，但还没有规划任务。',
+              next: '请用户描述这个版本要完成的事项，你负责拆成任务并创建。',
+              collect: ['任务列表', '每项预估天数'],
+              tool: 'create_task',
+            }),
           }],
         };
       }
@@ -153,8 +194,20 @@ export async function handleListTasks(
         content: [{
           type: 'text',
           text: workingVersion.locked_at
-            ? `项目「${project.name}」当前版本暂无进行中主任务。\n可以使用 list_tasks 查看任务结构，或使用 activate_task 开始一个任务。`
-            : `项目「${project.name}」的版本「${workingVersion.name}」还没有开始。\n请先规划任务并排期；准备执行时使用 start_version 开始版本。`,
+            ? formatAiPrompt({
+                status: `项目「${project.name}」当前版本暂无进行中的主任务。`,
+                relay: '请告诉用户目前没有正在执行的任务。',
+                next: '主动询问是否要列出可开始任务，或让用户直接指定要开始的任务。',
+                collect: ['要开始的任务，或是否先查看任务列表'],
+                tool: ['list_tasks', 'activate_task'],
+              })
+            : formatAiPrompt({
+                status: `项目「${project.name}」的版本「${workingVersion.name}」还没有开始。`,
+                relay: '请告诉用户版本还没开始，当前没有正在执行的任务。',
+                next: '如果任务已经规划并排期，请询问用户是否开始版本；如果尚未排期，请先收集计划开始日期。',
+                collect: ['是否开始版本', '必要时收集计划开始日期'],
+                tool: ['auto_schedule', 'start_version'],
+              }),
         }],
       };
     }
@@ -181,7 +234,13 @@ export async function handleListTasks(
     return {
       content: [{
         type: 'text',
-        text: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。`,
+        text: formatAiPrompt({
+          status: `项目「${project.name}」的版本「${workingVersion.name}」还没有任务。`,
+          relay: '请告诉用户版本已存在，但还没有规划任务。',
+          next: '请用户描述这个版本要完成的事项，你负责拆成任务并创建。',
+          collect: ['任务列表', '每项预估天数'],
+          tool: 'create_task',
+        }),
       }],
     };
   }

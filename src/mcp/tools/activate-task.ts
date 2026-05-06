@@ -2,6 +2,7 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import type { Task } from '../../types/index.js';
 import { requireStartedVersionForProject } from './utils/version.js';
+import { formatAiPrompt, formatOperationFailed } from './utils/ai-prompt.js';
 
 export const activateTaskTool: Tool = {
   name: 'activate_task',
@@ -24,7 +25,7 @@ export async function handleActivateTask(
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   const taskId = args.task_id as string;
   const project = await resolveMcpProject(context);
-  await requireStartedVersionForProject(project.id, context, project.name);
+  const version = await requireStartedVersionForProject(project.id, context, project.name);
 
   const response = await fetch(`${context.serverUrl}/api/tasks/${taskId}/activate`, {
     method: 'POST',
@@ -37,7 +38,7 @@ export async function handleActivateTask(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to activate task');
+    throw new Error(error.error || formatOperationFailed('开始任务'));
   }
 
   const result = await response.json() as { data: Task };
@@ -46,7 +47,13 @@ export async function handleActivateTask(
   return {
     content: [{
       type: 'text',
-      text: `任务已激活。\nID: ${task.id}\n标题: ${task.title}\n状态: ${task.status}`,
+      text: formatAiPrompt({
+        status: `版本「${version.name}」中的任务「${task.title}」已开始。`,
+        relay: '请告诉用户任务已进入执行中。',
+        next: '引导用户继续处理任务；完成后可以调用 complete_task。',
+        tool: ['get_current_task', 'complete_task'],
+        data: `ID: ${task.id}\n标题: ${task.title}\n状态: ${task.status}`,
+      }),
     }],
   };
 }

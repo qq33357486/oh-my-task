@@ -477,28 +477,29 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
     it('未配置 OMT_PROJECT_NAME 时提示配置项目名称', async () => {
       await withMcpServer(async (context) => {
         await expect(handleGetCurrentTask({}, { ...context, projectName: undefined }))
-          .rejects.toThrow('MCP 未配置项目名称');
+          .rejects.toThrow('MCP 当前没有配置项目名称');
       });
     });
 
     it('OMT_PROJECT_NAME 不正确时提示检查配置或到 Web 创建项目', async () => {
       await withMcpServer(async (context) => {
         await expect(handleGetCurrentTask({}, { ...context, projectName: '不存在的项目' }))
-          .rejects.toThrow('请检查 MCP 配置中的 OMT_PROJECT_NAME 是否与 Web 端项目名称完全一致');
+          .rejects.toThrow('当前 MCP 配置的项目名没有匹配到 Web 项目');
       });
     });
 
     it('项目存在但没有版本时提示先创建版本', async () => {
       await withMcpServer(async (context) => {
         await expect(handleGetCurrentTask({}, context))
-          .rejects.toThrow('请先使用 create_version 创建一个版本');
+          .rejects.toThrow('询问这次版本叫什么名称');
       });
     });
 
     it('MCP 可创建草稿版本、规划任务、排期、开始并完成版本', async () => {
       await withMcpServer(async (context) => {
         const versionResult = await handleCreateVersion({ name: 'MCP 草稿版本' }, context);
-        expect(versionResult.content[0].text).toContain('下一步：使用 create_task');
+        expect(versionResult.content[0].text).toContain('建议工具');
+        expect(versionResult.content[0].text).toContain('create_task');
 
         const taskResult = await handleCreateTask({ title: '规划任务', estimated_days: 2 }, context);
         expect(taskResult.content[0].text).toContain('规划任务');
@@ -507,16 +508,16 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         expect(listResult.content[0].text).toContain('规划任务');
 
         await expect(handleGetCurrentTask({}, context))
-          .rejects.toThrow('准备执行时使用 start_version 开始版本');
+          .rejects.toThrow('询问用户是否开始版本');
 
         const scheduleResult = await handleAutoSchedule({ start_date: '2026-05-06' }, context);
-        expect(scheduleResult.content[0].text).toContain('准备执行时，请使用 start_version 开始版本');
+        expect(scheduleResult.content[0].text).toContain('询问是否现在开始执行这个版本');
 
         const startResult = await handleStartVersion({}, context);
-        expect(startResult.content[0].text).toContain('版本已开始');
+        expect(startResult.content[0].text).toContain('已开始');
 
         const currentBeforeActivate = await handleGetCurrentTask({}, context);
-        expect(currentBeforeActivate.content[0].text).toContain('暂无进行中主任务');
+        expect(currentBeforeActivate.content[0].text).toContain('暂无进行中的主任务');
 
         const listAll = await handleListTasks({ view: 'list' }, context);
         const taskId = listAll.content[0].text.match(/ID: ([^ |]+)/)?.[1];
@@ -528,7 +529,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
         await handleCompleteTask({ task_id: taskId }, context);
 
         const completeResult = await handleCompleteVersion({}, context);
-        expect(completeResult.content[0].text).toContain('版本已完成');
+        expect(completeResult.content[0].text).toContain('已完成');
       });
     });
 
@@ -538,7 +539,7 @@ describe('MCP Tools — 通过 HTTP API 模拟', () => {
       await withMcpServer(async (context) => {
         const result = await handleGetCurrentTask({}, context);
 
-        expect(result.content[0].text).toContain('请先使用 create_task 规划这个版本的任务');
+        expect(result.content[0].text).toContain('任务列表');
       });
     });
 

@@ -1,3 +1,5 @@
+import { formatAiPrompt } from './ai-prompt.js';
+
 export interface McpContext {
   serverUrl: string;
   token: string;
@@ -53,12 +55,22 @@ export async function resolveProjectId(
 export async function resolveMcpProject(context: McpContext): Promise<McpProject> {
   const projectName = context.projectName?.trim();
   if (!projectName) {
-    throw new Error('MCP 未配置项目名称。\n请在 MCP 配置中设置 OMT_PROJECT_NAME，值必须与 Web 端项目名称完全一致。');
+    throw new Error(formatAiPrompt({
+      status: 'MCP 当前没有配置项目名称，无法确定要操作哪个 Web 项目。',
+      relay: '请告诉用户：当前 MCP 还没有绑定项目，不能继续创建版本或任务。',
+      next: '请用户在 MCP 配置中设置 OMT_PROJECT_NAME，值必须与 Web 端项目名称完全一致。',
+      collect: ['OMT_PROJECT_NAME'],
+    }));
   }
 
   const projectId = await resolveProjectId(projectName, context);
   if (!projectId) {
-    throw new Error(`未找到项目：${projectName}。\n请检查 MCP 配置中的 OMT_PROJECT_NAME 是否与 Web 端项目名称完全一致；如果项目还不存在，请先到 Web 端创建项目。`);
+    throw new Error(formatAiPrompt({
+      status: `未找到项目「${projectName}」。`,
+      relay: '请告诉用户：当前 MCP 配置的项目名没有匹配到 Web 项目，不要继续创建版本或任务。',
+      next: '请用户确认项目名是否与 Web 端完全一致；如果项目还不存在，需要先到 Web 创建项目后再回来继续。',
+      collect: ['正确的项目名称'],
+    }));
   }
 
   return { id: projectId, name: projectName };

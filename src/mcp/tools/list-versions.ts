@@ -1,5 +1,6 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
+import { formatAiPrompt, formatOperationFailed } from './utils/ai-prompt.js';
 
 interface Version {
   id: string;
@@ -37,7 +38,7 @@ export async function handleListVersions(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to list versions');
+    throw new Error(error.error || formatOperationFailed('获取版本列表'));
   }
 
   const result = await response.json() as { data: Version[] };
@@ -47,7 +48,13 @@ export async function handleListVersions(
     return {
       content: [{
         type: 'text',
-        text: '暂无版本。',
+        text: formatAiPrompt({
+          status: `项目「${project.name}」还没有任何版本。`,
+          relay: '请告诉用户当前项目还没有版本，并询问这次版本叫什么名称。',
+          next: '拿到版本名称后，调用 create_version 创建草稿版本。',
+          collect: ['版本名称'],
+          tool: 'create_version',
+        }),
       }],
     };
   }
@@ -70,7 +77,13 @@ export async function handleListVersions(
   return {
     content: [{
       type: 'text',
-      text: `共 ${versions.length} 个版本：\n\n${versionList}`,
+      text: formatAiPrompt({
+        status: `项目「${project.name}」共有 ${versions.length} 个版本。`,
+        relay: '请向用户概括版本状态，并根据用户目标引导继续规划、排期、开始或完成版本。',
+        next: '如果存在草稿/已排期版本，优先围绕当前工作版本继续；如果用户要创建新版本，需确认没有未完成版本阻塞。',
+        tool: ['create_version', 'create_task', 'auto_schedule', 'start_version'],
+        data: `共 ${versions.length} 个版本：\n\n${versionList}`,
+      }),
     }],
   };
 }

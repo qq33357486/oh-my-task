@@ -1,6 +1,7 @@
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { resolveMcpProject, type McpContext } from './utils/config.js';
 import { requireWorkingVersionForProject } from './utils/version.js';
+import { formatAiPrompt, formatOperationFailed } from './utils/ai-prompt.js';
 
 export const autoScheduleTool: Tool = {
   name: 'auto_schedule',
@@ -46,7 +47,7 @@ export async function handleAutoSchedule(
 
   if (!response.ok) {
     const error = await response.json() as { error?: string };
-    throw new Error(error.error || 'Failed to auto schedule');
+    throw new Error(error.error || formatOperationFailed('自动排期'));
   }
 
   const result = await response.json() as { data: { changes: ScheduleChange[]; version?: { start_date: string; due_date: string } } };
@@ -54,7 +55,13 @@ export async function handleAutoSchedule(
 
   if (changes.length === 0) {
     return {
-      content: [{ type: 'text', text: `版本「${workingVersion.name}」还没有需要排期的任务。\n请先使用 create_task 规划这个版本的任务，并设置 estimated_days。` }],
+      content: [{ type: 'text', text: formatAiPrompt({
+        status: `版本「${workingVersion.name}」目前没有可排期任务。`,
+        relay: '请告诉用户当前没有可排期任务，无法生成排期。',
+        next: '请用户补充要新增的任务和预估天数，你先创建任务再排期。',
+        collect: ['任务列表', '每项预估天数'],
+        tool: 'create_task',
+      }) }],
     };
   }
 
@@ -69,9 +76,16 @@ export async function handleAutoSchedule(
   for (const change of changes) {
     lines.push(`• ${change.title}: ${change.new_start}${change.new_due ? ` ~ ${change.new_due}` : ''}`);
   }
-  lines.push('\n准备执行时，请使用 start_version 开始版本。');
+  const dueDate = result.data.version?.due_date || changes[changes.length - 1]?.new_due || '';
 
   return {
-    content: [{ type: 'text', text: lines.join('\n') }],
+    content: [{ type: 'text', text: formatAiPrompt({
+      status: `版本「${workingVersion.name}」已完成排期${result.data.version ? `，开始日期为 ${result.data.version.start_date}，预计截止日期为 ${result.data.version.due_date}` : ''}。`,
+      relay: '请向用户总结排期结果，并询问是否现在开始执行这个版本。',
+      next: '如果用户确认开始，则调用 start_version；如果还要调整任务，则继续创建任务或重新排期。',
+      collect: ['是否开始版本'],
+      tool: ['start_version', 'create_task', 'auto_schedule'],
+      data: `${lines.join('\n')}${dueDate ? `\n预计截止: ${dueDate}` : ''}`,
+    }) }],
   };
 }
