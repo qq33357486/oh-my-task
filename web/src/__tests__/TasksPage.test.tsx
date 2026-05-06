@@ -44,9 +44,6 @@ vi.mock('@/api', () => ({
       const children = tasks.filter(t => t.parent_id === id)
       return Promise.resolve({ ...task, children })
     }),
-    updateTask: vi.fn().mockResolvedValue({}),
-    reorderTasks: vi.fn().mockResolvedValue({}),
-    deleteTask: vi.fn().mockResolvedValue({}),
     deleteProject: vi.fn().mockResolvedValue({}),
     deleteVersion: vi.fn().mockResolvedValue({}),
     updateVersion: vi.fn().mockResolvedValue({}),
@@ -60,9 +57,6 @@ vi.mock('@/api', () => ({
   },
   versionApi: {
     create: vi.fn().mockResolvedValue({ id: 'ver-new', name: '新版本', project_id: 'proj-1', description: null, start_date: null, due_date: null, locked_at: null, archived_at: null, sort_order: 1, created_at: '2026-01-01' }),
-  },
-  taskApi: {
-    create: vi.fn().mockResolvedValue({ id: 'task-new', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '新任务', description: null, status: 'planned', estimated_days: null, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 2, inserted: false, deleted_at: null, created_at: '2026-04-12' }),
   },
 }))
 
@@ -85,7 +79,7 @@ vi.mock('@/components/FlowingEdge', () => ({
 
 import { BrowserRouter } from 'react-router-dom'
 import TasksPage from '@/pages/TasksPage'
-import { api, projectApi, versionApi, taskApi } from '@/api'
+import { api, projectApi, versionApi } from '@/api'
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -375,73 +369,37 @@ describe('TasksPage', () => {
     })
   })
 
-  describe('VAL-UI-028: 删除确认', () => {
-    it('shows delete confirmation dialog before deleting task', async () => {
-      const user = userEvent.setup()
+  describe('VAL-UI-028: 任务只读', () => {
+    it('does not render task delete controls', async () => {
       render(<TasksPage />, { wrapper: createWrapper() })
 
-      // Wait for tasks to load - check for either task or the "暂无任务" fallback
       await waitFor(() => {
         const hasTask = screen.queryByText('主任务一') || screen.queryByText('主任务二')
         const hasEmpty = screen.queryByText(/暂无任务/)
         expect(hasTask || hasEmpty).toBeTruthy()
       })
 
-      // If tasks loaded, find and click delete button
-      const taskEl = screen.queryByText('主任务一')
-      if (taskEl) {
-        const deleteButtons = screen.getAllByTitle('删除任务')
-        await user.click(deleteButtons[0])
-
-        // ConfirmDialog should appear with delete confirmation
-        await waitFor(() => {
-          expect(screen.getByText(/确定要删除任务/)).toBeInTheDocument()
-        })
-      }
-      // If tasks didn't load (cached empty state), test still passes as the component renders correctly
+      expect(screen.queryByTitle('删除任务')).not.toBeInTheDocument()
+      expect(screen.queryByText(/确定要删除任务/)).not.toBeInTheDocument()
     })
   })
 
-  describe('VAL-UI-029: 创建任务', () => {
-    it('can create a new task via dialog', async () => {
-      const user = userEvent.setup()
+  describe('VAL-UI-029: MCP 任务入口提示', () => {
+    it('does not render task creation controls and shows MCP guidance', async () => {
+      vi.mocked(api.getVersions).mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: '2026-04-01', due_date: '2026-04-30', locked_at: '2026-04-01', completed_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01', updated_at: '2026-04-15' }])
+
       render(<TasksPage />, { wrapper: createWrapper() })
 
-      // Wait for page to render
       await waitFor(() => {
         expect(screen.getByText('任务管理')).toBeInTheDocument()
       })
 
-      // Find the create task button - it may or may not be rendered depending on whether
-      // the version selector appears (data may be cached from previous tests)
-      const createBtn = screen.queryByRole('button', { name: /创建任务/ })
-      if (!createBtn) {
-        // Version data didn't load yet (cached empty), skip the dialog interaction
-        // The button rendering is already verified by other passing tests
-        return
-      }
-
-      await user.click(createBtn)
-
-      // Dialog should appear - verify by input placeholder
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('请输入任务名称')).toBeInTheDocument()
+        expect(screen.getByText(/任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成/)).toBeInTheDocument()
       })
 
-      // Fill in task name
-      const input = screen.getByPlaceholderText('请输入任务名称')
-      await user.type(input, '新任务')
-
-      // Click confirm
-      const confirmBtn = screen.getByRole('button', { name: '创建' })
-      await user.click(confirmBtn)
-
-      // API should have been called
-      await waitFor(() => {
-        expect(taskApi.create).toHaveBeenCalledWith(
-          expect.objectContaining({ title: '新任务' })
-        )
-      })
+      expect(screen.queryByRole('button', { name: /创建任务/ })).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('请输入任务名称')).not.toBeInTheDocument()
     })
   })
 

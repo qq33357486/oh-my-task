@@ -1,25 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
-import { api, projectApi, versionApi, taskApi } from '@/api'
-import type { Task, Project, Version, User, VersionStats } from '@/api'
+import { api, projectApi, versionApi } from '@/api'
+import type { Task, Project, Version, VersionStats } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -62,20 +45,15 @@ export default function TasksPage() {
   const [view, setView] = useState<ViewType>('tree')
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null)
   const [showDeleteProject, setShowDeleteProject] = useState(false)
   const [showDeleteVersion, setShowDeleteVersion] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [showCreateVersion, setShowCreateVersion] = useState(false)
-  const [showCreateTask, setShowCreateTask] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newVersionName, setNewVersionName] = useState('')
   const [newVersionDeadline, setNewVersionDeadline] = useState<string>(() => formatDateForInput(new Date()))
-  const [newTaskTitle, setNewTaskTitle] = useState('')
   const queryClient = useQueryClient()
 
-  const { data: userData } = useQuery({ queryKey: ['me'], queryFn: api.getMe })
-  const user = userData?.user
   const { data: projects } = useQuery({ queryKey: ['projects'], queryFn: api.getProjects })
 
   // Auto-select first project
@@ -128,21 +106,6 @@ export default function TasksPage() {
   })
 
   // === Mutations ===
-  const reorderMutation = useMutation({
-    mutationFn: ({ taskIds, parentId }: { taskIds: string[]; parentId?: string | null }) =>
-      api.reorderTasks(taskIds, parentId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-
-  const deleteTaskMutation = useMutation({
-    mutationFn: (id: string) => api.deleteTask(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      queryClient.invalidateQueries({ queryKey: ['versionStats'] })
-      setDeleteTarget(null)
-    },
-  })
-
   const deleteProjectMutation = useMutation({
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
@@ -211,21 +174,6 @@ export default function TasksPage() {
     },
   })
 
-  const createTaskMutation = useMutation({
-    mutationFn: (title: string) =>
-      taskApi.create({
-        project_id: effectiveProject,
-        title,
-        version_id: effectiveVersion || undefined,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      queryClient.invalidateQueries({ queryKey: ['versionStats'] })
-      setShowCreateTask(false)
-      setNewTaskTitle('')
-    },
-  })
-
   const handleProjectChange = (projectId: string) => {
     setSelectedProject(projectId)
     setSelectedVersion('')
@@ -244,7 +192,7 @@ export default function TasksPage() {
       <div>
         <div className="mb-6">
           <h2 className="text-xl font-bold text-foreground">任务管理</h2>
-          <p className="mt-1 text-sm text-muted-foreground">查看和管理项目任务</p>
+          <p className="mt-1 text-sm text-muted-foreground">查看任务进度，管理项目和版本</p>
         </div>
         <Card>
           <CardContent className="py-12 text-center">
@@ -269,7 +217,7 @@ export default function TasksPage() {
     <div>
       <div className="mb-6">
         <h2 className="text-xl font-bold text-foreground">任务管理</h2>
-        <p className="mt-1 text-sm text-muted-foreground">查看和管理项目任务</p>
+        <p className="mt-1 text-sm text-muted-foreground">查看任务进度，管理项目和版本</p>
       </div>
 
       {/* 项目选择器 */}
@@ -406,13 +354,11 @@ export default function TasksPage() {
               🔀 进度图
             </button>
           </div>
-
-          {/* 创建任务按钮 */}
-          {canEditCurrentVersion && (
-            <div className="mb-4">
-              <Button onClick={() => setShowCreateTask(true)}>+ 创建任务</Button>
-            </div>
-          )}
+          <Card className="mb-4 border-primary/20 bg-primary/5">
+            <CardContent className="p-3 text-sm text-muted-foreground">
+              任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成；Web 端仅用于查看任务、管理项目和版本。
+            </CardContent>
+          </Card>
         </>
       )}
 
@@ -426,30 +372,14 @@ export default function TasksPage() {
       {tasks && view === 'tree' && (
         <TreeView
           tasks={tasks}
-          user={user}
-          onReorder={(taskIds) => reorderMutation.mutate({ taskIds, parentId: null })}
-          onDelete={(task) => setDeleteTarget(task)}
         />
       )}
       {tasks && view === 'kanban' && (
         <KanbanView
           tasks={tasks}
-          onReorder={(taskIds) => reorderMutation.mutate({ taskIds, parentId: null })}
         />
       )}
       {tasks && view === 'flow' && <FlowView tasks={tasks} lockedAt={currentVersion?.locked_at} />}
-
-      {/* 删除任务确认对话框 */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        title="删除任务"
-        message={`确定要删除任务「${deleteTarget?.title}」吗？`}
-        warning="此操作将同时删除所有子任务，无法恢复！"
-        confirmText="删除"
-        isLoading={deleteTaskMutation.isPending}
-        onConfirm={() => deleteTarget && deleteTaskMutation.mutate(deleteTarget.id)}
-        onCancel={() => setDeleteTarget(null)}
-      />
 
       {/* 删除项目确认对话框 */}
       <ConfirmDialog
@@ -500,15 +430,6 @@ export default function TasksPage() {
         isLoading={createVersionMutation.isPending}
       />
 
-      {/* 创建任务对话框 */}
-      <CreateTaskDialog
-        isOpen={showCreateTask}
-        title={newTaskTitle}
-        onTitleChange={setNewTaskTitle}
-        onCreate={() => createTaskMutation.mutate(newTaskTitle)}
-        onCancel={() => { setShowCreateTask(false); setNewTaskTitle('') }}
-        isLoading={createTaskMutation.isPending}
-      />
     </div>
   )
 }
@@ -577,32 +498,6 @@ function CreateVersionDialog({ isOpen, name, deadlineDate, onNameChange, onDeadl
   )
 }
 
-function CreateTaskDialog({ isOpen, title, onTitleChange, onCreate, onCancel, isLoading }: {
-  isOpen: boolean; title: string; onTitleChange: (v: string) => void
-  onCreate: () => void; onCancel: () => void; isLoading: boolean
-}) {
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>创建任务</DialogTitle>
-          <DialogDescription>输入任务名称创建一个新任务</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor="task-title">任务名称</Label>
-          <Input id="task-title" placeholder="请输入任务名称" value={title} onChange={(e) => onTitleChange(e.target.value)} />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={isLoading}>取消</Button>
-          <Button onClick={onCreate} disabled={isLoading || !title.trim()}>
-            {isLoading ? '创建中...' : '创建'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // === 日期格式化 ===
 
 function formatDateRange(start: string | null, end: string | null): string {
@@ -619,28 +514,10 @@ function formatDateRange(start: string | null, end: string | null): string {
 
 interface TreeViewProps {
   tasks: Task[]
-  user?: User
-  onReorder: (taskIds: string[]) => void
-  onDelete: (task: Task) => void
 }
 
-function TreeView({ tasks, user, onReorder, onDelete }: TreeViewProps) {
+function TreeView({ tasks }: TreeViewProps) {
   const [collapsedTasks, setCollapsedTasks] = useState<Set<string>>(() => new Set(tasks.map((t) => t.id)))
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      const oldIndex = tasks.findIndex((t) => t.id === active.id)
-      const newIndex = tasks.findIndex((t) => t.id === over.id)
-      const newOrder = arrayMove(tasks, oldIndex, newIndex)
-      onReorder(newOrder.map((t) => t.id))
-    }
-  }
 
   const toggleCollapse = (taskId: string) => {
     setCollapsedTasks((prev) => {
@@ -691,57 +568,39 @@ function TreeView({ tasks, user, onReorder, onDelete }: TreeViewProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
-              <th className="w-10 px-3 py-3"></th>
               <th className="px-3 py-3">任务</th>
               <th className="px-3 py-3">状态</th>
               <th className="px-3 py-3">预期日期</th>
               <th className="px-3 py-3">工时</th>
-              <th className="px-3 py-3">操作</th>
             </tr>
           </thead>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-              <tbody>
-                {tasks.map((task) => (
-                  <SortableTaskRow
-                    key={task.id}
-                    task={task}
-                    depth={0}
-                    user={user}
-                    onDelete={onDelete}
-                    isCollapsed={collapsedTasks.has(task.id)}
-                    onToggleCollapse={() => toggleCollapse(task.id)}
-                    expectedEndDate={expectedEndDates.get(task.id) || null}
-                  />
-                ))}
-              </tbody>
-            </SortableContext>
-          </DndContext>
+          <tbody>
+            {tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                depth={0}
+                isCollapsed={collapsedTasks.has(task.id)}
+                onToggleCollapse={() => toggleCollapse(task.id)}
+                expectedEndDate={expectedEndDates.get(task.id) || null}
+              />
+            ))}
+          </tbody>
         </table>
       </CardContent>
     </Card>
   )
 }
 
-interface SortableTaskRowProps {
+interface TaskRowProps {
   task: Task
   depth: number
-  user?: User
-  onDelete: (task: Task) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   expectedEndDate: string | null
 }
 
-function SortableTaskRow({ task, depth, user, onDelete, isCollapsed, onToggleCollapse, expectedEndDate }: SortableTaskRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
+function TaskRow({ task, depth, isCollapsed, onToggleCollapse, expectedEndDate }: TaskRowProps) {
   const { data: detail } = useQuery({
     queryKey: ['task', task.id],
     queryFn: () => api.getTask(task.id),
@@ -749,7 +608,6 @@ function SortableTaskRow({ task, depth, user, onDelete, isCollapsed, onToggleCol
   const children = detail?.children || []
   const hasChildren = children.length > 0
   const status = STATUS_CONFIG[task.status] || { label: task.status, emoji: '📌' }
-  const canDelete = user?.role === 'admin'
 
   const getDateProgress = () => {
     if (task.status === 'done') return { text: '已完成', progress: 100, color: 'var(--color-success)' }
@@ -777,13 +635,8 @@ function SortableTaskRow({ task, depth, user, onDelete, isCollapsed, onToggleCol
   return (
     <>
       <tr
-        ref={setNodeRef}
-        style={style}
         className={cn('border-b border-border/50 transition-colors hover:bg-muted/50', depth > 0 && 'bg-secondary/30')}
       >
-        <td className="w-10 px-3 py-2.5" {...attributes} {...listeners}>
-          <span className="cursor-grab text-muted-foreground active:cursor-grabbing">⋮⋮</span>
-        </td>
         <td className="px-3 py-2.5">
           <span className="flex items-center gap-1" style={{ paddingLeft: `${depth * 20}px` }}>
             {depth > 0 && <span className="text-muted-foreground">└ </span>}
@@ -821,35 +674,26 @@ function SortableTaskRow({ task, depth, user, onDelete, isCollapsed, onToggleCol
           </div>
         </td>
         <td className="px-3 py-2.5 text-muted-foreground">{task.estimated_days ? `${task.estimated_days}d` : '-'}</td>
-        <td className="px-3 py-2.5">
-          {canDelete && (
-            <Button variant="ghost" size="icon-xs" onClick={() => onDelete(task)} title="删除任务" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-              🗑️
-            </Button>
-          )}
-        </td>
       </tr>
       {!isCollapsed && children.map((child: Task) => (
-        <TaskRowNonDraggable key={child.id} task={child} depth={depth + 1} user={user} onDelete={onDelete} />
+        <TaskRowNonDraggable key={child.id} task={child} depth={depth + 1} />
       ))}
     </>
   )
 }
 
 // Non-draggable row for child tasks
-function TaskRowNonDraggable({ task, depth, user, onDelete }: { task: Task; depth: number; user?: User; onDelete: (task: Task) => void }) {
+function TaskRowNonDraggable({ task, depth }: { task: Task; depth: number }) {
   const { data: detail } = useQuery({
     queryKey: ['task', task.id],
     queryFn: () => api.getTask(task.id),
   })
   const children = detail?.children || []
   const status = STATUS_CONFIG[task.status] || { label: task.status, emoji: '📌' }
-  const canDelete = user?.role === 'admin'
 
   return (
     <>
       <tr className="border-b border-border/50 bg-secondary/30 transition-colors hover:bg-muted/50">
-        <td className="w-10 px-3 py-2.5"></td>
         <td className="px-3 py-2.5">
           <span style={{ paddingLeft: `${depth * 20}px` }}>
             <span className="text-muted-foreground">└ </span>
@@ -868,16 +712,9 @@ function TaskRowNonDraggable({ task, depth, user, onDelete }: { task: Task; dept
         </td>
         <td className="px-3 py-2.5 text-xs text-foreground">{formatDateRange(task.start_date, task.due_date)}</td>
         <td className="px-3 py-2.5 text-muted-foreground">{task.estimated_days ? `${task.estimated_days}d` : '-'}</td>
-        <td className="px-3 py-2.5">
-          {canDelete && (
-            <Button variant="ghost" size="icon-xs" onClick={() => onDelete(task)} title="删除任务" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-              🗑️
-            </Button>
-          )}
-        </td>
       </tr>
       {children.map((child: Task) => (
-        <TaskRowNonDraggable key={child.id} task={child} depth={depth + 1} user={user} onDelete={onDelete} />
+        <TaskRowNonDraggable key={child.id} task={child} depth={depth + 1} />
       ))}
     </>
   )
@@ -887,22 +724,10 @@ function TaskRowNonDraggable({ task, depth, user, onDelete }: { task: Task; dept
 
 interface KanbanViewProps {
   tasks: Task[]
-  onReorder: (taskIds: string[]) => void
 }
 
-function KanbanView({ tasks, onReorder }: KanbanViewProps) {
+function KanbanView({ tasks }: KanbanViewProps) {
   const columns: Task['status'][] = ['planned', 'in_progress', 'done']
-  const queryClient = useQueryClient()
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Task['status'] }) => api.updateTask(id, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
 
   const grouped = columns.reduce(
     (acc, status) => {
@@ -912,77 +737,36 @@ function KanbanView({ tasks, onReorder }: KanbanViewProps) {
     {} as Record<string, Task[]>,
   )
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over) return
-
-    const activeTask = tasks.find((t) => t.id === active.id)
-    if (!activeTask) return
-
-    // Check if dropped on a column
-    const targetColumn = columns.find((col) => over.id === `column-${col}`)
-    if (targetColumn && activeTask.status !== targetColumn) {
-      updateMutation.mutate({ id: activeTask.id, status: targetColumn })
-      return
-    }
-
-    // Check if dropped on another task
-    const overTask = tasks.find((t) => t.id === over.id)
-    if (overTask && activeTask.status === overTask.status && active.id !== over.id) {
-      const columnTasks = grouped[activeTask.status]
-      const oldIndex = columnTasks.findIndex((t) => t.id === active.id)
-      const newIndex = columnTasks.findIndex((t) => t.id === over.id)
-      const newOrder = arrayMove(columnTasks, oldIndex, newIndex)
-      onReorder(newOrder.map((t) => t.id))
-    }
-  }
-
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {columns.map((status) => {
-          const config = STATUS_CONFIG[status]
-          const columnTasks = grouped[status] || []
-          return (
-            <div key={status} id={`column-${status}`} className="flex min-w-[250px] flex-1 flex-col rounded-xl bg-secondary/50">
-              <div className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground">
-                <span>{config.emoji}</span>
-                <span>{config.label}</span>
-                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{columnTasks.length}</span>
-              </div>
-              <SortableContext items={columnTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-2 p-2">
-                  {columnTasks.map((task) => (
-                    <SortableKanbanCard key={task.id} task={task} />
-                  ))}
-                  {columnTasks.length === 0 && <div className="px-2 py-2 text-xs text-muted-foreground">无任务</div>}
-                </div>
-              </SortableContext>
+    <div className="flex gap-4 overflow-x-auto pb-4">
+      {columns.map((status) => {
+        const config = STATUS_CONFIG[status]
+        const columnTasks = grouped[status] || []
+        return (
+          <div key={status} id={`column-${status}`} className="flex min-w-[250px] flex-1 flex-col rounded-xl bg-secondary/50">
+            <div className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground">
+              <span>{config.emoji}</span>
+              <span>{config.label}</span>
+              <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{columnTasks.length}</span>
             </div>
-          )
-        })}
-      </div>
-    </DndContext>
+            <div className="flex flex-col gap-2 p-2">
+              {columnTasks.map((task) => (
+                <KanbanCard key={task.id} task={task} />
+              ))}
+              {columnTasks.length === 0 && <div className="px-2 py-2 text-xs text-muted-foreground">无任务</div>}
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
-function SortableKanbanCard({ task }: { task: Task }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
+function KanbanCard({ task }: { task: Task }) {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
       className={cn(
-        'cursor-grab rounded-lg border bg-card p-3 active:cursor-grabbing',
+        'rounded-lg border bg-card p-3',
         task.inserted ? 'border-destructive/40 border-dashed' : 'border-border',
       )}
     >
