@@ -33,6 +33,15 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 type ViewType = 'tree' | 'kanban' | 'flow'
+const MCP_GUIDANCE_DISMISSED_KEY = 'omt:mcp-guidance-dismissed'
+
+function isInsertedTask(task: Task): boolean {
+  return task.inserted === true || task.inserted === 1
+}
+
+function hasDismissedMcpGuidance(): boolean {
+  return typeof window !== 'undefined' && window.localStorage.getItem(MCP_GUIDANCE_DISMISSED_KEY) === 'true'
+}
 
 function formatDateForInput(date: Date): string {
   const year = date.getFullYear()
@@ -49,6 +58,7 @@ export default function TasksPage() {
   const [showDeleteVersion, setShowDeleteVersion] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [showCreateVersion, setShowCreateVersion] = useState(false)
+  const [showMcpGuidance, setShowMcpGuidance] = useState(() => !hasDismissedMcpGuidance())
   const [newProjectName, setNewProjectName] = useState('')
   const [newVersionName, setNewVersionName] = useState('')
   const [newVersionDeadline, setNewVersionDeadline] = useState<string>(() => formatDateForInput(new Date()))
@@ -186,6 +196,11 @@ export default function TasksPage() {
     queryClient.invalidateQueries({ queryKey: ['calculateEndDates'] })
   }
 
+  const handleDismissMcpGuidance = () => {
+    window.localStorage.setItem(MCP_GUIDANCE_DISMISSED_KEY, 'true')
+    setShowMcpGuidance(false)
+  }
+
   // 无项目时显示空状态
   if (projects && projects.length === 0) {
     return (
@@ -259,7 +274,7 @@ export default function TasksPage() {
         {effectiveProject && versions && versions.length > 0 && (
           <div className="ml-2">
             <select
-              value={selectedVersion}
+              value={effectiveVersion}
               onChange={(e) => setSelectedVersion(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
             >
@@ -354,11 +369,19 @@ export default function TasksPage() {
               🔀 进度图
             </button>
           </div>
-          <Card className="mb-4 border-primary/20 bg-primary/5">
-            <CardContent className="p-3 text-sm text-muted-foreground">
+          {showMcpGuidance && (
+            <div className="relative mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 pr-10 text-sm text-muted-foreground" role="status">
               任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成；Web 端仅用于查看任务、管理项目和版本。
-            </CardContent>
-          </Card>
+              <button
+                type="button"
+                aria-label="关闭 MCP 任务提示"
+                onClick={handleDismissMcpGuidance}
+                className="absolute right-2 top-2 flex size-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -650,7 +673,7 @@ function TaskRow({ task, depth, isCollapsed, onToggleCollapse, expectedEndDate }
               </button>
             )}
             <span className="text-foreground">{task.title}</span>
-            {task.inserted && (
+            {isInsertedTask(task) && (
               <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[10px] px-1 py-0">
                 插队
               </Badge>
@@ -698,7 +721,7 @@ function TaskRowNonDraggable({ task, depth }: { task: Task; depth: number }) {
           <span style={{ paddingLeft: `${depth * 20}px` }}>
             <span className="text-muted-foreground">└ </span>
             <span className="text-foreground">{task.title}</span>
-            {task.inserted && (
+            {isInsertedTask(task) && (
               <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[10px] px-1 py-0">
                 插队
               </Badge>
@@ -767,12 +790,12 @@ function KanbanCard({ task }: { task: Task }) {
     <div
       className={cn(
         'rounded-lg border bg-card p-3',
-        task.inserted ? 'border-destructive/40 border-dashed' : 'border-border',
+        isInsertedTask(task) ? 'border-destructive/40 border-dashed' : 'border-border',
       )}
     >
       <div className="flex items-center gap-1.5">
         <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
-        {task.inserted && (
+        {isInsertedTask(task) && (
           <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[10px] px-1 py-0 shrink-0">
             插队
           </Badge>

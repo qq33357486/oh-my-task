@@ -355,6 +355,7 @@ export default function FlowView({ tasks, lockedAt = null }: FlowViewProps) {
   })
   
   const isLoading = taskQueries.some(q => q.isLoading)
+  const isError = taskQueries.some(q => q.isError)
   const tasksWithChildren = taskQueries
     .map(q => q.data)
     .filter((t): t is TaskWithChildren => t !== undefined)
@@ -413,6 +414,14 @@ export default function FlowView({ tasks, lockedAt = null }: FlowViewProps) {
   
   if (isLoading) {
     return <div className="rounded-lg border border-border bg-card p-4 text-foreground">加载中...</div>
+  }
+
+  if (isError) {
+    return <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">任务详情加载失败</div>
+  }
+
+  if (nodes.length === 0) {
+    return <div className="rounded-lg border border-border bg-card p-4 text-foreground">暂无可展示的任务</div>
   }
   
   return (

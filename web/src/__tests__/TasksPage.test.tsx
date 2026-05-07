@@ -30,14 +30,14 @@ vi.mock('@/api', () => ({
     getVersions: vi.fn().mockResolvedValue([{ id: 'ver-1', project_id: 'proj-1', name: 'v1.0', description: null, start_date: '2026-04-01', due_date: '2026-04-30', locked_at: '2026-04-01', completed_at: '2026-04-15', archived_at: null, sort_order: 0, created_at: '2026-01-01' }]),
     getVersionStats: vi.fn().mockResolvedValue({ totalTasks: 3, doneTasks: 1, startDate: null, plannedDueDate: null, actualDueDate: null, delayDays: 0, deviationDays: 0, insertedTasks: 1, progress: 33 }),
     getTasks: vi.fn().mockResolvedValue([
-      { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务一', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
-      { id: 'task-2', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务二', description: null, status: 'in_progress', estimated_days: 2, start_date: '2026-04-10', due_date: '2026-04-14', actual_start: '2026-04-10', actual_end: null, sort_order: 1, inserted: true, deleted_at: null, created_at: '2026-04-11' },
+      { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务一', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: 0, deleted_at: null, created_at: '2026-01-01' },
+      { id: 'task-2', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务二', description: null, status: 'in_progress', estimated_days: 2, start_date: '2026-04-10', due_date: '2026-04-14', actual_start: '2026-04-10', actual_end: null, sort_order: 1, inserted: 1, deleted_at: null, created_at: '2026-04-11' },
     ]),
     getTask: vi.fn().mockImplementation((id: string) => {
       const tasks = [
-        { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务一', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
-        { id: 'task-2', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务二', description: null, status: 'in_progress', estimated_days: 2, start_date: '2026-04-10', due_date: '2026-04-14', actual_start: '2026-04-10', actual_end: null, sort_order: 1, inserted: true, deleted_at: null, created_at: '2026-04-11' },
-        { id: 'task-3', project_id: 'proj-1', version_id: 'ver-1', parent_id: 'task-1', title: '子任务', description: null, status: 'done', estimated_days: 1, start_date: '2026-04-10', due_date: '2026-04-10', actual_start: '2026-04-10', actual_end: '2026-04-10', sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
+        { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务一', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: 0, deleted_at: null, created_at: '2026-01-01' },
+        { id: 'task-2', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '主任务二', description: null, status: 'in_progress', estimated_days: 2, start_date: '2026-04-10', due_date: '2026-04-14', actual_start: '2026-04-10', actual_end: null, sort_order: 1, inserted: 1, deleted_at: null, created_at: '2026-04-11' },
+        { id: 'task-3', project_id: 'proj-1', version_id: 'ver-1', parent_id: 'task-1', title: '子任务', description: null, status: 'done', estimated_days: 1, start_date: '2026-04-10', due_date: '2026-04-10', actual_start: '2026-04-10', actual_end: '2026-04-10', sort_order: 0, inserted: 0, deleted_at: null, created_at: '2026-01-01' },
       ]
       const task = tasks.find(t => t.id === id)
       if (!task) return Promise.reject(new Error('Not found'))
@@ -62,7 +62,14 @@ vi.mock('@/api', () => ({
 
 // Mock xyflow (FlowView uses it)
 vi.mock('@xyflow/react', () => ({
-  ReactFlow: () => <div data-testid="react-flow">FlowChart</div>,
+  ReactFlow: ({ nodes = [] }: { nodes?: Array<{ id: string; data?: { label?: string } }> }) => (
+    <div data-testid="react-flow">
+      FlowChart
+      {nodes.map((node) => (
+        <span key={node.id}>{node.data?.label}</span>
+      ))}
+    </div>
+  ),
   Background: () => null,
   Controls: () => null,
   BackgroundVariant: { Dots: 'dots' },
@@ -110,6 +117,7 @@ async function waitForPageLoad() {
 describe('TasksPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
   })
 
   describe('VAL-UI-020: 项目选择器', () => {
@@ -205,6 +213,17 @@ describe('TasksPage', () => {
       })
     })
 
+    it('does not render numeric inserted flag after task names', async () => {
+      render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByText('主任务一')).toBeInTheDocument()
+      })
+
+      expect(screen.getByText('主任务一').closest('td')?.textContent).not.toContain('主任务一0')
+      expect(screen.getByText('主任务二').closest('td')?.textContent).not.toContain('主任务二0')
+    })
+
     it('shows correct status labels for 3-status system', async () => {
       render(<TasksPage />, { wrapper: createWrapper() })
 
@@ -293,6 +312,56 @@ describe('TasksPage', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('react-flow')).toBeInTheDocument()
+      })
+    })
+
+    it('displays planned tasks in draft version flow view', async () => {
+      const user = userEvent.setup()
+      vi.mocked(api.getVersions).mockResolvedValueOnce([
+        { id: 'ver-draft', project_id: 'proj-1', name: '草稿版本', description: null, start_date: null, due_date: null, locked_at: null, completed_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01' },
+      ])
+      const draftTasks = [
+        { id: 'draft-task-1', project_id: 'proj-1', version_id: 'ver-draft', parent_id: null, title: '草稿规划任务', description: null, status: 'planned' as const, estimated_days: 1, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
+      ]
+      const draftTaskDetail = {
+        id: 'draft-task-1',
+        project_id: 'proj-1',
+        version_id: 'ver-draft',
+        parent_id: null,
+        title: '草稿规划任务',
+        description: null,
+        status: 'planned' as const,
+        estimated_days: 1,
+        start_date: null,
+        due_date: null,
+        actual_start: null,
+        actual_end: null,
+        sort_order: 0,
+        inserted: false,
+        deleted_at: null,
+        created_at: '2026-01-01',
+        children: [],
+      }
+      vi.mocked(api.getTasks)
+        .mockResolvedValueOnce(draftTasks)
+        .mockResolvedValueOnce(draftTasks)
+        .mockResolvedValueOnce(draftTasks)
+      vi.mocked(api.getTask)
+        .mockResolvedValueOnce(draftTaskDetail)
+        .mockResolvedValueOnce(draftTaskDetail)
+
+      render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(api.getTasks).toHaveBeenCalledWith({ parent_id: null, project_id: 'proj-1', version_id: 'ver-draft' })
+      })
+
+      const flowBtn = screen.getByRole('button', { name: /进度图/ })
+      await user.click(flowBtn)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-flow')).toBeInTheDocument()
+        expect(screen.getByText('草稿规划任务')).toBeInTheDocument()
       })
     })
   })
@@ -397,9 +466,34 @@ describe('TasksPage', () => {
       await waitFor(() => {
         expect(screen.getByText(/任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成/)).toBeInTheDocument()
       })
+      expect(screen.getByRole('button', { name: '关闭 MCP 任务提示' })).toBeInTheDocument()
 
       expect(screen.queryByRole('button', { name: /创建任务/ })).not.toBeInTheDocument()
       expect(screen.queryByPlaceholderText('请输入任务名称')).not.toBeInTheDocument()
+    })
+
+    it('can dismiss MCP guidance banner permanently', async () => {
+      const user = userEvent.setup()
+      const { unmount } = render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByText(/任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成/)).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: '关闭 MCP 任务提示' }))
+
+      await waitFor(() => {
+        expect(screen.queryByText(/任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成/)).not.toBeInTheDocument()
+      })
+      expect(window.localStorage.getItem('omt:mcp-guidance-dismissed')).toBe('true')
+
+      unmount()
+      render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitFor(() => {
+        expect(screen.getByText('任务管理')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/任务创建、拆分、状态更新和排期调整请通过 MCP 与 AI 协作完成/)).not.toBeInTheDocument()
     })
   })
 

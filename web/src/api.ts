@@ -79,7 +79,7 @@ export interface Task {
   actual_start: string | null;
   actual_end: string | null;
   sort_order: number;
-  inserted: boolean;
+  inserted: boolean | number;
   deleted_at: string | null;
   created_at: string;
   children?: Task[];
