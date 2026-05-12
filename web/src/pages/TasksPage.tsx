@@ -51,7 +51,7 @@ function formatDateForInput(date: Date): string {
 }
 
 export default function TasksPage() {
-  const [view, setView] = useState<ViewType>('tree')
+  const [view, setView] = useState<ViewType>('flow')
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [selectedVersion, setSelectedVersion] = useState<string>('')
   const [showDeleteProject, setShowDeleteProject] = useState(false)
@@ -340,7 +340,16 @@ export default function TasksPage() {
       {/* 视图切换 */}
       {effectiveVersion && (
         <>
-          <div className="flex gap-1 mb-4 rounded-lg bg-secondary p-1">
+          <div className="relative z-10 mb-6 flex gap-1 rounded-lg bg-secondary p-1">
+            <button
+              className={cn(
+                'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                view === 'flow' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => setView('flow')}
+            >
+              🔀 进度图
+            </button>
             <button
               className={cn(
                 'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
@@ -358,15 +367,6 @@ export default function TasksPage() {
               onClick={() => setView('kanban')}
             >
               📊 看板
-            </button>
-            <button
-              className={cn(
-                'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                view === 'flow' ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-              onClick={() => setView('flow')}
-            >
-              🔀 进度图
             </button>
           </div>
           {showMcpGuidance && (

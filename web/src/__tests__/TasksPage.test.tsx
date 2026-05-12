@@ -205,7 +205,11 @@ describe('TasksPage', () => {
 
   describe('VAL-UI-022: 树形视图', () => {
     it('displays task names in tree view', async () => {
+      const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         expect(screen.getByText('主任务一')).toBeInTheDocument()
@@ -214,7 +218,11 @@ describe('TasksPage', () => {
     })
 
     it('does not render numeric inserted flag after task names', async () => {
+      const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         expect(screen.getByText('主任务一')).toBeInTheDocument()
@@ -225,7 +233,11 @@ describe('TasksPage', () => {
     })
 
     it('shows correct status labels for 3-status system', async () => {
+      const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         // planned and in_progress from top-level tasks
@@ -241,6 +253,9 @@ describe('TasksPage', () => {
     it('can expand and collapse subtasks', async () => {
       const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         expect(screen.getByText('主任务一')).toBeInTheDocument()
@@ -300,23 +315,26 @@ describe('TasksPage', () => {
   })
 
   describe('VAL-UI-024: 流程图视图', () => {
-    it('displays flow chart view', async () => {
-      const user = userEvent.setup()
+    it('displays flow chart view by default', async () => {
       render(<TasksPage />, { wrapper: createWrapper() })
 
       await waitForPageLoad()
-
-      // Switch to flow view
-      const flowBtn = screen.getByRole('button', { name: /进度图/ })
-      await user.click(flowBtn)
 
       await waitFor(() => {
         expect(screen.getByTestId('react-flow')).toBeInTheDocument()
       })
     })
 
+    it('orders view switcher as progress, list, kanban', async () => {
+      render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+
+      const buttons = screen.getAllByRole('button', { name: /进度图|列表|看板/ })
+      expect(buttons.map((button) => button.textContent?.trim())).toEqual(['🔀 进度图', '📋 列表', '📊 看板'])
+    })
+
     it('displays planned tasks in draft version flow view', async () => {
-      const user = userEvent.setup()
       vi.mocked(api.getVersions).mockResolvedValueOnce([
         { id: 'ver-draft', project_id: 'proj-1', name: '草稿版本', description: null, start_date: null, due_date: null, locked_at: null, completed_at: null, archived_at: null, sort_order: 0, created_at: '2026-01-01' },
       ])
@@ -356,9 +374,6 @@ describe('TasksPage', () => {
         expect(api.getTasks).toHaveBeenCalledWith({ parent_id: null, project_id: 'proj-1', version_id: 'ver-draft' })
       })
 
-      const flowBtn = screen.getByRole('button', { name: /进度图/ })
-      await user.click(flowBtn)
-
       await waitFor(() => {
         expect(screen.getByTestId('react-flow')).toBeInTheDocument()
         expect(screen.getByText('草稿规划任务')).toBeInTheDocument()
@@ -386,7 +401,11 @@ describe('TasksPage', () => {
 
   describe('VAL-UI-026: 插队任务特殊标记', () => {
     it('marks inserted tasks with special label in tree view', async () => {
+      const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         expect(screen.getByText('主任务二')).toBeInTheDocument()
@@ -503,7 +522,11 @@ describe('TasksPage', () => {
         { id: 'task-1', project_id: 'proj-1', version_id: 'ver-1', parent_id: null, title: '<script>alert("xss")</script>任务', description: null, status: 'planned', estimated_days: 3, start_date: null, due_date: null, actual_start: null, actual_end: null, sort_order: 0, inserted: false, deleted_at: null, created_at: '2026-01-01' },
       ])
 
+      const user = userEvent.setup()
       render(<TasksPage />, { wrapper: createWrapper() })
+
+      await waitForPageLoad()
+      await user.click(screen.getByRole('button', { name: /列表/ }))
 
       await waitFor(() => {
         // React automatically escapes HTML in text content, so <script> becomes text
