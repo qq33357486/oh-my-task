@@ -1,6 +1,6 @@
 # oh-my-task
 
-A lightweight task management system for individuals, small teams, and AI agents. Manage projects, versions, tasks, schedules, REST APIs, and MCP collaboration from one place.
+A lightweight task manager for individuals and AI agents. Its core workflow is managing personal tasks through AI + MCP, rather than treating drag-and-drop Web operations as the primary interface.
 
 **Public service**: [https://task.duojie.games](https://task.duojie.games)<br>
 **Self-hosting**: start with one Docker command and keep your data in your own SQLite database.
@@ -9,12 +9,13 @@ A lightweight task management system for individuals, small teams, and AI agents
 
 ## Why oh-my-task
 
-- **Built for real project delivery**: organize work by project, version, parent task, and subtask.
+- **Personal-first task management**: each person manages their own projects, versions, parent tasks, and subtasks; this is not a team collaboration suite.
 - **Clear version lifecycle**: create → start/lock → complete → archive.
 - **Smart scheduling**: calculate task dates from estimated days while skipping weekends and Chinese public holidays.
-- **AI-agent friendly**: REST API and MCP tools let assistants create, query, activate, and complete tasks.
+- **AI interaction first**: REST API and MCP tools let assistants create, query, activate, and complete tasks.
+- **Web as a supporting view**: the Web UI helps you inspect task state, version progress, schedules, and Token configuration.
 - **Public service or self-hosted**: use `task.duojie.games` directly, or deploy to your own server.
-- **Admin-ready**: Session login, Bearer Token access, user management, system configuration, and analytics dashboard.
+- **Extend team features yourself**: if you need team workflows, organization permissions, or multi-user collaboration, customize the open-source project for that use case.
 
 ## Use the Public Service
 
@@ -22,7 +23,7 @@ A lightweight task management system for individuals, small teams, and AI agents
 2. Register an account and create your first project.
 3. Create versions and tasks, or create a Token in Settings and connect through MCP.
 
-The public service is best for quick starts, personal projects, and lightweight team collaboration. If you need full data control, use the Docker self-hosting path below.
+The public service is best for quick starts and personal project management. If you need full data control, use the Docker self-hosting path below. If you need team features, extend the project yourself.
 
 ## Preview
 
@@ -188,7 +189,7 @@ Auto schedule tasks in v1.0, starting from next Monday
 
 - Backend: Express.js + TypeScript + SQLite
 - Frontend: React 19 + Vite + TanStack Query + Tailwind CSS 4
-- AI collaboration: REST API + MCP stdio server
+- AI interaction: REST API + MCP stdio server
 - Deployment: Docker / unified Node.js service
 
 ## Links
