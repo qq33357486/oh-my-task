@@ -178,6 +178,62 @@
   .guide-step-card {
     transform: translateZ(0);
   }
+
+  .achievement-toast {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    z-index: 60;
+    width: min(26rem, calc(100vw - 2rem));
+    overflow: hidden;
+    border: 1px solid rgba(74, 222, 128, 0.46);
+    border-radius: 1.25rem;
+    background:
+      linear-gradient(135deg, rgba(34, 197, 94, 0.18), transparent 38%),
+      rgba(2, 6, 23, 0.94);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    padding: 1rem;
+    backdrop-filter: blur(18px);
+    animation: achievement-toast-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both,
+      achievement-toast-out 420ms ease 4.6s forwards;
+  }
+
+  .achievement-toast::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.22), transparent);
+    transform: translateX(-110%);
+    animation: achievement-scan 1.8s ease 260ms both;
+    pointer-events: none;
+  }
+
+  .achievement-confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .achievement-confetti span {
+    position: absolute;
+    width: 0.42rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    background: var(--confetti-color);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55) rotate(0deg);
+    animation: achievement-confetti-pop 900ms ease-out forwards;
+  }
+
+  @media (max-width: 640px) {
+    .achievement-toast {
+      right: 1rem;
+      bottom: 1rem;
+      left: 1rem;
+      width: auto;
+    }
+  }
 }
 
 @keyframes omt-float {
@@ -212,11 +268,57 @@
   }
 }
 
+@keyframes achievement-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes achievement-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+@keyframes achievement-scan {
+  to {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes achievement-confetti-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--confetti-x)),
+        calc(-50% + var(--confetti-y))
+      )
+      scale(1)
+      rotate(190deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .omt-reveal,
   .omt-reveal.is-visible,
   .hero-shot,
-  .hero-shot::after {
+  .hero-shot::after,
+  .achievement-toast,
+  .achievement-toast::before,
+  .achievement-confetti span {
     animation: none;
     opacity: 1;
     transform: none;

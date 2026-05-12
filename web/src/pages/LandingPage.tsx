@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LockKeyhole,
   Sparkles,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -95,6 +96,39 @@ const guideSteps = [
     tools: ['complete_task', 'complete_version', 'create_version'],
     result: '版本进入完成状态；你可以归档旧版本，继续规划下一阶段。',
   },
+]
+
+const ACHIEVEMENT_STORAGE_KEY = 'oh-my-task-landing-achievement-seen'
+
+function readAchievementSeen() {
+  if (typeof window === 'undefined') return false
+
+  try {
+    return window.localStorage.getItem(ACHIEVEMENT_STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function markAchievementSeen() {
+  try {
+    window.localStorage.setItem(ACHIEVEMENT_STORAGE_KEY, 'true')
+  } catch {
+    // 成就提示只是演示反馈，存储失败时不影响页面使用。
+  }
+}
+
+const confettiPieces = [
+  { left: '12%', top: '44%', x: '-64px', y: '-42px', color: '#22c55e', delay: '0ms' },
+  { left: '22%', top: '28%', x: '-38px', y: '-74px', color: '#38bdf8', delay: '30ms' },
+  { left: '36%', top: '18%', x: '-12px', y: '-88px', color: '#facc15', delay: '60ms' },
+  { left: '50%', top: '16%', x: '18px', y: '-82px', color: '#a78bfa', delay: '90ms' },
+  { left: '64%', top: '22%', x: '44px', y: '-70px', color: '#fb7185', delay: '120ms' },
+  { left: '78%', top: '38%', x: '68px', y: '-46px', color: '#34d399', delay: '150ms' },
+  { left: '18%', top: '66%', x: '-54px', y: '34px', color: '#60a5fa', delay: '180ms' },
+  { left: '38%', top: '74%', x: '-18px', y: '52px', color: '#f97316', delay: '210ms' },
+  { left: '58%', top: '72%', x: '24px', y: '48px', color: '#bef264', delay: '240ms' },
+  { left: '82%', top: '60%', x: '62px', y: '28px', color: '#f472b6', delay: '270ms' },
 ]
 
 function Reveal({
@@ -227,9 +261,51 @@ function AnimatedWorkflow() {
 
 function UsageGuide() {
   const [activeIndex, setActiveIndex] = useState(0)
+  const [hasSeenAchievement, setHasSeenAchievement] = useState(readAchievementSeen)
+  const [showAchievement, setShowAchievement] = useState(false)
+  const achievementTimerRef = useRef<number | undefined>(undefined)
+  const hideAchievementTimerRef = useRef<number | undefined>(undefined)
   const activeStep = guideSteps[activeIndex]
   const groups = [...new Set(guideSteps.map((step) => step.group))]
   const progress = ((activeIndex + 1) / guideSteps.length) * 100
+
+  useEffect(() => {
+    return () => {
+      if (achievementTimerRef.current) window.clearTimeout(achievementTimerRef.current)
+      if (hideAchievementTimerRef.current) window.clearTimeout(hideAchievementTimerRef.current)
+    }
+  }, [])
+
+  const triggerAchievement = () => {
+    if (hasSeenAchievement) return
+
+    if (achievementTimerRef.current) window.clearTimeout(achievementTimerRef.current)
+    if (hideAchievementTimerRef.current) window.clearTimeout(hideAchievementTimerRef.current)
+
+    achievementTimerRef.current = window.setTimeout(() => {
+      markAchievementSeen()
+      setHasSeenAchievement(true)
+      setShowAchievement(true)
+
+      hideAchievementTimerRef.current = window.setTimeout(() => {
+        setShowAchievement(false)
+      }, 5000)
+    }, 2000)
+  }
+
+  const handleSelectStep = (index: number) => {
+    setActiveIndex(index)
+
+    if (index === guideSteps.length - 1) {
+      triggerAchievement()
+      return
+    }
+
+    if (achievementTimerRef.current) {
+      window.clearTimeout(achievementTimerRef.current)
+      achievementTimerRef.current = undefined
+    }
+  }
 
   const copyPrompt = async (prompt: string) => {
     try {
@@ -282,7 +358,7 @@ function UsageGuide() {
                       <button
                         key={group}
                         type="button"
-                        onClick={() => setActiveIndex(firstIndex)}
+                        onClick={() => handleSelectStep(firstIndex)}
                         className={cn(
                           'rounded-full px-3 py-1.5 text-sm font-semibold transition',
                           isActive
@@ -301,7 +377,7 @@ function UsageGuide() {
                     <button
                       key={`${step.group}-${step.title}`}
                       type="button"
-                      onClick={() => setActiveIndex(index)}
+                      onClick={() => handleSelectStep(index)}
                       className={cn(
                         'guide-step-card grid min-w-0 grid-cols-[auto_1fr] gap-3 rounded-2xl border p-4 text-left transition',
                         index === activeIndex
@@ -397,6 +473,39 @@ function UsageGuide() {
             </div>
           </div>
         </Reveal>
+        {showAchievement && (
+          <div className="achievement-toast" role="status" aria-live="polite">
+            <div className="achievement-confetti" aria-hidden="true">
+              {confettiPieces.map((piece, index) => (
+                <span
+                  key={`${piece.left}-${piece.top}-${index}`}
+                  style={{
+                    left: piece.left,
+                    top: piece.top,
+                    '--confetti-x': piece.x,
+                    '--confetti-y': piece.y,
+                    '--confetti-color': piece.color,
+                    animationDelay: piece.delay,
+                  } as CSSProperties}
+                />
+              ))}
+            </div>
+            <div className="relative z-10 flex items-center gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-400/35">
+                <Trophy className="size-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                  成就已解锁
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">个人任务流入门</p>
+                <p className="mt-1 text-sm leading-6 text-slate-300">
+                  你已经学会用 AI + MCP 完成一次任务闭环。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
