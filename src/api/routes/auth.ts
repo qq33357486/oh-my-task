@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { createUser, loginUser, getUserById, toPublicUser, changePassword, generateResetToken, resetPassword, sendEmailCode, verifyEmailCode } from '../../services/user.service.js';
+import { createUser, loginUser, getUserById, toPublicUser, changePassword, sendPasswordResetCode, resetPassword, sendEmailCode, verifyEmailCode } from '../../services/user.service.js';
 import { isRegistrationEnabled } from '../../services/config.service.js';
 import { ensureDefaultToken } from '../../services/token.service.js';
 import { getDb } from '../../db/connection.js';
@@ -217,15 +217,11 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return;
     }
 
-    const resetToken = generateResetToken(email);
-    
-    if (resetToken) {
-      console.log(`[Password Reset] Token for ${email}: ${resetToken}`);
-    }
+    await sendPasswordResetCode(email);
 
     res.json({ 
       success: true, 
-      message: '如果该邮箱已注册，您将收到密码重置邮件' 
+      message: '如果该邮箱已注册，您将收到密码重置验证码' 
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : '请求失败';
@@ -235,13 +231,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
 router.post('/reset-password', async (req: Request, res: Response) => {
   try {
-    const { token, new_password } = req.body;
-    if (!token || !new_password) {
+    const { email, code, new_password } = req.body;
+    if (!email || !code || !new_password) {
       res.status(400).json({ success: false, error: '缺少必填字段' });
       return;
     }
 
-    await resetPassword({ token, newPassword: new_password });
+    await resetPassword({ email, code, newPassword: new_password });
 
     res.json({ success: true, message: '密码重置成功，请使用新密码登录' });
   } catch (error) {

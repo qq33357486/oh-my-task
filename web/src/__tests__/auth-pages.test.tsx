@@ -309,24 +309,23 @@ describe('ForgotPasswordPage', () => {
   it('renders forgot password form', async () => {
     render(<ForgotPasswordPage />, { wrapper: createWrapper() })
 
-    // The title contains emoji, use a partial match
     expect(screen.getByText(/忘记密码/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '发送重置链接' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '发送验证码' })).toBeInTheDocument()
     expect(screen.getByText('返回登录')).toBeInTheDocument()
   })
 
-  it('shows success message after submission (VAL-UI-007)', async () => {
+  it('moves to code and password step after sending code', async () => {
     vi.mocked(authApi.forgotPassword).mockResolvedValue(undefined)
 
     render(<ForgotPasswordPage />, { wrapper: createWrapper() })
 
     await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
-    await userEvent.click(screen.getByRole('button', { name: '发送重置链接' }))
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
 
     await waitFor(() => {
-      // After success, page shows "📧 邮件已发送" title
-      expect(screen.getByText(/邮件已发送/)).toBeInTheDocument()
-      expect(screen.getByText(/如果该邮箱已注册/)).toBeInTheDocument()
+      expect(screen.getByText(/验证码已发送至 test@test.com/)).toBeInTheDocument()
+      expect(screen.getByLabelText('验证码')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('至少8位，含大小写字母和数字')).toBeInTheDocument()
     })
   })
 
@@ -336,10 +335,76 @@ describe('ForgotPasswordPage', () => {
     render(<ForgotPasswordPage />, { wrapper: createWrapper() })
 
     await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
-    await userEvent.click(screen.getByRole('button', { name: '发送重置链接' }))
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
 
     await waitFor(() => {
       expect(screen.getByText('请求失败')).toBeInTheDocument()
+    })
+  })
+
+  it('resets password with email code and navigates to login', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.mocked(authApi.forgotPassword).mockResolvedValue(undefined)
+    vi.mocked(authApi.resetPassword).mockResolvedValue(undefined)
+
+    render(<ForgotPasswordPage />, { wrapper: createWrapper() })
+
+    await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+
+    await userEvent.type(await screen.findByLabelText('验证码'), '123456')
+    await userEvent.type(screen.getByPlaceholderText('至少8位，含大小写字母和数字'), 'Password1')
+    await userEvent.type(screen.getByPlaceholderText('再次输入新密码'), 'Password1')
+    await userEvent.click(screen.getByRole('button', { name: '重置密码' }))
+
+    await waitFor(() => {
+      expect(authApi.resetPassword).toHaveBeenCalledWith('test@test.com', '123456', 'Password1')
+      expect(screen.getByText(/密码已重置/)).toBeInTheDocument()
+    })
+
+    vi.advanceTimersByTime(3000)
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/login')
+    })
+
+    vi.useRealTimers()
+  })
+
+  it('shows error when reset passwords do not match', async () => {
+    vi.mocked(authApi.forgotPassword).mockResolvedValue(undefined)
+
+    render(<ForgotPasswordPage />, { wrapper: createWrapper() })
+
+    await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+
+    await userEvent.type(await screen.findByLabelText('验证码'), '123456')
+    await userEvent.type(screen.getByPlaceholderText('至少8位，含大小写字母和数字'), 'Password1')
+    await userEvent.type(screen.getByPlaceholderText('再次输入新密码'), 'Password2')
+    await userEvent.click(screen.getByRole('button', { name: '重置密码' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('两次输入的密码不一致')).toBeInTheDocument()
+    })
+  })
+
+  it('shows reset API error', async () => {
+    vi.mocked(authApi.forgotPassword).mockResolvedValue(undefined)
+    vi.mocked(authApi.resetPassword).mockRejectedValue(new Error('验证码错误或已过期'))
+
+    render(<ForgotPasswordPage />, { wrapper: createWrapper() })
+
+    await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+
+    await userEvent.type(await screen.findByLabelText('验证码'), '000000')
+    await userEvent.type(screen.getByPlaceholderText('至少8位，含大小写字母和数字'), 'Password1')
+    await userEvent.type(screen.getByPlaceholderText('再次输入新密码'), 'Password1')
+    await userEvent.click(screen.getByRole('button', { name: '重置密码' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('验证码错误或已过期')).toBeInTheDocument()
     })
   })
 })
@@ -354,79 +419,11 @@ describe('ResetPasswordPage', () => {
     window.history.pushState({}, '', '/')
   })
 
-  it('shows invalid link message when no token provided', async () => {
-    // No token in URL — render at /
+  it('shows code flow guidance', async () => {
     render(<ResetPasswordPage />, { wrapper: createWrapper() })
 
-    await waitFor(() => {
-      expect(screen.getByText('❌ 链接无效')).toBeInTheDocument()
-    })
-  })
-
-  it('renders reset password form with valid token (VAL-UI-008)', async () => {
-    window.history.pushState({}, '', '/reset-password?token=valid-token')
-
-    render(<ResetPasswordPage />, { wrapper: createWrapper() })
-
-    expect(screen.getByText('🔐 重置密码')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('至少8位，含大小写字母和数字')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('再次输入新密码')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '重置密码' })).toBeInTheDocument()
-  })
-
-  it('can toggle reset password visibility', async () => {
-    window.history.pushState({}, '', '/reset-password?token=valid-token')
-
-    render(<ResetPasswordPage />, { wrapper: createWrapper() })
-
-    const newPwdInput = screen.getByPlaceholderText('至少8位，含大小写字母和数字') as HTMLInputElement
-    expect(newPwdInput.type).toBe('password')
-
-    await userEvent.click(screen.getAllByRole('button', { name: '显示密码' })[0])
-    expect(newPwdInput.type).toBe('text')
-  })
-
-  it('shows success and navigates to login after reset (VAL-UI-008)', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    vi.mocked(authApi.resetPassword).mockResolvedValue(undefined)
-
-    window.history.pushState({}, '', '/reset-password?token=valid-token')
-
-    render(<ResetPasswordPage />, { wrapper: createWrapper() })
-
-    const newPwdInput = screen.getByPlaceholderText('至少8位，含大小写字母和数字')
-    const confirmPwdInput = screen.getByPlaceholderText('再次输入新密码')
-
-    await userEvent.type(newPwdInput, 'Password1')
-    await userEvent.type(confirmPwdInput, 'Password1')
-    await userEvent.click(screen.getByRole('button', { name: '重置密码' }))
-
-    await waitFor(() => {
-      expect(screen.getByText(/密码已重置/)).toBeInTheDocument()
-    })
-
-    vi.advanceTimersByTime(3000)
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/login')
-    })
-
-    vi.useRealTimers()
-  })
-
-  it('shows password requirements checklist', async () => {
-    window.history.pushState({}, '', '/reset-password?token=valid-token')
-
-    render(<ResetPasswordPage />, { wrapper: createWrapper() })
-
-    // Type a weak password - checklist should show
-    await userEvent.type(screen.getByPlaceholderText('至少8位，含大小写字母和数字'), 'abc')
-
-    await waitFor(() => {
-      expect(screen.getByText(/至少8个字符/)).toBeInTheDocument()
-      expect(screen.getByText(/包含大写字母/)).toBeInTheDocument()
-      expect(screen.getByText(/包含小写字母/)).toBeInTheDocument()
-      expect(screen.getByText(/包含数字/)).toBeInTheDocument()
-    })
+    expect(screen.getByText('请重新获取验证码')).toBeInTheDocument()
+    expect(screen.getByText('密码重置已改为邮箱验证码流程。')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '获取验证码' })).toHaveAttribute('href', '/forgot-password')
   })
 })

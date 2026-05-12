@@ -68,7 +68,8 @@ export interface ChangePasswordParams {
 }
 
 export interface ResetPasswordParams {
-  token: string;
+  email: string;
+  code: string;
   newPassword: string;
 }
 
@@ -229,43 +230,53 @@ export async function changePassword(params: ChangePasswordParams): Promise<bool
 /**
  * 生成密码重置令牌
  */
-export function generateResetToken(email: string): string | null {
+export async function sendPasswordResetCode(email: string): Promise<boolean> {
+  if (!validateEmail(email)) {
+    throw new Error('邮箱格式无效');
+  }
+
   const db = getDb();
   const normalizedEmail = normalizeEmail(email);
   
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as User | undefined;
   if (!user) {
-    return null;
+    return false;
   }
 
-  const resetToken = uuidv4();
-  const expiresAt = new Date(Date.now() + 3600000).toISOString();
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
   db.prepare(`
     UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?
-  `).run(resetToken, expiresAt, user.id);
+  `).run(code, expiresAt, user.id);
 
-  return resetToken;
+  await sendEmail(
+    normalizedEmail,
+    '密码重置验证码 - oh-my-task',
+    `您的密码重置验证码是：${code}\n验证码 5 分钟内有效，请勿泄露给他人。`
+  );
+
+  return true;
 }
 
 /**
  * 使用重置令牌重置密码
  */
 export async function resetPassword(params: ResetPasswordParams): Promise<boolean> {
-  const { token, newPassword } = params;
+  const { email, code, newPassword } = params;
   const db = getDb();
+  const normalizedEmail = normalizeEmail(email);
 
   const user = db.prepare(`
-    SELECT * FROM users WHERE reset_token = ?
-  `).get(token) as User | undefined;
+    SELECT * FROM users WHERE email = ?
+  `).get(normalizedEmail) as User | undefined;
 
-  if (!user) {
-    throw new Error('重置令牌无效或已过期');
+  if (!user || !user.reset_token || user.reset_token !== code) {
+    throw new Error('验证码错误或已过期');
   }
 
-  // 检查 token 是否过期（使用 JavaScript Date 比较，避免 SQLite 字符串格式差异）
   if (!user.reset_token_expires || new Date(user.reset_token_expires) <= new Date()) {
-    throw new Error('重置令牌无效或已过期');
+    throw new Error('验证码错误或已过期');
   }
 
   const passwordCheck = validatePasswordStrength(newPassword);

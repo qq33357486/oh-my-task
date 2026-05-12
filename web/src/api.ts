@@ -155,10 +155,10 @@ export const authApi = {
     }),
 
   // 重置密码
-  resetPassword: (token: string, newPassword: string) =>
+  resetPassword: (email: string, code: string, newPassword: string) =>
     fetchApi<void>('/api/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, new_password: newPassword }),
+      body: JSON.stringify({ email, code, new_password: newPassword }),
     }),
 
   // 查询注册是否开启（公开接口）
