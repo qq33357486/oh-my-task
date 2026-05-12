@@ -1,21 +1,38 @@
 # oh-my-task
 
-AI 驱动的任务管理，支持版本生命周期、智能排期、MCP 集成。
+面向个人、小团队和 AI Agent 的轻量任务管理系统。用一个统一入口管理项目、版本、任务、排期、REST API 和 MCP 协作。
 
-## 功能特性
+**公共服务**：[https://task.duojie.games](https://task.duojie.games)<br>
+**自托管**：Docker 一条命令启动，数据保存在你自己的 SQLite 文件中。
 
-- **版本管理** — 创建 → 启动/锁定 → 完成 → 归档，清晰的生命周期
-- **智能排期** — 自动跳过周末和中国法定节假日
-- **MCP 集成** — 11 个工具，AI 助手直接管理任务
-- **管理后台** — 统计面板、用户管理、系统配置
-- **权限体系** — 首位用户自动成为管理员，Session + Bearer Token 双认证
-- **Docker 部署** — 零配置一键启动
+![oh-my-task 官网首页](web/public/marketing/landing-page.png)
 
-## 快速开始
+## 为什么使用 oh-my-task
 
-### Docker（推荐）
+- **适合真实项目推进**：按项目、版本、主任务、子任务组织工作，不只是普通 TODO。
+- **版本生命周期清晰**：创建 → 启动/锁定 → 完成 → 归档，适合阶段性交付。
+- **智能排期**：根据预计天数自动计算排期，并跳过周末和中国法定节假日。
+- **AI 协作友好**：提供 REST API 和 MCP 工具，AI 助手可以直接创建、查询、推进和完成任务。
+- **公共服务与自托管并存**：可以直接使用 `task.duojie.games`，也可以部署到自己的服务器。
+- **权限与后台**：支持 Session 登录、Bearer Token、用户管理、系统配置和统计面板。
 
-**一键启动**：
+## 直接使用公共服务
+
+1. 打开 [task.duojie.games](https://task.duojie.games)。
+2. 注册账号并创建项目。
+3. 创建版本和任务，或在设置页创建 Token 后接入 MCP。
+
+公共服务适合快速开始、个人项目和轻量团队协作。如果你需要完全掌控数据，可以使用下面的 Docker 自托管方式。
+
+## 页面预览
+
+![oh-my-task 任务工作区](web/public/marketing/app-overview.svg)
+
+![oh-my-task MCP 配置](web/public/marketing/mcp-settings.svg)
+
+## Docker 自托管
+
+一条命令启动：
 
 ```bash
 docker run -d --name oh-my-task \
@@ -24,7 +41,7 @@ docker run -d --name oh-my-task \
   ghcr.io/qq33357486/oh-my-task:latest
 ```
 
-**使用 docker-compose**：
+使用 `docker-compose.yml`：
 
 ```yaml
 services:
@@ -45,16 +62,16 @@ services:
 docker compose up -d
 ```
 
-Docker 部署时，访问 http://localhost:17173 打开 Web 界面，首位注册用户自动成为管理员。
+访问 `http://localhost:17173` 打开 Web 界面。空库初始化时，首位注册用户会自动成为管理员。
 
-### 本地运行（统一端口）
+## 本地开发
 
 ```bash
 # 安装依赖
 npm install
 cd web && npm install && cd ..
 
-# 构建前后端
+# 构建后端和前端
 npm run build
 cd web && npm run build && cd ..
 
@@ -68,26 +85,20 @@ PowerShell：
 $env:WEB_DIST_PATH = "web/dist"; $env:API_PORT = "17173"; npm start
 ```
 
-访问 http://localhost:17173 打开 Web 界面，API 与 MCP 也使用同一地址。
-
-### 前端热更新调试（可选）
+开发时也可以分别启动后端和 Vite：
 
 ```bash
 npm run dev
 cd web && npm run dev
 ```
 
-Vite 调试端口 `http://localhost:5173` 仅用于前端热更新，并通过代理访问 `http://localhost:17173` 的 API；正式使用、Docker 和功能 QA 都使用统一端口 `17173`。
+Vite 的 `http://localhost:5173` 仅用于前端热更新调试；正式入口、Docker 和功能 QA 都使用统一端口 `17173`。
 
 ## 配置 MCP
 
-**获取 Token**：Web 界面 → 右上角 → 设置 → 创建 Token
+在 Web 设置页创建 Token：右上角 → 设置 → 创建 Token。
 
-oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在**项目级**（如 `.cursor/mcp.json`、`.claude/mcp.json`），而非全局配置。这样每个项目使用各自的项目名，AI 工具自动定位到正确的任务空间。
-
-**项目级配置（推荐）**：
-
-在项目根目录创建 `.cursor/mcp.json` 或 `.claude/mcp.json`：
+oh-my-task 通过**项目名称**区分不同任务空间，推荐把 MCP 配置放在项目级文件中，例如 `.cursor/mcp.json` 或 `.claude/mcp.json`。
 
 ```json
 {
@@ -96,8 +107,8 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
       "command": "npx",
       "args": ["@qq33357486/oh-my-task"],
       "env": {
-        "OMT_SERVER_URL": "http://localhost:17173",
-        "OMT_TOKEN": "你的Token",
+        "OMT_SERVER_URL": "https://task.duojie.games",
+        "OMT_TOKEN": "你的 Token",
         "OMT_PROJECT_NAME": "当前项目名称"
       }
     }
@@ -105,57 +116,39 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
 }
 ```
 
-**全局配置**（所有项目共用同一任务空间，不推荐）：
+如果使用本地 Docker 服务，把 `OMT_SERVER_URL` 改为：
 
-```json
-{
-  "mcpServers": {
-    "oh-my-task": {
-      "command": "npx",
-      "args": ["@qq33357486/oh-my-task"],
-      "env": {
-        "OMT_SERVER_URL": "http://localhost:17173",
-        "OMT_TOKEN": "你的Token",
-        "OMT_PROJECT_NAME": "项目名称"
-      }
-    }
-  }
-}
+```text
+http://localhost:17173
 ```
 
-### MCP 工具列表
+### MCP 工具
 
 | 工具 | 说明 |
-|------|------|
+| --- | --- |
 | `init_project` | 初始化项目 |
 | `create_task` | 创建任务 |
 | `list_tasks` | 列出任务 |
 | `get_task` | 获取任务详情 |
-| `activate_task` | 开始任务（状态 → 进行中） |
-| `complete_task` | 完成任务（状态 → 已完成） |
+| `activate_task` | 开始任务 |
+| `complete_task` | 完成任务 |
 | `delete_task` | 删除任务 |
 | `create_version` | 创建版本 |
 | `list_versions` | 列出版本 |
 | `get_current_task` | 获取当前进行中的主任务及子任务 |
-| `auto_schedule` | 自动排期（跳过节假日） |
+| `auto_schedule` | 自动排期并跳过节假日 |
 
-## 使用场景
+## 常见使用方式
 
-### 1. 创建版本
+创建版本：
 
-```
+```text
 创建版本 v1.0：用户系统
 ```
 
-### 2. 创建任务
+批量创建任务：
 
-```
-在 v1.0 下创建任务：用户登录功能
-```
-
-### 3. 批量创建
-
-```
+```text
 在 v1.0 下批量创建任务：
 - 用户登录
   - 登录表单
@@ -164,56 +157,42 @@ oh-my-task 通过**项目名称**来区分不同项目，建议将 MCP 配置在
   - 列表页面
 ```
 
-### 4. 开始任务
+推进任务：
 
-```
+```text
 开始做「用户登录功能」
-```
-
-任务状态变为进行中。
-
-### 5. 完成任务
-
-```
 「用户登录功能」做完了
-```
-
-### 6. 版本生命周期
-
-```
-启动版本 v1.0    → 锁定版本，不能再添加任务
-完成版本 v1.0    → 所有任务完成
-归档版本 v1.0    → 移入归档
-```
-
-### 7. 查看当前任务
-
-```
 当前在做什么？
 ```
 
-返回当前项目正在进行的主任务及其子任务列表。
+自动排期：
 
-### 8. 自动排期
-
-```
+```text
 给 v1.0 的任务自动排期，从下周一开始
 ```
-
-自动跳过周末和中国法定节假日。
 
 ## 环境变量
 
 | 变量 | 说明 | 默认值 |
-|------|------|--------|
+| --- | --- | --- |
 | `API_PORT` | Web/API 统一服务端口 | `17173` |
 | `DB_PATH` | SQLite 数据库路径 | `./data/data.db` |
 | `WEB_DIST_PATH` | 前端构建产物目录 | `web/dist` |
-| `OMT_SERVER_URL` | API 地址（MCP 用） | `http://localhost:17173` |
-| `OMT_TOKEN` | MCP Bearer Token | 无 |
-| `OMT_PROJECT_NAME` | MCP 默认项目名称 | 无 |
+| `FRONTEND_URL` | Vite 调试模式 CORS origin | `http://localhost:5173` |
+| `SESSION_SECRET` | Session 密钥 | `omt-session-secret-change-in-production` |
+| `OMT_SERVER_URL` | MCP/API 服务地址 | `http://localhost:17173` |
+| `OMT_TOKEN` | MCP Bearer Token | 空 |
+| `OMT_PROJECT_NAME` | MCP 默认项目名称 | 空 |
 
-## 更多
+## 技术栈
 
-- [英文版](README_EN.md)
-- [GitHub](https://github.com/qq33357486/oh-my-task)
+- 后端：Express.js + TypeScript + SQLite
+- 前端：React 19 + Vite + TanStack Query + Tailwind CSS 4
+- AI 协作：REST API + MCP stdio server
+- 部署：Docker / Node.js 统一服务入口
+
+## 链接
+
+- 公共服务：[https://task.duojie.games](https://task.duojie.games)
+- 英文版：[README_EN.md](README_EN.md)
+- GitHub：[https://github.com/qq33357486/oh-my-task](https://github.com/qq33357486/oh-my-task)

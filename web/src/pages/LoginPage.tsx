@@ -29,7 +29,7 @@ export default function LoginPage() {
     clearError();
     const result = await login(email, password);
     if (result.success) {
-      navigate('/');
+      navigate('/app');
     }
   };
 

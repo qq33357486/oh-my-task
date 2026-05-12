@@ -1,21 +1,38 @@
 # oh-my-task
 
-AI-driven task management with version lifecycle, smart scheduling, and MCP integration.
+A lightweight task management system for individuals, small teams, and AI agents. Manage projects, versions, tasks, schedules, REST APIs, and MCP collaboration from one place.
 
-## Features
+**Public service**: [https://task.duojie.games](https://task.duojie.games)<br>
+**Self-hosting**: start with one Docker command and keep your data in your own SQLite database.
 
-- **Version Management** — Create → Start/Lock → Complete → Archive, a clear lifecycle
-- **Smart Scheduling** — Automatically skips weekends and Chinese public holidays
-- **MCP Integration** — 11 tools for AI assistants to manage tasks directly
-- **Admin Dashboard** — Statistics panel, user management, system configuration
-- **Permission System** — First registered user becomes admin automatically, Session + Bearer Token dual authentication
-- **Docker Deployment** — Zero-config one-click startup
+![oh-my-task landing page](web/public/marketing/landing-page.png)
 
-## Quick Start
+## Why oh-my-task
 
-### Docker (Recommended)
+- **Built for real project delivery**: organize work by project, version, parent task, and subtask.
+- **Clear version lifecycle**: create → start/lock → complete → archive.
+- **Smart scheduling**: calculate task dates from estimated days while skipping weekends and Chinese public holidays.
+- **AI-agent friendly**: REST API and MCP tools let assistants create, query, activate, and complete tasks.
+- **Public service or self-hosted**: use `task.duojie.games` directly, or deploy to your own server.
+- **Admin-ready**: Session login, Bearer Token access, user management, system configuration, and analytics dashboard.
 
-**One-click start**:
+## Use the Public Service
+
+1. Open [task.duojie.games](https://task.duojie.games).
+2. Register an account and create your first project.
+3. Create versions and tasks, or create a Token in Settings and connect through MCP.
+
+The public service is best for quick starts, personal projects, and lightweight team collaboration. If you need full data control, use the Docker self-hosting path below.
+
+## Preview
+
+![oh-my-task task workspace](web/public/marketing/app-overview.svg)
+
+![oh-my-task MCP settings](web/public/marketing/mcp-settings.svg)
+
+## Docker Self-hosting
+
+Start with one command:
 
 ```bash
 docker run -d --name oh-my-task \
@@ -24,7 +41,7 @@ docker run -d --name oh-my-task \
   ghcr.io/qq33357486/oh-my-task:latest
 ```
 
-**Using docker-compose**:
+Using `docker-compose.yml`:
 
 ```yaml
 services:
@@ -45,9 +62,9 @@ services:
 docker compose up -d
 ```
 
-For Docker deployment, visit http://localhost:17173 to open the Web UI. The first registered user automatically becomes the admin.
+Visit `http://localhost:17173` to open the Web UI. On an empty database, the first registered user automatically becomes the admin.
 
-### Local Run (Unified Port)
+## Local Development
 
 ```bash
 # Install dependencies
@@ -68,22 +85,20 @@ PowerShell:
 $env:WEB_DIST_PATH = "web/dist"; $env:API_PORT = "17173"; npm start
 ```
 
-Visit http://localhost:17173 to open the Web UI. The API and MCP use the same address.
-
-### Frontend HMR Debugging (Optional)
+For development with hot reload:
 
 ```bash
 npm run dev
 cd web && npm run dev
 ```
 
-The Vite debug port `http://localhost:5173` is only for frontend hot reload and proxies API calls to `http://localhost:17173`. Production, Docker, and functional QA use the unified `17173` port.
+The Vite port `http://localhost:5173` is only for frontend HMR. Production, Docker, and functional QA use the unified `17173` service.
 
 ## Configure MCP
 
-**Get Token**: Web interface → Top right → Settings → Create Token
+Create a Token in the Web UI: top right → Settings → Create Token.
 
-**Configure Claude Desktop**:
+oh-my-task separates task spaces by **project name**, so project-level MCP config is recommended, such as `.cursor/mcp.json` or `.claude/mcp.json`.
 
 ```json
 {
@@ -92,48 +107,48 @@ The Vite debug port `http://localhost:5173` is only for frontend hot reload and 
       "command": "npx",
       "args": ["@qq33357486/oh-my-task"],
       "env": {
-        "OMT_SERVER_URL": "http://localhost:17173",
+        "OMT_SERVER_URL": "https://task.duojie.games",
         "OMT_TOKEN": "your-token",
-        "OMT_PROJECT_NAME": "project-name"
+        "OMT_PROJECT_NAME": "current-project-name"
       }
     }
   }
 }
 ```
 
-### MCP Tool List
+For a local Docker service, set `OMT_SERVER_URL` to:
+
+```text
+http://localhost:17173
+```
+
+### MCP Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `init_project` | Initialize project |
 | `create_task` | Create task |
 | `list_tasks` | List tasks |
 | `get_task` | Get task details |
-| `activate_task` | Start task (status → in progress) |
-| `complete_task` | Complete task (status → done) |
-| `delete_task` | Delete task |
+| `activate_task` | Start a task |
+| `complete_task` | Complete a task |
+| `delete_task` | Delete a task |
 | `create_version` | Create version |
 | `list_versions` | List versions |
-| `get_current_task` | Get the current in-progress main task and subtasks |
-| `auto_schedule` | Auto schedule (skip holidays) |
+| `get_current_task` | Get current in-progress main task and subtasks |
+| `auto_schedule` | Auto schedule tasks while skipping holidays |
 
-## Usage Scenarios
+## Usage Examples
 
-### 1. Create Version
+Create a version:
 
-```
+```text
 Create version v1.0: User System
 ```
 
-### 2. Create Task
+Batch create tasks:
 
-```
-Create task under v1.0: User login feature
-```
-
-### 3. Batch Create
-
-```
+```text
 Batch create tasks under v1.0:
 - User Login
   - Login Form
@@ -142,56 +157,42 @@ Batch create tasks under v1.0:
   - List Page
 ```
 
-### 4. Start Task
+Move work forward:
 
-```
+```text
 Start working on "User login feature"
-```
-
-Task status changes to in progress.
-
-### 5. Complete Task
-
-```
 "User login feature" is done
-```
-
-### 6. Version Lifecycle
-
-```
-Start version v1.0    → Lock version, no more tasks can be added
-Complete version v1.0 → All tasks completed
-Archive version v1.0  → Move to archive
-```
-
-### 7. Current Task
-
-```
 What am I working on now?
 ```
 
-Returns the current in-progress main task and its subtasks for the current project.
+Auto schedule:
 
-### 8. Auto Scheduling
-
-```
+```text
 Auto schedule tasks in v1.0, starting from next Monday
 ```
 
-Automatically skips weekends and Chinese public holidays.
-
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable | Purpose | Default |
+| --- | --- | --- |
 | `API_PORT` | Unified Web/API service port | `17173` |
 | `DB_PATH` | SQLite database path | `./data/data.db` |
 | `WEB_DIST_PATH` | Frontend build output directory | `web/dist` |
-| `OMT_SERVER_URL` | API address (for MCP) | `http://localhost:17173` |
-| `OMT_TOKEN` | MCP Bearer Token | none |
-| `OMT_PROJECT_NAME` | Default MCP project name | none |
+| `FRONTEND_URL` | CORS origin for Vite development | `http://localhost:5173` |
+| `SESSION_SECRET` | Session secret | `omt-session-secret-change-in-production` |
+| `OMT_SERVER_URL` | MCP/API service URL | `http://localhost:17173` |
+| `OMT_TOKEN` | MCP Bearer Token | empty |
+| `OMT_PROJECT_NAME` | Default MCP project name | empty |
 
-## More
+## Stack
 
-- [Chinese Version](README.md)
-- [GitHub](https://github.com/qq33357486/oh-my-task)
+- Backend: Express.js + TypeScript + SQLite
+- Frontend: React 19 + Vite + TanStack Query + Tailwind CSS 4
+- AI collaboration: REST API + MCP stdio server
+- Deployment: Docker / unified Node.js service
+
+## Links
+
+- Public service: [https://task.duojie.games](https://task.duojie.games)
+- Chinese README: [README.md](README.md)
+- GitHub: [https://github.com/qq33357486/oh-my-task](https://github.com/qq33357486/oh-my-task)

@@ -10,6 +10,7 @@ import ConfigPage from '@/pages/ConfigPage'
 import DashboardPage from '@/pages/DashboardPage'
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/pages/ResetPasswordPage'
+import LandingPage from '@/pages/LandingPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -39,13 +40,13 @@ function AppLayout() {
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-6">
         <Routes>
-          <Route path="/" element={<TasksPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route index element={<TasksPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           {isAdmin && (
             <>
-              <Route path="/members" element={<MembersPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/config" element={<ConfigPage />} />
+              <Route path="members" element={<MembersPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="config" element={<ConfigPage />} />
             </>
           )}
         </Routes>
@@ -57,18 +58,20 @@ function AppLayout() {
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
-        path="/*"
+        path="/app/*"
         element={
           <ProtectedRoute>
             <AppLayout />
           </ProtectedRoute>
         }
       />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

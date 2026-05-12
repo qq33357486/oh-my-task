@@ -88,7 +88,7 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '登录' }))
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/')
+      expect(mockNavigate).toHaveBeenCalledWith('/app')
     })
   })
 

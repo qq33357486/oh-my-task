@@ -25,14 +25,14 @@ export default function Sidebar() {
   }
 
   const navItems = [
-    { to: '/', icon: LayoutList, label: '任务' },
-    { to: '/settings', icon: Settings, label: '设置' },
+    { to: '/app', icon: LayoutList, label: '任务' },
+    { to: '/app/settings', icon: Settings, label: '设置' },
   ]
 
   const adminItems = [
-    { to: '/members', icon: Users, label: '用户管理' },
-    { to: '/dashboard', icon: BarChart3, label: '仪表盘' },
-    { to: '/config', icon: Wrench, label: '系统配置' },
+    { to: '/app/members', icon: Users, label: '用户管理' },
+    { to: '/app/dashboard', icon: BarChart3, label: '仪表盘' },
+    { to: '/app/config', icon: Wrench, label: '系统配置' },
   ]
 
   return (
@@ -53,7 +53,7 @@ export default function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
+            end={item.to === '/app'}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
