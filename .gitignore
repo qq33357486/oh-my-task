@@ -30,6 +30,7 @@ Thumbs.db
 npm-debug.log*
 
 .omt.json
+.codex/
 
 # Documentation (local only)
 文档区/
