@@ -229,6 +229,7 @@ function UsageGuide() {
   const [activeIndex, setActiveIndex] = useState(0)
   const activeStep = guideSteps[activeIndex]
   const groups = [...new Set(guideSteps.map((step) => step.group))]
+  const progress = ((activeIndex + 1) / guideSteps.length) * 100
 
   const copyPrompt = async (prompt: string) => {
     try {
@@ -240,133 +241,160 @@ function UsageGuide() {
 
   return (
     <section id="how-it-works" className="bg-[#f6f8fb]">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <Reveal>
-            <p className="text-sm font-semibold text-sky-700">开始使用</p>
-            <h2 className="mt-3 break-all text-3xl font-semibold text-slate-950 sm:break-words sm:text-4xl">
-              用 5 分钟学会通过 AI 管理任务
-            </h2>
-            <p className="mt-5 leading-7 text-slate-600">
-              这里不是功能宣传，而是一份可以照着用的教程。点击右侧步骤，复制提示词到支持 MCP 的 AI 工具里，就能完成从草稿、排期、执行到结项的完整流程。
-            </p>
-            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/8">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">当前教程</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-950">{activeStep.group}</p>
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <Reveal>
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
+            <div className="border-b border-slate-200 bg-gradient-to-br from-white via-sky-50/45 to-emerald-50/35 p-5 sm:p-7">
+              <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="max-w-3xl">
+                  <p className="text-sm font-semibold text-sky-700">开始使用</p>
+                  <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">
+                    用 5 分钟学会通过 AI 管理任务
+                  </h2>
+                  <p className="mt-4 leading-7 text-slate-600">
+                    这是一份可以照着操作的页面内教程。选择一个步骤，复制提示词到支持 MCP 的 AI 工具里；AI 负责调用工具推进任务，网页负责展示当前状态。
+                  </p>
                 </div>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
-                  {activeIndex + 1} / {guideSteps.length}
-                </span>
-              </div>
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-slate-950 transition-all duration-500"
-                  style={{ width: `${((activeIndex + 1) / guideSteps.length) * 100}%` }}
-                />
-              </div>
-              <p className="mt-5 text-sm leading-6 text-slate-600">
-                网页只负责显示当前状态；真正的管理动作由 AI 通过 MCP 工具完成。
-              </p>
-            </div>
-          </Reveal>
-        </div>
-
-        <Reveal delay={120}>
-          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10 sm:p-5">
-            <div className="flex flex-wrap gap-2">
-              {groups.map((group) => {
-                const firstIndex = guideSteps.findIndex((step) => step.group === group)
-                const isActive = activeStep.group === group
-                return (
-                  <button
-                    key={group}
-                    type="button"
-                    onClick={() => setActiveIndex(firstIndex)}
-                    className={cn(
-                      'rounded-full px-3 py-1.5 text-sm font-semibold transition',
-                      isActive
-                        ? 'bg-slate-950 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-                    )}
-                  >
-                    {group}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {guideSteps.map((step, index) => (
-                <button
-                  key={`${step.group}-${step.title}`}
-                  type="button"
-                  onClick={() => setActiveIndex(index)}
-                  className={cn(
-                    'guide-step-card min-w-0 rounded-2xl border p-4 text-left transition',
-                    index === activeIndex
-                      ? 'border-sky-300 bg-sky-50/70 shadow-lg shadow-sky-100'
-                      : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white',
-                  )}
-                >
-                  <span className="text-xs font-semibold text-sky-700">
-                    {String(index + 1).padStart(2, '0')} / {step.group}
-                  </span>
-                  <h3 className="mt-2 text-base font-semibold text-slate-950">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
-                </button>
-              ))}
-            </div>
-
-            <article className="mt-6 min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white">
-              <div className="border-b border-white/10 bg-white/5 px-5 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-sky-300">{activeStep.group}</p>
-                    <h3 className="mt-1 text-2xl font-semibold">{activeStep.title}</h3>
+                <div className="min-w-0 rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-semibold text-slate-500">学习进度</span>
+                    <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+                      {activeIndex + 1} / {guideSteps.length}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-sm text-slate-200">
-                    Step {activeIndex + 1}
-                  </span>
+                  <div className="mt-4 h-2 w-56 max-w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-slate-950 transition-all duration-500"
+                      style={{ width: progress + '%' }}
+                    />
+                  </div>
                 </div>
-                <p className="mt-3 leading-7 text-slate-300">{activeStep.description}</p>
               </div>
+            </div>
 
-              <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-                <div className="min-w-0 p-5">
-                  <p className="text-sm font-semibold text-slate-300">可以直接复制的提示词</p>
-                  <div className="mt-3 space-y-3">
-                    {activeStep.prompts.map((prompt) => (
+            <div className="grid min-h-[620px] lg:grid-cols-[0.95fr_1.05fr]">
+              <aside className="min-w-0 border-b border-slate-200 bg-slate-50/70 p-4 sm:p-5 lg:border-b-0 lg:border-r">
+                <div className="flex flex-wrap gap-2">
+                  {groups.map((group) => {
+                    const firstIndex = guideSteps.findIndex((step) => step.group === group)
+                    const isActive = activeStep.group === group
+                    return (
                       <button
-                        key={prompt}
+                        key={group}
                         type="button"
-                        onClick={() => copyPrompt(prompt)}
-                        className="group flex w-full min-w-0 items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 p-4 text-left transition hover:border-sky-300/50 hover:bg-sky-300/10"
+                        onClick={() => setActiveIndex(firstIndex)}
+                        className={cn(
+                          'rounded-full px-3 py-1.5 text-sm font-semibold transition',
+                          isActive
+                            ? 'bg-slate-950 text-white shadow-sm'
+                            : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100',
+                        )}
                       >
-                        <span className="min-w-0 text-sm leading-6 text-slate-100">{prompt}</span>
-                        <Copy className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:text-sky-200" />
+                        {group}
                       </button>
-                    ))}
-                  </div>
+                    )
+                  })}
                 </div>
 
-                <div className="min-w-0 border-t border-white/10 p-5 lg:border-l lg:border-t-0">
-                  <p className="text-sm font-semibold text-slate-300">AI 会调用的 MCP 工具</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {activeStep.tools.map((tool) => (
-                      <code key={tool} className="rounded-full bg-sky-300/12 px-3 py-1 text-sm text-sky-100">
-                        {tool}
-                      </code>
-                    ))}
+                <div className="mt-5 grid gap-2">
+                  {guideSteps.map((step, index) => (
+                    <button
+                      key={`${step.group}-${step.title}`}
+                      type="button"
+                      onClick={() => setActiveIndex(index)}
+                      className={cn(
+                        'guide-step-card grid min-w-0 grid-cols-[auto_1fr] gap-3 rounded-2xl border p-4 text-left transition',
+                        index === activeIndex
+                          ? 'border-sky-300 bg-white shadow-lg shadow-sky-100'
+                          : 'border-slate-200 bg-white/65 hover:border-slate-300 hover:bg-white',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                          index === activeIndex ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-500',
+                        )}
+                      >
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-sky-700">{step.group}</span>
+                        <span className="mt-1 block text-base font-semibold text-slate-950">{step.title}</span>
+                        <span className="mt-1 block text-sm leading-6 text-slate-600">{step.description}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+
+              <article className="flex min-w-0 flex-col bg-white p-4 sm:p-5">
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white">
+                  <div className="border-b border-white/10 bg-white/5 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-sky-300">{activeStep.group}</p>
+                        <h3 className="mt-1 text-2xl font-semibold">{activeStep.title}</h3>
+                      </div>
+                      <span className="rounded-full bg-white/10 px-3 py-1 text-sm text-slate-200">
+                        Step {activeIndex + 1}
+                      </span>
+                    </div>
+                    <p className="mt-3 leading-7 text-slate-300">{activeStep.description}</p>
                   </div>
-                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
-                    <p className="text-sm font-semibold text-emerald-100">网页上能看到</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-50/90">{activeStep.result}</p>
+
+                  <div className="grid flex-1 gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+                    <div className="min-w-0 p-5">
+                      <p className="text-sm font-semibold text-slate-300">可以直接复制的提示词</p>
+                      <div className="mt-3 space-y-3">
+                        {activeStep.prompts.map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => copyPrompt(prompt)}
+                            className="group flex w-full min-w-0 items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 p-4 text-left transition hover:border-sky-300/50 hover:bg-sky-300/10"
+                          >
+                            <span className="min-w-0 text-sm leading-6 text-slate-100">{prompt}</span>
+                            <Copy className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:text-sky-200" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 border-t border-white/10 p-5 lg:border-l lg:border-t-0">
+                      <p className="text-sm font-semibold text-slate-300">AI 会调用的 MCP 工具</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {activeStep.tools.map((tool) => (
+                          <code key={tool} className="rounded-full bg-sky-300/12 px-3 py-1 text-sm text-sky-100">
+                            {tool}
+                          </code>
+                        ))}
+                      </div>
+                      <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+                        <p className="text-sm font-semibold text-emerald-100">网页上能看到</p>
+                        <p className="mt-2 text-sm leading-6 text-emerald-50/90">{activeStep.result}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 bg-white/5 p-4">
+                    <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+                      <div className="rounded-2xl bg-white/6 p-3">
+                        <span className="font-semibold text-white">1. 对 AI 说</span>
+                        <p className="mt-1 leading-6">用自然语言描述目标。</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/6 p-3">
+                        <span className="font-semibold text-white">2. MCP 执行</span>
+                        <p className="mt-1 leading-6">AI 调工具写入任务系统。</p>
+                      </div>
+                      <div className="rounded-2xl bg-white/6 p-3">
+                        <span className="font-semibold text-white">3. 网页查看</span>
+                        <p className="mt-1 leading-6">回到网页确认状态变化。</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </article>
+              </article>
+            </div>
           </div>
         </Reveal>
       </div>
