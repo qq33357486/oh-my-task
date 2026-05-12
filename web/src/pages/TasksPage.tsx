@@ -340,7 +340,7 @@ export default function TasksPage() {
       {/* 视图切换 */}
       {effectiveVersion && (
         <>
-          <div className="relative z-10 mb-6 flex gap-1 rounded-lg bg-secondary p-1">
+          <div className="mb-6 flex gap-1 rounded-lg bg-secondary p-1">
             <button
               className={cn(
                 'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
@@ -402,7 +402,14 @@ export default function TasksPage() {
           tasks={tasks}
         />
       )}
-      {tasks && view === 'flow' && <FlowView tasks={tasks} lockedAt={currentVersion?.locked_at} />}
+      {tasks && view === 'flow' && (
+        <div
+          data-testid="flow-view-container"
+          className="min-h-[520px] h-[calc(100vh-22rem)] overflow-hidden rounded-lg border border-border bg-card"
+        >
+          <FlowView tasks={tasks} lockedAt={currentVersion?.locked_at} />
+        </div>
+      )}
 
       {/* 删除项目确认对话框 */}
       <ConfirmDialog

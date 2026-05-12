@@ -323,6 +323,7 @@ describe('TasksPage', () => {
       await waitFor(() => {
         expect(screen.getByTestId('react-flow')).toBeInTheDocument()
       })
+      expect(screen.getByTestId('flow-view-container')).toHaveClass('overflow-hidden')
     })
 
     it('orders view switcher as progress, list, kanban', async () => {

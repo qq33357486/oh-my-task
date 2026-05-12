@@ -425,7 +425,7 @@ export default function FlowView({ tasks, lockedAt = null }: FlowViewProps) {
   }
   
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full min-h-0 w-full overflow-hidden">
       <ReactFlowProvider>
         <ReactFlow
           nodes={nodes}
@@ -453,7 +453,7 @@ export default function FlowView({ tasks, lockedAt = null }: FlowViewProps) {
       </ReactFlowProvider>
       
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-4 rounded-lg border border-border bg-card/90 px-3 py-2 backdrop-blur-sm">
+      <div className="absolute bottom-4 left-4 z-10 flex items-center gap-4 rounded-lg border border-border bg-card/90 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-1.5 text-xs text-foreground">
           <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#3fb950' }}></span>
           <span>已完成</span>
