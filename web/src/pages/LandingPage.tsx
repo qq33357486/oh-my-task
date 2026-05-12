@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Code2,
+  Copy,
   GitBranch,
   LayoutDashboard,
   LockKeyhole,
@@ -45,24 +46,54 @@ const flowSteps = [
   { title: '网页查看状态', caption: '随时校准当前进度' },
 ]
 
-const storySteps = [
+const guideSteps = [
   {
-    eyebrow: '01 / Personal',
-    title: '先建立你的个人任务空间',
-    description: '每个账号对应自己的任务视角，适合个人项目、个人工作流和 AI 辅助开发节奏。',
-    highlight: '个人项目：官网推广与公共服务',
+    group: '基础流程',
+    title: '创建版本草稿',
+    description: '先告诉 AI 你要做一个什么阶段，AI 会创建版本草稿，后续任务都归到这个版本里。',
+    prompts: ['创建版本 v1.0：个人博客改版', '帮我为「官网推广」创建一个版本草稿'],
+    tools: ['create_version'],
+    result: 'Web 上出现一个未开始的版本，后续可以继续补任务。',
   },
   {
-    eyebrow: '02 / Conversation',
-    title: '把网页操作变成 AI 对话',
-    description: '不需要把任务管理变成拖拽和表单维护。你告诉 AI 当前进展，AI 通过 MCP 更新任务。',
-    highlight: '对话：开始做登录页 / 这个任务完成了',
+    group: '基础流程',
+    title: '拆分任务',
+    description: '用自然语言列出目标，AI 会把它拆成主任务和子任务，不需要你在网页里手动拖拽整理。',
+    prompts: ['在 v1.0 下创建任务：设计首页、接入登录、整理 README', '把「登录功能」拆成表单、接口、错误提示三个子任务'],
+    tools: ['create_task', 'list_tasks'],
+    result: '任务流里能看到主任务、子任务和预计工作量。',
   },
   {
-    eyebrow: '03 / Web',
-    title: '网页负责把状态展示清楚',
-    description: 'Web 是辅助面板：查看版本、任务流、排期和 MCP 配置。真正的管理动作交给 AI 完成。',
-    highlight: 'Web：任务流 / 版本进度 / Token 配置',
+    group: '基础流程',
+    title: '自动排期并开始',
+    description: '任务准备好后，让 AI 排期。确认后再开始版本，版本会从草稿进入正式执行。',
+    prompts: ['给 v1.0 的任务自动排期，从下周一开始', '确认开始 v1.0，帮我启动这个版本'],
+    tools: ['auto_schedule', 'start_version'],
+    result: 'Web 上显示版本开始日期、预计截止日期和任务时间线。',
+  },
+  {
+    group: '中间维护',
+    title: '插入临时任务',
+    description: '版本已经开始后新增任务，会被标记为插队任务，用来记录临时需求或紧急修复。',
+    prompts: ['插入一个临时任务：修复登录按钮在手机上的样式', '给当前版本加一个插队任务：补充部署说明'],
+    tools: ['create_task', 'auto_schedule'],
+    result: '任务会带有插队标记，必要时可以重新排期。',
+  },
+  {
+    group: '中间维护',
+    title: '删除或调整任务',
+    description: '任务不再需要时，直接告诉 AI 删除。之后可以让 AI 重新列出任务，确认当前状态。',
+    prompts: ['删除「旧版首页截图」这个任务', '列出当前版本还没完成的任务'],
+    tools: ['delete_task', 'list_tasks'],
+    result: 'Web 上任务列表更新，已删除任务不会继续影响当前任务流。',
+  },
+  {
+    group: '结项流程',
+    title: '完成任务和版本',
+    description: '任务完成后告诉 AI。全部任务结束时，再让 AI 完成版本，并准备下一个版本。',
+    prompts: ['「登录功能」做完了，帮我标记完成', '当前版本全部完成，结束 v1.0，并创建 v1.1 草稿'],
+    tools: ['complete_task', 'complete_version', 'create_version'],
+    result: '版本进入完成状态；你可以归档旧版本，继续规划下一阶段。',
   },
 ]
 
@@ -145,7 +176,7 @@ function AnimatedWorkflow() {
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <Reveal className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-semibold text-sky-700">动态流程</p>
-          <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">
+          <h2 className="mt-3 break-all text-3xl font-semibold text-slate-950 sm:break-words sm:text-4xl">
             从一句对话到任务落库，个人任务流持续点亮
           </h2>
           <p className="mt-4 leading-7 text-slate-600">
@@ -194,50 +225,172 @@ function AnimatedWorkflow() {
   )
 }
 
-function StoryCard({
-  step,
-  index,
-}: {
-  step: (typeof storySteps)[number]
-  index: number
-}) {
+function UsageGuide() {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const activeStep = guideSteps[activeIndex]
+  const groups = [...new Set(guideSteps.map((step) => step.group))]
+
+  const copyPrompt = async (prompt: string) => {
+    try {
+      await navigator.clipboard?.writeText(prompt)
+    } catch {
+      // 复制只是辅助能力，失败时不影响教程阅读。
+    }
+  }
+
   return (
-    <Reveal delay={index * 80}>
-      <article className="story-card group rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/8">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-sky-700">{step.eyebrow}</p>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            Step {index + 1}
-          </span>
-        </div>
-        <h3 className="mt-4 text-2xl font-semibold text-slate-950">{step.title}</h3>
-        <p className="mt-3 leading-7 text-slate-600">{step.description}</p>
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white">
-          <div className="mb-4 flex gap-2">
-            <span className="size-2 rounded-full bg-rose-300" />
-            <span className="size-2 rounded-full bg-amber-300" />
-            <span className="size-2 rounded-full bg-emerald-300" />
-          </div>
-          <div className="space-y-3">
-            <div className="h-3 w-1/2 rounded-full bg-white/18" />
-            <div className="story-highlight rounded-xl border border-sky-300/30 bg-sky-300/10 p-3 text-sm font-medium text-sky-100">
-              {step.highlight}
+    <section id="how-it-works" className="bg-[#f6f8fb]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <Reveal>
+            <p className="text-sm font-semibold text-sky-700">开始使用</p>
+            <h2 className="mt-3 break-all text-3xl font-semibold text-slate-950 sm:break-words sm:text-4xl">
+              用 5 分钟学会通过 AI 管理任务
+            </h2>
+            <p className="mt-5 leading-7 text-slate-600">
+              这里不是功能宣传，而是一份可以照着用的教程。点击右侧步骤，复制提示词到支持 MCP 的 AI 工具里，就能完成从草稿、排期、执行到结项的完整流程。
+            </p>
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/8">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">当前教程</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-950">{activeStep.group}</p>
+                </div>
+                <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">
+                  {activeIndex + 1} / {guideSteps.length}
+                </span>
+              </div>
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-slate-950 transition-all duration-500"
+                  style={{ width: `${((activeIndex + 1) / guideSteps.length) * 100}%` }}
+                />
+              </div>
+              <p className="mt-5 text-sm leading-6 text-slate-600">
+                网页只负责显示当前状态；真正的管理动作由 AI 通过 MCP 工具完成。
+              </p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="h-16 rounded-xl bg-white/10" />
-              <div className="h-16 rounded-xl bg-white/10" />
-              <div className="h-16 rounded-xl bg-white/10" />
-            </div>
-          </div>
+          </Reveal>
         </div>
-      </article>
-    </Reveal>
+
+        <Reveal delay={120}>
+          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10 sm:p-5">
+            <div className="flex flex-wrap gap-2">
+              {groups.map((group) => {
+                const firstIndex = guideSteps.findIndex((step) => step.group === group)
+                const isActive = activeStep.group === group
+                return (
+                  <button
+                    key={group}
+                    type="button"
+                    onClick={() => setActiveIndex(firstIndex)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-sm font-semibold transition',
+                      isActive
+                        ? 'bg-slate-950 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                    )}
+                  >
+                    {group}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {guideSteps.map((step, index) => (
+                <button
+                  key={`${step.group}-${step.title}`}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  className={cn(
+                    'guide-step-card min-w-0 rounded-2xl border p-4 text-left transition',
+                    index === activeIndex
+                      ? 'border-sky-300 bg-sky-50/70 shadow-lg shadow-sky-100'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white',
+                  )}
+                >
+                  <span className="text-xs font-semibold text-sky-700">
+                    {String(index + 1).padStart(2, '0')} / {step.group}
+                  </span>
+                  <h3 className="mt-2 text-base font-semibold text-slate-950">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
+                </button>
+              ))}
+            </div>
+
+            <article className="mt-6 min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white">
+              <div className="border-b border-white/10 bg-white/5 px-5 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-sky-300">{activeStep.group}</p>
+                    <h3 className="mt-1 text-2xl font-semibold">{activeStep.title}</h3>
+                  </div>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-sm text-slate-200">
+                    Step {activeIndex + 1}
+                  </span>
+                </div>
+                <p className="mt-3 leading-7 text-slate-300">{activeStep.description}</p>
+              </div>
+
+              <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="min-w-0 p-5">
+                  <p className="text-sm font-semibold text-slate-300">可以直接复制的提示词</p>
+                  <div className="mt-3 space-y-3">
+                    {activeStep.prompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => copyPrompt(prompt)}
+                        className="group flex w-full min-w-0 items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/6 p-4 text-left transition hover:border-sky-300/50 hover:bg-sky-300/10"
+                      >
+                        <span className="min-w-0 text-sm leading-6 text-slate-100">{prompt}</span>
+                        <Copy className="mt-1 size-4 shrink-0 text-slate-400 transition group-hover:text-sky-200" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="min-w-0 border-t border-white/10 p-5 lg:border-l lg:border-t-0">
+                  <p className="text-sm font-semibold text-slate-300">AI 会调用的 MCP 工具</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {activeStep.tools.map((tool) => (
+                      <code key={tool} className="rounded-full bg-sky-300/12 px-3 py-1 text-sm text-sky-100">
+                        {tool}
+                      </code>
+                    ))}
+                  </div>
+                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4">
+                    <p className="text-sm font-semibold text-emerald-100">网页上能看到</p>
+                    <p className="mt-2 text-sm leading-6 text-emerald-50/90">{activeStep.result}</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </Reveal>
+      </div>
+    </section>
   )
 }
 
 export default function LandingPage() {
+  useEffect(() => {
+    const scrollToHash = () => {
+      const id = window.location.hash.replace('#', '')
+      if (!id) return
+      window.setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ block: 'start' })
+      }, 0)
+    }
+
+    scrollToHash()
+    window.addEventListener('hashchange', scrollToHash)
+    return () => window.removeEventListener('hashchange', scrollToHash)
+  }, [])
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f6f8fb] text-[#111827]">
+    <div className="landing-page min-h-screen overflow-x-hidden bg-[#f6f8fb] text-[#111827]">
       <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 font-semibold">
@@ -288,7 +441,7 @@ export default function LandingPage() {
               </h1>
             </Reveal>
             <Reveal delay={200}>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
                 oh-my-task 是一个面向个人的任务管理器。核心不是在网页上拖拽卡片，而是通过 AI + MCP 创建、查询、推进和完成任务；网页则用于查看当前状态与配置接入。
               </p>
             </Reveal>
@@ -339,7 +492,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
             <Reveal className="max-w-2xl">
               <p className="text-sm font-semibold text-sky-700">核心能力</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950">个人管理为主，AI 交互为核心</h2>
+              <h2 className="mt-3 break-all text-3xl font-semibold text-slate-950 sm:break-words">个人管理为主，AI 交互为核心</h2>
             </Reveal>
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {features.map((feature, index) => (
@@ -359,40 +512,14 @@ export default function LandingPage() {
 
         <AnimatedWorkflow />
 
-        <section id="how-it-works" className="bg-[#f6f8fb]">
-          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8">
-            <div className="lg:sticky lg:top-24 lg:self-start">
-              <Reveal>
-                <p className="text-sm font-semibold text-sky-700">滚动叙事</p>
-                <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">
-                  像产品发布页一样，把使用路径讲清楚
-                </h2>
-                <p className="mt-5 leading-7 text-slate-600">
-                  向下滚动时，每一张状态卡都会浮现并高亮关键区域，展示 oh-my-task 如何把个人任务管理从网页操作转向 AI 对话。
-                </p>
-                <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/8">
-                  <img
-                    src="/marketing/mcp-settings.svg"
-                    alt="oh-my-task MCP 配置截图"
-                    className="aspect-[16/10] w-full rounded-xl object-cover"
-                  />
-                </div>
-              </Reveal>
-            </div>
-            <div className="space-y-6 lg:space-y-10">
-              {storySteps.map((step, index) => (
-                <StoryCard key={step.title} step={step} index={index} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <UsageGuide />
 
         <section id="deploy" className="bg-slate-950 text-white">
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-20 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
             <Reveal>
               <div>
                 <p className="text-sm font-semibold text-sky-300">公共服务 + 开源自托管</p>
-                <h2 className="mt-3 text-3xl font-semibold">先按个人工作流使用，再按需要扩展</h2>
+                <h2 className="mt-3 break-all text-3xl font-semibold sm:break-words">先按个人工作流使用，再按需要扩展</h2>
                 <p className="mt-5 leading-7 text-slate-300">
                   公共站点适合快速开始；Docker 镜像适合个人服务器和长期项目。如果你需要团队协作、权限流转或组织级流程，可以基于开源版本自行修改。
                 </p>
@@ -421,7 +548,7 @@ export default function LandingPage() {
                   <LayoutDashboard className="size-4" />
                   task.duojie.games
                 </div>
-                <h2 className="mt-3 text-3xl font-semibold text-slate-950">现在就把个人任务空间建起来</h2>
+                <h2 className="mt-3 break-all text-3xl font-semibold text-slate-950 sm:break-words">现在就把个人任务空间建起来</h2>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Link

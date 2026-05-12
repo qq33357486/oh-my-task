@@ -59,6 +59,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body,
+  #root {
+    overflow-x: hidden;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
@@ -92,6 +97,14 @@
 }
 
 @layer components {
+  .landing-page {
+    overflow-x: clip;
+  }
+
+  .landing-page :where(h1, h2, h3, p, a, button, span, code) {
+    overflow-wrap: anywhere;
+  }
+
   .omt-reveal {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -162,32 +175,8 @@
     opacity: 1;
   }
 
-  .story-card {
+  .guide-step-card {
     transform: translateZ(0);
-    transition:
-      transform 320ms ease,
-      box-shadow 320ms ease,
-      border-color 320ms ease;
-  }
-
-  .story-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(125, 211, 252, 0.65);
-    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
-  }
-
-  .story-highlight {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .story-highlight::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    transform: translateX(-110%);
-    background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.22), transparent);
-    animation: omt-highlight-sweep 4s ease-in-out infinite;
   }
 }
 
@@ -223,23 +212,11 @@
   }
 }
 
-@keyframes omt-highlight-sweep {
-  0%,
-  40% {
-    transform: translateX(-110%);
-  }
-  72%,
-  100% {
-    transform: translateX(110%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .omt-reveal,
   .omt-reveal.is-visible,
   .hero-shot,
-  .hero-shot::after,
-  .story-highlight::after {
+  .hero-shot::after {
     animation: none;
     opacity: 1;
     transform: none;
