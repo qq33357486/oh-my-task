@@ -417,7 +417,7 @@ describe('POST /api/schedule/reschedule — 从指定任务重新排期', () => 
       .set('Cookie', user1Cookie)
       .send({ task_id: 'nonexistent-id', new_start_date: '2026-04-20' });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
   });
 

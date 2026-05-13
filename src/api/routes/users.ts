@@ -6,8 +6,9 @@ const router = Router();
 
 // GET /api/users - 获取用户列表（仅管理员）
 router.get('/', adminOnly, (req, res) => {
-  const page = parseInt(req.query.page as string) || 1;
-  const pageSize = parseInt(req.query.page_size as string) || 10;
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const requestedPageSize = parseInt(req.query.page_size as string) || 10;
+  const pageSize = Math.min(Math.max(1, requestedPageSize), 100);
   const { users, total } = userService.getAllUsers(page, pageSize);
   const publicUsers = users.map(u => userService.toPublicUser(u));
   res.json({

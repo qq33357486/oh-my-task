@@ -1,10 +1,11 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LENGTH = 254;
 
 /**
  * 验证邮箱格式
  */
 export function validateEmail(email: string): boolean {
-  return EMAIL_REGEX.test(email);
+  return typeof email === 'string' && email.length <= MAX_EMAIL_LENGTH && EMAIL_REGEX.test(email);
 }
 
 /**

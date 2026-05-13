@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 12;
+const MAX_PASSWORD_LENGTH = 128;
 
 /**
  * 哈希密码
@@ -30,6 +31,9 @@ export function validatePasswordStrength(password: string): {
 
   if (password.length < 8) {
     errors.push('密码至少 8 位');
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    errors.push('Password cannot exceed 128 characters');
   }
   if (!/[A-Z]/.test(password)) {
     errors.push('密码需要包含大写字母');

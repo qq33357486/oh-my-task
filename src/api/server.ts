@@ -15,6 +15,13 @@ import versionsRouter from './routes/versions.js';
 import scheduleRouter from './routes/schedule.js';
 import configRouter from './routes/config.js';
 import adminRouter from './routes/admin.js';
+import {
+  authEmailRateLimiter,
+  authWriteRateLimiter,
+  csrfOriginGuard,
+  loginRateLimiter,
+  securityHeaders,
+} from './middleware/security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,6 +32,8 @@ const PORT = process.env.API_PORT || 17173;
 // 允许反向代理透传 HTTPS 状态，否则生产环境 secure session cookie 不会写入
 app.set('trust proxy', 1);
 
+app.use(securityHeaders);
+
 // CORS 配置
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -32,10 +41,12 @@ app.use(cors({
 }));
 
 // JSON body parser
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
 
 // Session 中间件（SQLite session store）
 app.use(createSessionMiddleware());
+
+app.use(csrfOriginGuard);
 
 // 健康检查端点（无需认证）
 app.get('/api/health', (_req, res) => {
@@ -43,6 +54,11 @@ app.get('/api/health', (_req, res) => {
 });
 
 // 认证路由（无需认证）
+app.use('/api/auth/login', loginRateLimiter);
+app.use('/api/auth/send-code', authEmailRateLimiter);
+app.use('/api/auth/forgot-password', authEmailRateLimiter);
+app.use('/api/auth/reset-password', authEmailRateLimiter);
+app.use('/api/auth/register', authWriteRateLimiter);
 app.use('/api/auth', authRouter);
 
 // API 路由（需要认证）
