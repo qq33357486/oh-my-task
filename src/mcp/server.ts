@@ -21,6 +21,7 @@ import { completeTaskTool, handleCompleteTask } from './tools/complete-task.js';
 import { deleteTaskTool, handleDeleteTask } from './tools/delete-task.js';
 import { autoScheduleTool, handleAutoSchedule } from './tools/auto-schedule.js';
 import { getCurrentTaskTool, handleGetCurrentTask } from './tools/get-current-task.js';
+import { logger } from '../utils/logger.js';
 // 配置工具
 import { getMcpContextFromEnv } from './tools/utils/config.js';
 
@@ -117,6 +118,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    logger.error('mcp', '工具调用失败', 'MCP 工具调用时发生异常', {
+      tool: name,
+      error,
+    });
     return {
       content: [{ type: 'text', text: `Error: ${message}` }],
       isError: true,
@@ -128,8 +133,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 export async function startMcpServer(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  logger.info('mcp', 'MCP 服务启动成功', 'MCP stdio 服务已启动', {
+    version: packageVersion,
+  });
   console.error(`MCP Server started (v${packageVersion})`);
 }
 
 // 如果直接运行此文件
-startMcpServer().catch(console.error);
+startMcpServer().catch(error => {
+  logger.error('mcp', 'MCP 服务启动失败', 'MCP stdio 服务启动失败', { error });
+  console.error(error);
+});

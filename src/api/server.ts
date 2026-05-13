@@ -6,6 +6,8 @@ import { existsSync } from 'fs';
 import { initDb } from '../db/connection.js';
 import { createSessionMiddleware } from '../services/session.service.js';
 import { authMiddleware } from './middleware/auth.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { cleanupExpiredLogs, logger } from '../utils/logger.js';
 import authRouter from './routes/auth.js';
 import tokensRouter from './routes/tokens.js';
 import usersRouter from './routes/users.js';
@@ -45,6 +47,8 @@ app.use(express.json({ limit: '64kb' }));
 
 // Session 中间件（SQLite session store）
 app.use(createSessionMiddleware());
+
+app.use(requestLogger);
 
 app.use(csrfOriginGuard);
 
@@ -90,20 +94,29 @@ if (existsSync(webDistPath)) {
 
 // 全局错误处理
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
   const statusCode = (err as Error & { statusCode?: number }).statusCode || 500;
+  logger.error('api', '未处理异常', 'API 请求处理时发生未处理异常', {
+    method: _req.method,
+    path: _req.originalUrl || _req.url,
+    status_code: statusCode,
+    error: err,
+  });
   res.status(statusCode).json({ success: false, error: err.message || 'Internal server error' });
 });
 
 // 启动服务器
 export function startApiServer(): void {
   initDb();
+  cleanupExpiredLogs();
 
   app.listen(PORT, () => {
-    console.log(`API Server running on http://localhost:${PORT}`);
-    if (existsSync(webDistPath)) {
-      console.log(`Web UI available at http://localhost:${PORT}`);
-    }
+    const hasWebDist = existsSync(webDistPath);
+    logger.info('api', '服务启动成功', 'API 服务已启动', {
+      url: `http://localhost:${PORT}`,
+      port: Number(PORT),
+      web_ui_available: hasWebDist,
+      web_dist_path: hasWebDist ? webDistPath : null,
+    });
   });
 }
 

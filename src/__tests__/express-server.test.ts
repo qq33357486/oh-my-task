@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import Database from 'better-sqlite3';
-import { mkdirSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { getLogFilePath } from '../utils/logger.js';
 
 // 创建测试用的临时数据库目录
 const TEST_DIR = join(tmpdir(), `omt-server-test-${Date.now()}`);
@@ -55,6 +56,31 @@ describe('Express Server', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('status', 'ok');
       expect(res.body.data).toHaveProperty('timestamp');
+    });
+
+    it('写入结构化 API 请求日志', async () => {
+      const res = await request(app).get('/api/health');
+      expect(res.status).toBe(200);
+
+      const entries = readFileSync(getLogFilePath(), 'utf-8')
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line) as Record<string, unknown>);
+      const requestLog = entries.find(entry => entry.event === 'API 请求完成');
+
+      expect(requestLog).toMatchObject({
+        level: 'info',
+        scope: 'api',
+        event: 'API 请求完成',
+        message: 'API 请求已完成',
+      });
+      expect(requestLog?.details).toMatchObject({
+        method: 'GET',
+        path: '/api/health',
+        status_code: 200,
+        auth_method: 'none',
+      });
+      expect((requestLog?.details as Record<string, unknown>).duration_ms).toEqual(expect.any(Number));
     });
   });
 

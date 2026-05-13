@@ -1,5 +1,6 @@
 import { getDb } from '../db/connection.js';
 import type { Task, Holiday } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 // 缓存已加载的年份，避免重复查询数据库
 const loadedYears = new Set<number>();
@@ -64,13 +65,24 @@ export async function ensureHolidaysLoaded(year: number): Promise<void> {
   
   // 从 API 获取并存入数据库
   try {
-    console.log(`Fetching holidays for ${year} from timor.tech...`);
+    logger.info('schedule', '节假日加载开始', '开始从外部接口加载年度节假日数据', {
+      year,
+      source: 'timor.tech',
+    });
     const holidays = await fetchHolidaysFromAPI(year);
     importHolidays(holidays);
     loadedYears.add(year);
-    console.log(`Loaded ${holidays.length} holiday entries for ${year}`);
+    logger.info('schedule', '节假日加载完成', '年度节假日数据已加载并写入数据库', {
+      year,
+      count: holidays.length,
+      source: 'timor.tech',
+    });
   } catch (error) {
-    console.warn(`Failed to fetch holidays for ${year}, using default weekday logic:`, error);
+    logger.warn('schedule', '节假日加载失败', '外部节假日接口加载失败，将回退到默认工作日逻辑', {
+      year,
+      source: 'timor.tech',
+      error,
+    });
     // 失败时不抛出错误，使用默认的周一到周五逻辑
     // 标记为已加载，避免重复尝试
     loadedYears.add(year);

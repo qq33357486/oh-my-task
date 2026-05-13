@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { mkdirSync } from 'fs';
 import bcrypt from 'bcrypt';
+import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,7 +55,7 @@ export function initDb(): void {
     const columnNames = columns.map(c => c.name);
 
     if (!columnNames.includes('expire') || columnNames.includes('expired')) {
-      console.log('Migrating sessions table to match better-sqlite3-session-store schema...');
+      logger.info('db', '会话表迁移开始', '检测到 sessions 表结构需要修复，开始重建会话表');
       // 备份数据（如果有的话）
       database.exec('DROP TABLE IF EXISTS sessions');
       database.exec(`
@@ -64,13 +65,15 @@ export function initDb(): void {
           expire TEXT NOT NULL DEFAULT ''
         )
       `);
-      console.log('Sessions table migrated successfully');
+      logger.info('db', '会话表迁移完成', 'sessions 表结构已修复');
     }
   } catch {
     // sessions 表不存在，忽略
   }
 
-  console.log('Database initialized successfully');
+  logger.info('db', '数据库初始化完成', '数据库表结构已初始化', {
+    db_path: getDbPath(),
+  });
 
   const legacyAdmin = database.prepare(`
     SELECT id, password_hash FROM users
@@ -87,7 +90,7 @@ export function initDb(): void {
     bcrypt.compareSync('admin', legacyAdmin.password_hash)
   ) {
     database.prepare('DELETE FROM users WHERE id = ?').run(legacyAdmin.id);
-    console.log('Removed legacy default admin user; setup is required');
+    logger.warn('db', '默认管理员已清理', '检测到旧版默认管理员账号，已移除并要求重新初始化');
   }
 }
 
