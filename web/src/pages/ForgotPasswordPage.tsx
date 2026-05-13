@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '@/api';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,13 @@ export default function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +34,21 @@ export default function ForgotPasswordPage() {
     try {
       await authApi.forgotPassword(email);
       setStep('reset');
+      setCountdown(60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '请求失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (countdown > 0) return;
+    setError('');
+    setLoading(true);
+    try {
+      await authApi.forgotPassword(email);
+      setCountdown(60);
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求失败');
     } finally {
@@ -132,8 +154,17 @@ export default function ForgotPasswordPage() {
                   {error}
                 </div>
               )}
-              <div className="rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
-                验证码已发送至 {email}
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-muted-foreground">
+                <span className="min-w-0 break-all">验证码已发送至 {email}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={countdown > 0 || loading}
+                  onClick={handleResendCode}
+                >
+                  {countdown > 0 ? `${countdown}s` : '重新发送'}
+                </Button>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reset-code">验证码</Label>

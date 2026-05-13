@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -327,6 +327,37 @@ describe('ForgotPasswordPage', () => {
       expect(screen.getByLabelText('验证码')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('至少8位，含大小写字母和数字')).toBeInTheDocument()
     })
+  })
+
+  it('can resend forgot password code after countdown', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.mocked(authApi.forgotPassword).mockResolvedValue(undefined)
+
+    render(<ForgotPasswordPage />, { wrapper: createWrapper() })
+
+    await userEvent.type(screen.getByPlaceholderText('请输入注册邮箱'), 'test@test.com')
+    await userEvent.click(screen.getByRole('button', { name: '发送验证码' }))
+
+    const resendButton = await screen.findByRole('button', { name: '60s' })
+    expect(resendButton).toBeDisabled()
+
+    for (let i = 0; i < 60; i += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(1000)
+      })
+    }
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '重新发送' })).toBeEnabled()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: '重新发送' }))
+
+    await waitFor(() => {
+      expect(authApi.forgotPassword).toHaveBeenCalledTimes(2)
+    })
+
+    vi.useRealTimers()
   })
 
   it('shows error on submission failure', async () => {

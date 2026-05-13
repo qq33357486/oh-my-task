@@ -115,6 +115,16 @@ describe('POST /api/auth/register', () => {
     expect(res.body.error).toMatch(/已存在|已被使用/);
   });
 
+  it('已注册邮箱请求注册验证码时直接提示已注册', async () => {
+    const res = await request(app)
+      .post('/api/auth/send-code')
+      .send({ email: 'admin@test.com' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/已注册/);
+  });
+
   it('VAL-AUTH-004: 密码不满足要求时返回 400 错误，明确提示不符合的条件', async () => {
     // 测试密码太短
     const res1 = await request(app)

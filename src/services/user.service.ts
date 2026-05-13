@@ -21,12 +21,19 @@ export async function sendEmailCode(email: string): Promise<void> {
   if (!validateEmail(email)) {
     throw new Error('邮箱格式无效');
   }
+  const normalizedEmail = normalizeEmail(email);
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+  if (existing) {
+    throw new Error('邮箱已注册，请直接登录或找回密码');
+  }
+
   const code = String(Math.floor(100000 + Math.random() * 900000));
   const expiresAt = Date.now() + 5 * 60 * 1000; // 5分钟
-  emailCodeStore.set(normalizeEmail(email), { code, expiresAt });
+  emailCodeStore.set(normalizedEmail, { code, expiresAt });
 
   await sendEmail(
-    email,
+    normalizedEmail,
     '注册验证码 - oh-my-task',
     `您的注册验证码是：${code}\n验证码 5 分钟内有效，请勿泄露给他人。`
   );

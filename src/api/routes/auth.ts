@@ -76,6 +76,10 @@ router.post('/send-code', async (req: Request, res: Response) => {
     res.json({ success: true, message: '验证码已发送，请查收邮件' });
   } catch (error) {
     const message = error instanceof Error ? error.message : '发送失败';
+    if (message.includes('已注册') || message.includes('已被使用')) {
+      res.status(409).json({ success: false, error: message });
+      return;
+    }
     res.status(400).json({ success: false, error: message });
   }
 });
