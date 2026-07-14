@@ -4,10 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish-npm:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
     name: Publish to npm
     runs-on: ubuntu-latest
     permissions:
@@ -19,6 +20,7 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+          always-auth: true
 
       - name: Install backend dependencies
         run: npm ci
@@ -32,13 +34,41 @@ jobs:
       - name: Build frontend
         run: npm run build --prefix web
 
-      - name: Publish to npm
-        run: npm publish --access public
+      - name: Check npm auth identity
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "NPM_TOKEN secret is empty"
+            exit 1
+          fi
+          # Avoid any project-local .npmrc auth conflict.
+          rm -f .npmrc
+          {
+            echo "registry=https://registry.npmjs.org/"
+            echo "always-auth=true"
+            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+          } > "${RUNNER_TEMP}/npm-publish.npmrc"
+          export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/npm-publish.npmrc"
+          echo "token length: ${#NODE_AUTH_TOKEN}"
+          echo "token prefix: ${NODE_AUTH_TOKEN:0:4}"
+          npm whoami --registry=https://registry.npmjs.org/
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          rm -f .npmrc
+          {
+            echo "registry=https://registry.npmjs.org/"
+            echo "always-auth=true"
+            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+          } > "${RUNNER_TEMP}/npm-publish.npmrc"
+          export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/npm-publish.npmrc"
+          npm publish --access public --registry=https://registry.npmjs.org/
 
   build-docker:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') }}
     name: Build and push Docker image
     runs-on: ubuntu-latest
     permissions:

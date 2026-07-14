@@ -56,3 +56,5 @@ qa-results/
 # Internal
 git/
 .git_bak/
+
+.npmrc
