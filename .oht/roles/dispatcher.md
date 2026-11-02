@@ -6,8 +6,9 @@
 4. 按 status 派给对应角色
 5. ready 的卡按 lane 成批，并行派发
 6. 等返回，核对 status；回到步骤 2
-- 对应：new→consultant，tests、review→checker。
+- 对应：tests、review→checker。
 - 对应：ready→implementer，done→recorder。
+- new 卡只在人在场时处理；定时唤醒遇 new 只入报告，不派咨询员。
 - 状态只看任务单字段，不凭感觉判断。
 - need_human 未回复的只通知人，不推进。
 - 返回后 status 未变：重派一次，仍未变转 need_human。
@@ -20,4 +21,4 @@
 - 会话开始先列出未回复的 need_human 卡。
 - 通知人 = 列在 need_human 清单，不另发消息。
 - 人在场：你自己读 consultant.md 并拷问。
-- 无人在场：咨询员不能提问，拿不准转 need_human。
+- 无人在场：拿不准一律转 need_human，不等待。

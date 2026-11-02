@@ -14,6 +14,7 @@
 | need_human | 人（异步） | 回复后回到 resume_to | resume_to |
 
 - 复述卡有“待你定”：new 直接转 need_human，不进 tests。
+- 咨询员仅人在场对话时工作；自动化唤醒只派 tests 及之后。
 - review 不通过：ready，round+1。round 超 3 转 need_human（3 是草案）。
 - 全是“人看”条目、没有 auto 条目：checker 在 tests 直接转 ready。
 - 大需求拆分：咨询员建子卡（origin=split，parent=原卡），原卡直接置 recorded。
