@@ -1,5 +1,6 @@
 """任务卡检查：头部、八节、验收条目、状态与条目状态一致、复述卡字数。
-用法：python3 -I .oht/scripts/check-card.py [.oht根目录 | 卡片文件路径]"""
+用法：python3 -I .oht/scripts/check-card.py [.oht根目录 | 卡片文件路径]
+目录模式下扫到 0 张卡时打印"未扫描到任何卡片，请确认 ROOT 路径"并 exit 1；单卡模式无此判定。"""
 import re, sys, glob, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -25,10 +26,12 @@ def err(name, msg):
     bad += 1
 
 
+n_cards = 0
 for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else [ONLY]):
     name = os.path.basename(f)
     if name.startswith("_"):
         continue
+    n_cards += 1
     t = open(f, encoding="utf-8").read().replace("\r\n", "\n")
     m = re.match(r"---\n(.*?)\n---\n", t, re.S)
     if not m:
@@ -90,6 +93,9 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
             err(name, f"{aid} {st} 时 auto 应为红，实为 {s}")
         if st in ("done", "recorded") and s != "绿":
             err(name, f"{aid} {st} 时应为绿，实为 {s}")
+if ONLY is None and n_cards == 0:
+    print("未扫描到任何卡片，请确认 ROOT 路径")
+    sys.exit(1)
 TOP = os.path.join(ROOT, "knowledge/topics")
 for name, st, sysn in cards:
     if sysn and st != "new":

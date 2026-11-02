@@ -1,4 +1,5 @@
-"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I .oht/scripts/check-size.py [.oht根目录]"""
+"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I .oht/scripts/check-size.py [.oht根目录]
+待检文件实际校验 0 个时打印"未扫描到任何文件，请确认 ROOT 路径"并 exit 1。"""
 import re, sys, glob, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -13,9 +14,11 @@ files += sorted(glob.glob(os.path.join(ROOT, "roles/*.md")))
 files += sorted(glob.glob(os.path.join(ROOT, "knowledge/topics/*.md")))
 
 bad = 0
+checked = 0
 for f in files:
     if not os.path.exists(f):
         continue
+    checked += 1
     rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
     text = open(f, encoding="utf-8").read()
     steps = 0
@@ -36,5 +39,8 @@ for f in files:
         total = len(re.sub(r"\s", "", text))
         if total > TOTAL_MAX[rel]:
             print(f"{rel} 总量 {total} 字 > {TOTAL_MAX[rel]}"); bad += 1
+if checked == 0:
+    print("未扫描到任何文件，请确认 ROOT 路径")
+    sys.exit(1)
 print(f"超限 {bad} 处")
 sys.exit(1 if bad else 0)
