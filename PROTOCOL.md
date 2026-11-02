@@ -42,6 +42,6 @@ replied: false        # 人回复后由页面置 true
 ## 规则
 - 一份信息只有一个主人；派生内容重生成，不修补。
 - 文档分两层：内存层（AGENTS.md、roles/、knowledge/rules.md、topics/）始终是最终版，直接改写，不留历史，历史交给 git；外存层（knowledge/log/、记忆系统）只追加，旧条目标记 superseded 并链接新条目。
-- 所有文档遵循剃刀原则：只留最核心。
+- 所有文档遵循剃刀原则：只留最核心。内存层篇幅上限（行数）：AGENTS.md ≤40，knowledge/rules.md ≤50，每个 roles/*.md ≤30，每个 topics/*.md ≤80。超限必须先删再加，由整理员执行。
 - 角色只改自己负责的节和 status。
 - 每个角色做完一步，当场写“为什么”，不只写结果。
