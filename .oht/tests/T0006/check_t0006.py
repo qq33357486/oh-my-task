@@ -35,15 +35,18 @@ def check_a2():
 
 
 def check_a3():
-    """迁移后脚本仍可跑：test_t0002 exit 0；另两脚本输出 RED（未实现，红属正常）。"""
+    """迁移后脚本仍可跑：test_t0002 exit 0；ci_check 输出 RED（T0004 未实现，红属正常）；
+    build_check 输出 GREEN（前提：T0003 已实现构建，2026-11-03 起 build_check 为 GREEN）。"""
     r = run([sys.executable, "-I", ".oht/tests/T0002/test_t0002.py"])
     out = ((r.stdout or "") + (r.stderr or "")).strip()
     assert r.returncode == 0, f".oht/tests/T0002/test_t0002.py exit={r.returncode}\n{out}"
-    for name, rel in [("ci_check.sh", ".oht/tests/T0004/ci_check.sh"),
-                      ("build_check.sh", ".oht/tests/T0003/build_check.sh")]:
+    for name, rel, want in [
+        ("ci_check.sh", ".oht/tests/T0004/ci_check.sh", "RED"),  # T0004 未实现，工作流文件不存在
+        ("build_check.sh", ".oht/tests/T0003/build_check.sh", "GREEN"),  # T0003 已实现构建（2026-11-03 起）
+    ]:
         r = run(["bash", rel])
         out = ((r.stdout or "") + (r.stderr or "")).strip()
-        assert "RED" in out, f"{name} 输出不含 RED\n{out}"
+        assert want in out, f"{name} 输出不含 {want}\n{out}"
 
 
 def check_a4():

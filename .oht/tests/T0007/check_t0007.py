@@ -1,0 +1,59 @@
+"""T0007 验收测试（A1~A2）。用法：python -I .oht/tests/T0007/check_t0007.py（cwd 任意）
+断言式；每条输出 红/绿；全绿 exit 0，有红 exit 1。"""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[3]  # .oht/tests/T0007/ → 仓库根
+TARGET = ".oht/tests/T0006/check_t0006.py"
+
+
+def run(argv):
+    return subprocess.run(
+        argv, cwd=str(REPO), capture_output=True,
+        text=True, encoding="utf-8", errors="replace",
+    )
+
+
+def check_a1():
+    """check_t0006 全绿：A1~A4 全绿，exit 0（A3 过时断言更新后应达成）。"""
+    r = run([sys.executable, "-I", TARGET])
+    out = ((r.stdout or "") + (r.stderr or "")).strip()
+    assert r.returncode == 0, f"{TARGET} exit={r.returncode}\n{out}"
+
+
+def check_a2():
+    """ci_check 预期未被误改：check_t0006.py 中 ci_check 相关断言仍要求输出含 RED。"""
+    text = (REPO / TARGET).read_text(encoding="utf-8")
+    hits = [m.start() for m in re.finditer(r"ci_check", text)]
+    assert hits, f"{TARGET} 未提及 ci_check"
+    ok = any(('"RED"' in text[max(0, i - 100): i + 300])
+             or ("'RED'" in text[max(0, i - 100): i + 300]) for i in hits)
+    assert ok, "ci_check 相关断言不再要求输出含 RED（疑似被误改为 GREEN）"
+
+
+CHECKS = [("A1", check_a1), ("A2", check_a2)]
+
+
+def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    failed = False
+    for name, fn in CHECKS:
+        try:
+            fn()
+            print(f"{name}: 绿")
+        except AssertionError as e:
+            failed = True
+            print(f"{name}: 红 —— {str(e).strip() or '断言失败'}")
+        except Exception as e:  # 环境类错误也计红
+            failed = True
+            print(f"{name}: 红 —— {type(e).__name__}: {e}")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
