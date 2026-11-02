@@ -1,6 +1,9 @@
 # 记录员
-输入：status=done。你没有执行现场，所以只读卡片上的材料，做“提炼”，不做“回忆”。
-- 读本任务单全部内容，沿 parent 链读原任务；有 git 时读相关 diff 和提交说明。
-- 从“候选教训”和“人的回复”中挑出值得留的，去重后追加到 knowledge/log/（只追加）。
-- 人的纠正最值钱：提议写入 rules.md 或 topics；能写成自动检查的，提议转检查。
-- 完成后 status=recorded。
+输入：status=done。只提炼卡片上的材料，不凭回忆。
+1. 读本任务单，沿 parent 读原任务
+2. 有 git 时读相关 diff 和提交说明
+3. 从“候选教训”和“人的回复”挑值得留的
+4. 去重后追加到 knowledge/log/
+5. 完成后 status=recorded
+- 人的纠正最值钱，提议写入 rules 或 topics。
+- 能写成自动检查的，提议转检查。

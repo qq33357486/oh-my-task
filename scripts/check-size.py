@@ -1,0 +1,39 @@
+"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I scripts/check-size.py [仓库根目录]"""
+import re, sys, glob, os
+
+ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
+RULE_MAX = 40      # 一条规则（- 开头）的字数
+STEP_MAX = 30      # 一个流程步骤（1. 开头）的字数
+STEPS_PER_FLOW = 7 # 一个连续编号流程的步骤数
+TOTAL_MAX = {"knowledge/rules.md": 1500}  # 每次必读文件的总字数
+
+files = [os.path.join(ROOT, "AGENTS.md"), os.path.join(ROOT, "knowledge/rules.md")]
+files += sorted(glob.glob(os.path.join(ROOT, "roles/*.md")))
+files += sorted(glob.glob(os.path.join(ROOT, "knowledge/topics/*.md")))
+
+bad = 0
+for f in files:
+    if not os.path.exists(f):
+        continue
+    rel = os.path.relpath(f, ROOT).replace(os.sep, "/")
+    text = open(f, encoding="utf-8").read()
+    steps = 0
+    for n, line in enumerate(text.splitlines(), 1):
+        m = re.match(r"\s*(\d+)\.\s+(.*)", line)
+        b = re.match(r"\s*[-*]\s+(.*)", line)
+        if m:
+            steps = steps + 1 if int(m.group(1)) > 0 else steps
+            if len(m.group(2)) > STEP_MAX:
+                print(f"{rel}:{n} 流程步骤 {len(m.group(2))} 字 > {STEP_MAX}"); bad += 1
+            if steps == STEPS_PER_FLOW + 1:
+                print(f"{rel}:{n} 流程超过 {STEPS_PER_FLOW} 步"); bad += 1
+        else:
+            steps = 0
+            if b and len(b.group(1)) > RULE_MAX:
+                print(f"{rel}:{n} 规则 {len(b.group(1))} 字 > {RULE_MAX}"); bad += 1
+    if rel in TOTAL_MAX:
+        total = len(re.sub(r"\s", "", text))
+        if total > TOTAL_MAX[rel]:
+            print(f"{rel} 总量 {total} 字 > {TOTAL_MAX[rel]}"); bad += 1
+print(f"超限 {bad} 处")
+sys.exit(1 if bad else 0)
