@@ -1,14 +1,120 @@
 /**
  * 页面骨架（T0003）：页眉（目录名、刷新、浏览器提示）+ 三态内容
  * （选目录 / 未初始化 / 看板）。5 秒轮询重扫在此层挂定时器。
+ * T0004：新增"初始化此目录"入口（选目录页与未初始化页各一处）。
  */
-import { useEffect } from 'react';
-import { Alert, Button, Layout, Space, Tag, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Divider, Layout, Space, Tag, Typography } from 'antd';
 import { useAppStore } from './store';
+import { pickDirectoryReadWrite } from './fs/fsAccess';
+import { runInitOnDirectory } from './fs/initFs';
 import { Kanban } from './components/Kanban';
 import { NoProject } from './components/NoProject';
 
 const POLL_MS = 5000;
+
+/** 初始化入口的本地状态（结果展示不进全局 store，属一次性交互） */
+type InitState =
+  | { kind: 'idle' }
+  | { kind: 'running' }
+  | { kind: 'ok'; count: number; handle: FileSystemDirectoryHandle }
+  | { kind: 'refused'; reason: string }
+  | { kind: 'error'; message: string };
+
+/**
+ * 一键初始化入口（T0004）：读写模式选目录 → runInit → 展示结果。
+ * 成功列出写入文件数并提供"打开看板"；拒绝（已有 .oht/）原样提示；
+ * 无 File System Access API 时给出同现有模式的降级提示。
+ */
+function InitSection({ hint }: { hint?: string }) {
+  const [state, setState] = useState<InitState>({ kind: 'idle' });
+  const adoptRoot = useAppStore((s) => s.adoptRoot);
+
+  if (!('showDirectoryPicker' in window)) {
+    return (
+      <Alert
+        type="warning"
+        showIcon
+        message="一键初始化需要 File System Access API"
+        description="当前浏览器不支持（初始化要往目录写文件）。请改用 Chrome 或 Edge 打开本页面。"
+        style={{ maxWidth: 640 }}
+      />
+    );
+  }
+
+  const run = async () => {
+    setState({ kind: 'running' });
+    try {
+      const handle = await pickDirectoryReadWrite();
+      const result = await runInitOnDirectory(handle);
+      if (result.ok) {
+        setState({ kind: 'ok', count: result.written.length, handle });
+      } else {
+        setState({ kind: 'refused', reason: result.reason ?? '该目录已初始化' });
+      }
+    } catch (e) {
+      // 用户取消选择不算错误
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        setState({ kind: 'idle' });
+        return;
+      }
+      setState({
+        kind: 'error',
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
+  return (
+    <div>
+      {hint && (
+        <Typography.Paragraph type="secondary">{hint}</Typography.Paragraph>
+      )}
+      <Button
+        type="primary"
+        size="large"
+        loading={state.kind === 'running'}
+        onClick={() => void run()}
+      >
+        初始化此目录
+      </Button>
+      {state.kind === 'ok' && (
+        <Alert
+          type="success"
+          showIcon
+          style={{ marginTop: 12, textAlign: 'left' }}
+          message={`初始化完成：共写入 ${state.count} 个文件`}
+          description="已生成 .oht/ 框架目录与引导卡 .oht/tasks/T0001.md，按引导卡发出你的第一个需求。"
+          action={
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => void adoptRoot(state.handle)}
+            >
+              打开看板
+            </Button>
+          }
+        />
+      )}
+      {state.kind === 'refused' && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginTop: 12, textAlign: 'left' }}
+          message={state.reason}
+        />
+      )}
+      {state.kind === 'error' && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginTop: 12, textAlign: 'left' }}
+          message={`初始化失败: ${state.message}`}
+        />
+      )}
+    </div>
+  );
+}
 
 function UnsupportedPage() {
   return (
@@ -40,6 +146,13 @@ function PickPage() {
       <Button type="primary" size="large" onClick={() => void pick()}>
         选择目录
       </Button>
+      <Divider plain>或</Divider>
+      <Typography.Title level={3}>初始化一个新目录</Typography.Title>
+      <Typography.Paragraph type="secondary">
+        把循环工程装进任意目录：写入 .oht/ 框架、宿主 AGENTS.md 追加一行引用、
+        附引导卡；目录已含 .oht/ 时拒绝执行，不覆盖任何文件。
+      </Typography.Paragraph>
+      <InitSection />
     </div>
   );
 }
@@ -94,7 +207,12 @@ export function App() {
   } else if (lastRefreshAt === 0 && !loading) {
     content = <ReauthPage />;
   } else if (hasOht === false) {
-    content = <NoProject />;
+    content = (
+      <div className="page-center">
+        <NoProject />
+        <InitSection hint="也可以把一个目录初始化为循环工程（将以读写权限重新选择目录）。" />
+      </div>
+    );
   } else {
     content = <Kanban cards={cards.map((c) => c.card)} />;
   }

@@ -13,7 +13,7 @@ export function NoProject() {
       <Result
         status="warning"
         title="该目录未初始化循环工程"
-        subTitle="未找到 .oht/ 目录。请确认选择的是循环工程根目录，或先在仓库根目录完成初始化（后续版本提供一键初始化）。"
+        subTitle="未找到 .oht/ 目录。请确认选择的是循环工程根目录；若是新目录，可用下方“初始化此目录”一键装入循环工程。"
       />
     </div>
   );

@@ -31,6 +31,11 @@ export const projectContext = {
     return handle;
   },
 
+  /** 采用外部已获得的目录句柄（T0004 初始化流程的读写选择）并持久化 */
+  async adopt(handle: FileSystemDirectoryHandle): Promise<void> {
+    await fs.saveHandle(ROOT_KEY, handle);
+  },
+
   /** 清除持久化的句柄 */
   async clear(): Promise<void> {
     await fs.clearHandles();

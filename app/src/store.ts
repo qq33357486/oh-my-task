@@ -24,6 +24,8 @@ interface AppState {
   init: () => Promise<void>;
   /** 用户点击选目录（用户手势内） */
   pick: () => Promise<void>;
+  /** T0004：初始化流程已拿到读写句柄，采纳为当前目录并刷新（用户手势内） */
+  adoptRoot: (handle: FileSystemDirectoryHandle) => Promise<void>;
   /** 已恢复句柄但权限失效，用户点击重授权 */
   reauth: () => Promise<void>;
   /** 重扫任务卡（轮询与手动刷新共用） */
@@ -62,6 +64,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 用户取消选择不算错误
       if (e instanceof DOMException && e.name === 'AbortError') return;
       set({ error: `选择目录失败: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  },
+
+  adoptRoot: async (handle) => {
+    set({ root: handle, error: '' });
+    try {
+      await projectContext.adopt(handle);
+      await get().refresh();
+    } catch (e) {
+      set({ error: `切换目录失败: ${e instanceof Error ? e.message : String(e)}` });
     }
   },
 

@@ -19,6 +19,20 @@
  * - 成功：ok=true，written 含全部实际写入路径；宿主 AGENTS.md 已存在时，
  *   写入内容 = 原内容逐字在前 + 末尾追加一行含 ".oht/AGENTS.md" 的引用。
  */
+import {
+  BOOTSTRAP_CARD,
+  HOST_REFERENCE_LINE,
+  SHELL_GITKEEP_PATHS,
+  TEMPLATE_FILES,
+} from '../template';
+
+/**
+ * runInit 只探测/读取目标目录里这些既有路径（'.oht' 目录与宿主 AGENTS.md）。
+ * 文件系统适配器（fs/initFs.ts）因 IO 异步而无法在同步回调里现查，
+ * 需按本清单预取存在性与内容；新增探测路径时同步更新此清单。
+ */
+export const PROBED_PATHS: readonly string[] = ['.oht', 'AGENTS.md'];
+
 export interface InitResult {
   ok: boolean;
   /** 拒绝原因；ok=true 时为 undefined */
@@ -32,8 +46,43 @@ export function runInit(
   exists: (path: string) => boolean,
   readFile: (path: string) => string,
 ): InitResult {
-  void writeFile;
-  void exists;
-  void readFile;
-  throw new Error('not implemented');
+  // 幂等拒绝：已初始化的目录一个字节都不碰
+  if (exists('.oht')) {
+    return {
+      ok: false,
+      reason: '该目录已存在 .oht/（已初始化）。为避免覆盖任何文件，本次未执行。',
+      written: [],
+    };
+  }
+
+  const written: string[] = [];
+  const write = (path: string, content: string) => {
+    writeFile(path, content);
+    written.push(path);
+  };
+
+  // 1. 框架模板全套（与母本 .oht/ 框架区结构一致）
+  for (const file of TEMPLATE_FILES) {
+    write(file.path, file.content);
+  }
+
+  // 2. 业务数据区空壳（空目录用 .gitkeep 占位；tasks/ 由引导卡与卡模板填充）
+  for (const path of SHELL_GITKEEP_PATHS) {
+    write(path, '');
+  }
+
+  // 3. 引导卡：教发需求、卡流转、开定时角色
+  write(BOOTSTRAP_CARD.path, BOOTSTRAP_CARD.content);
+
+  // 4. 宿主 AGENTS.md：无则新建一行引用；有则原内容逐字保留+末尾追加一行引用
+  if (exists('AGENTS.md')) {
+    const original = readFile('AGENTS.md');
+    // 原文不以换行结尾时补一个，保证追加行独立成行（原内容仍逐字在前）
+    const gap = original.length > 0 && !original.endsWith('\n') ? '\n' : '';
+    write('AGENTS.md', `${original}${gap}${HOST_REFERENCE_LINE}\n`);
+  } else {
+    write('AGENTS.md', `${HOST_REFERENCE_LINE}\n`);
+  }
+
+  return { ok: true, written };
 }

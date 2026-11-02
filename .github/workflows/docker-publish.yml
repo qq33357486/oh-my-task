@@ -1,0 +1,46 @@
+# T0004/A4：push master 构建镜像并发布 GHCR（仿 DJUI，本机不装 docker）
+name: docker-publish
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: 校验镜像名小写（GHCR 要求仓库路径全小写）
+        run: |
+          case "${GITHUB_REPOSITORY}" in
+            *[A-Z]*)
+              echo "仓库名含大写：${GITHUB_REPOSITORY}，GHCR 镜像名必须全小写";
+              exit 1;;
+            *) echo "镜像名可用: ghcr.io/${GITHUB_REPOSITORY}";;
+          esac
+
+      - name: setup-buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
