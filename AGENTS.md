@@ -6,8 +6,8 @@
 - implementer：实现
 - checker：独立检查
 - recorder：提炼经验
-- curator：整理经验库
-- patrol：无任务时找问题
+- curator：整理经验库（自有定时器）
+- patrol：定时找问题（自有定时器）
 
 ## 规则
 强制：
