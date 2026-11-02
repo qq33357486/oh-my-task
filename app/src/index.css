@@ -1,0 +1,207 @@
+/* T0003 看板布局样式：need_human 红色高亮固定最左，卡片信息不挤 */
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.app-layout {
+  min-height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* 深色页眉上的文字提亮，保证可读 */
+.app-header .ant-typography {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.app-header .ant-typography.ant-typography-secondary {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-header__title {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.app-header__hint {
+  white-space: nowrap;
+}
+
+.app-content {
+  padding: 16px;
+}
+
+.page-center {
+  max-width: 560px;
+  margin: 80px auto 0;
+}
+
+/* 看板 */
+.kanban__columns {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.kanban__column {
+  flex: 1 1 0;
+  min-width: 168px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.kanban__column--urgent {
+  background: #fff1f0;
+  border-color: #ffa39e;
+  box-shadow: inset 0 0 0 1px #ff7875;
+}
+
+.kanban__column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  padding: 2px 4px 8px;
+}
+
+.kanban__column--urgent .kanban__column-head {
+  color: #cf1322;
+}
+
+.kanban__count {
+  font-weight: 400;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  padding: 0 8px;
+}
+
+.kanban__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.kanban-card--urgent {
+  border-left-color: #cf1322;
+}
+
+.kanban-card--broken {
+  border-left-color: #faad14;
+}
+
+.kanban-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kanban-card__id {
+  font-family: Consolas, Menlo, monospace;
+  font-weight: 600;
+}
+
+.kanban-card__brief {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #444;
+  word-break: break-all;
+}
+
+.kanban-card__type {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #999;
+}
+
+.kanban__strays {
+  margin-top: 16px;
+  border: 1px dashed #faad14;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.kanban__strays-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.kanban__strays-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kanban__strays-list .kanban-card {
+  flex: 0 1 320px;
+}
+
+/* 轻量 markdown 渲染 */
+.md-text h2,
+.md-text h3,
+.md-text h4 {
+  margin: 12px 0 6px;
+}
+
+.md-text pre {
+  background: #f6f6f6;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.md-text code {
+  background: #f6f6f6;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.md-text pre code {
+  background: none;
+  padding: 0;
+}
+
+.md-text ul,
+.md-text ol {
+  padding-left: 22px;
+  margin: 6px 0;
+}
+
+.md-text p {
+  margin: 6px 0;
+}
