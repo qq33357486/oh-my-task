@@ -24,9 +24,9 @@ export const projectContext = {
     return fs.requestPermission(handle);
   },
 
-  /** 用户选择根目录并持久化句柄 */
+  /** 用户选择根目录并持久化句柄（T0009：单入口统一 readwrite 模式） */
   async pick(): Promise<FileSystemDirectoryHandle> {
-    const handle = await fs.pickDirectory();
+    const handle = await fs.pickDirectoryReadWrite();
     await fs.saveHandle(ROOT_KEY, handle);
     return handle;
   },

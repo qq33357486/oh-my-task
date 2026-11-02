@@ -84,7 +84,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (granted) {
       await get().refresh();
     } else {
-      set({ error: '未授予读取权限，无法读取任务卡' });
+      set({ error: '未授予访问权限，无法读取任务卡' });
     }
   },
 

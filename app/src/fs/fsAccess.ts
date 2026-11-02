@@ -1,24 +1,13 @@
 /**
- * File System Access API 封装层（T0003 裁剪版）。
+ * File System Access API 封装层（T0003 裁剪版，T0009 单入口化）。
  * 来源：拷贝自 D:\git\DJUI\editor\frontend\src\fs\fsAccess.ts，
- * 只保留本应用只读场景所需：选目录（read 模式）、权限查询/申请、
- * 目录探测、IndexedDB 句柄持久化。写入相关函数一律不拷贝——
- * 本应用纯只读（T0003 需求约束）。
- * T0004 例外：初始化需要往目标目录写 .oht/，新增读写模式选目录，
+ * 保留：选目录、权限查询/申请、目录探测、IndexedDB 句柄持久化。
+ * T0009 起 picker 只有 readwrite 一种模式：选定目录后按 .oht/ 有无
+ * 分支（直接看板 / 提示初始化），初始化分支需要写权限，
  * 写入本身由 fs/initFs.ts 承担。
  */
 
-/** 用户选择目录（只读模式；需用户手势触发） */
-export async function pickDirectory(): Promise<FileSystemDirectoryHandle> {
-  if (!('showDirectoryPicker' in window)) {
-    throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge 浏览器');
-  }
-  return await (window as unknown as {
-    showDirectoryPicker: (opts?: { mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
-  }).showDirectoryPicker({ mode: 'read' });
-}
-
-/** 用户选择目录（读写模式；T0004 初始化用，需用户手势触发） */
+/** 用户选择目录（读写模式；唯一入口，需用户手势触发） */
 export async function pickDirectoryReadWrite(): Promise<FileSystemDirectoryHandle> {
   if (!('showDirectoryPicker' in window)) {
     throw new Error('当前浏览器不支持 File System Access API，请使用 Chrome 或 Edge 浏览器');
