@@ -11,6 +11,9 @@ status: <见下表>
 round: 0              # 实现-检查往返次数
 parent: ""            # 跟进任务指向原任务，如 T0003
 knowledge: [topics/xxx.md]
+lane: ""              # 泳道：系统开发取 parent，小修取主知识库名
+touches: []           # 会改的模块；跨泳道重叠则后者等待
+batch: ""             # 同批次的编号，由调度员填
 stopped_at: ""        # status=need_human 时必填：停在哪个角色/步骤
 resume_to: ""         # status=need_human 时必填：人回复后回到哪个 status
 stop_reason: ""       # status=need_human 时必填：终止原因
@@ -34,6 +37,16 @@ replied: false        # 人回复后由页面置 true
 
 - checker 不通过 → ready（round+1）；round 超上限 → need_human。
 - need_human：任何角色拿不准或卡住都可设置，必须同时填 stopped_at、resume_to、stop_reason、question。
+
+## 泳道与批次
+- 泳道：按 lane 分组。泳道之间并行，泳道内合并成批。
+- 批次：同泳道所有 ready 的卡，交给一个实现员一次做完。
+- 验收、检查、提交仍逐卡；一张失败只退回那一张。
+- 批次内需求冲突：冲突的卡转 need_human，其余继续。
+- 新来的卡不打断进行中的批次，等下一批。
+- 批次大小由上下文装得下决定，装不下拆两批。
+- 跨泳道 touches 重叠，后者等待。
+- 只有运行引擎的检查全局排队。
 
 ## 人的介入（异步）
 1. **任务卡住**：人在页面看到 need_human 卡片，按编号回复（如“T0003 选 B，因为……”），回复写入“人的回复”，replied=true。调度员下次醒来把 status 改为 resume_to，replied=false，任务从断点继续。
