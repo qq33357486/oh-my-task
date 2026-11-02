@@ -1,8 +1,15 @@
 """任务卡检查：头部、八节、验收条目、状态与条目状态一致、复述卡字数。
-用法：python3 -I scripts/check-card.py [仓库根目录]"""
+用法：python3 -I .oht/scripts/check-card.py [.oht根目录 | 卡片文件路径]"""
 import re, sys, glob, os
 
-ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
+HERE = os.path.dirname(os.path.abspath(__file__))
+_arg = sys.argv[1] if len(sys.argv) > 1 else ""
+if _arg and os.path.isfile(_arg):  # 传入单张卡片：只校验该卡
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(_arg)))
+    ONLY = os.path.abspath(_arg)
+else:
+    ROOT = _arg or os.path.dirname(HERE)  # 默认 .oht/（脚本所在目录的上一级）
+    ONLY = None
 STATUS = {"new", "tests", "ready", "review", "done", "recorded", "need_human"}
 SECTIONS = ["原话", "需求", "复述卡", "验收条目", "系统文档改动", "进度", "失败原因", "候选教训", "人的回复"]
 NEED4 = ["stopped_at", "resume_to", "stop_reason", "question"]
@@ -18,7 +25,7 @@ def err(name, msg):
     bad += 1
 
 
-for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md"))):
+for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else [ONLY]):
     name = os.path.basename(f)
     if name.startswith("_"):
         continue

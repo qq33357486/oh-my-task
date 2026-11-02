@@ -1,7 +1,8 @@
-"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I scripts/check-size.py [仓库根目录]"""
+"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I .oht/scripts/check-size.py [.oht根目录]"""
 import re, sys, glob, os
 
-ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(HERE)  # 默认 .oht/
 RULE_MAX = 40      # 一条规则（- 开头）的字数
 STEP_MAX = 30      # 一个流程步骤（1. 开头）的字数
 STEPS_PER_FLOW = 7 # 一个连续编号流程的步骤数
