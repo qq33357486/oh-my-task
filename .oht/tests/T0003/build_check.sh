@@ -6,7 +6,7 @@
 #   3. npm run dev 起后 curl http://localhost:5173/ 返回 HTML（vite 默认端口 5173）
 # 全过输出 GREEN exit 0；任一失败输出 RED:<原因> exit 1。
 set -u
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 APP="$ROOT/app"
 DIST="$APP/dist/index.html"
 URL="http://localhost:5173/"

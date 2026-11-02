@@ -11,7 +11,7 @@
 #      无则自动退化为上述 grep 结构断言。
 # 全过输出 GREEN exit 0；任一失败输出 RED:<原因> exit 1。
 set -u
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 WF="$ROOT/.github/workflows/docker-publish.yml"
 
 fail() { echo "RED: $1"; exit 1; }
