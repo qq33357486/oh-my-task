@@ -1,10 +1,10 @@
-"""T0002 验收测试（A1~A4）。用法：python -I tests/T0002/test_t0002.py
+"""T0002 验收测试（A1~A4）。用法：python -I .oht/tests/T0002/test_t0002.py
 断言式；每条输出 红/绿；全绿 exit 0，有红 exit 1。"""
 import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]  # .oht/tests/T0002/ → 仓库根
 ROLE_FILES = [
     "dispatcher.md", "consultant.md", "checker.md", "implementer.md",
     "recorder.md", "patrol.md", "curator.md", "consultant-brief.md",
