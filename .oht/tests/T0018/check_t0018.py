@@ -11,9 +11,14 @@
   A3b  python -I .oht/scripts/check-size.py 零超限（A3 条目字面验收，exit 0）
   A4p1 坏卡证伪先行：check-card 单卡模式对缺 title 卡必须拒绝（exit 非 0）——
        先证明检查器有牙，A4a 的"零超限"才不是空转绿（T0005 零卡假绿先例）
-  A4p2 T0010 断言契约在位（先行断言）：run_t0010.py 须含 11 项锁定断言函数名
-       （硬编码清单，不 import 被测物）——套件被删/掏空时此检查转红，
-       防 A4b"零回归"对不存在的东西空转绿
+  A4p2 T0010 退役档案守护（先行断言）：run_t0010.py ①仍存在、②文件头含
+       superseded/退役声明、③不被活跃脚本引用执行（.oht/scripts 与 .oht/tests
+       下除档案守护形态外无执行形态调用）——退役档案被删/掏空/复活调用即转红。
+       判定函数 a4p2_retired_archive_intact(run_path, scan_dirs) 两参均带真实
+       默认值，参数化接口供 T0021 teeth 探测（见 .oht/tests/T0021/teeth.py）。
+       A4p2 于 T0021 按 T0020 桩化同步改写（2026-11-03 对账孤儿红；先例
+       T0004/A4、T0007、T0013 批准的需求变更同步改写锁定断言）；旧 11 项
+       断言函数名清单契约随桩化整体删除，不留空壳。
   A4a  python -I .oht/scripts/check-card.py（无参）零超限（A4 条目字面验收，exit 0）
   A4b  【superseded 2026-11-03，不再执行】T0010 全量真唤醒回归已被人批 doctrine
        取代（出处：T0018 需求 5，2026-11-03 人在场批准；先例 T0004/A4、T0007，
@@ -149,24 +154,79 @@ def a4p1_bad_card_rejected():
     assert r.returncode != 0, f"坏卡未被拒绝（检查器失牙，零超限不可信）：exit=0\n{r.stdout}{r.stderr}"
 
 
-# T0010 锁定的 11 项断言函数名（硬编码清单，文本扫描不 import 被测物——防验证器迎合）。
-T0010_ASSERTIONS = [
-    "a_lock_seen", "a_lock_removed", "a_new_stays_new", "a_nh_untouched",
-    "a_nh_replied_resumes", "a_tests_to_ready", "a_ready_to_review",
-    "a_review_to_done", "a_done_to_recorded", "a_broken_no_crash",
-    "a_board_consistency",
-]
+# ---- A4p2 退役档案守护（T0021 按 T0020 桩化同步改写；出处与先例见文件头 docstring） ----
+# 旧契约（11 项锁定断言函数名清单）随 T0020 桩化整体删除，不留空壳。
+# 参数化接口契约见 .oht/tests/T0021/teeth.py：恰一个 a4p2* 判定函数，
+# 签名 f(run_path, scan_dirs)，两参带真实默认值，违例抛 AssertionError。
+
+A4P2_SCAN_DIRS = (
+    os.path.join(ROOT, ".oht", "scripts"),
+    os.path.join(ROOT, ".oht", "tests"),
+)
+_A4P2_EXEC_CALL = re.compile(r"subprocess|Popen")
 
 
-def a4p2_t0010_suite_intact():
-    """T0010 断言契约在位（档案完整性，先行断言）：11 项断言齐全，档案被删/掏空即红。
+def _scan_active_callers(scan_dirs, run_path, self_path):
+    """扫 scan_dirs 下脚本文件，返回执行形态引用退役档案的 [(file, lineno, line)]。
+
+    执行形态 = 同一行既含 subprocess/Popen 又引用 run_t0010（忽略大小写，
+    覆盖直接路径与 RUN_T0010 类常量引用）。两类档案守护/说明形态不判（卡面
+    "除档案说明外"的外延，T0021 检查员边界注记）：
+    - self_path：本检查器自身的守护路径常量（本检查的载体）；
+    - 文件自证退役验证/守护身份：文内同含 run_t0010 + "桩"或"守护" +
+      "superseded"或"退役"——如 T0020 a2_residue.test.py 的桩运行（验证退役
+      行为本身，T0020 锁定测试，现行绿）与本卡 teeth.py 的调用者样本字面量。
+    除此之外的执行形态引用即红。仅扫可执行脚本后缀；.md 属档案说明不扫。
+    """
+    stem = os.path.splitext(os.path.basename(run_path))[0]
+    run_re = re.compile(re.escape(stem), re.I)
+    hits = []
+    for base in scan_dirs:
+        for dirpath, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for fn in sorted(files):
+                if not fn.endswith((".py", ".sh", ".bat", ".ps1")):
+                    continue
+                p = os.path.join(dirpath, fn)
+                try:
+                    text = open(p, encoding="utf-8", errors="replace").read()
+                except OSError:
+                    continue
+                is_self = (os.path.normpath(os.path.abspath(p)) == self_path)
+                guarded = is_self or (
+                    run_re.search(text)
+                    and any(w in text for w in ("桩", "守护"))
+                    and any(w in text for w in ("superseded", "退役"))
+                )
+                if guarded:
+                    continue
+                for i, line in enumerate(text.splitlines(), 1):
+                    if _A4P2_EXEC_CALL.search(line) and run_re.search(line):
+                        hits.append((os.path.relpath(p, base), i, line.strip()[:70]))
+    return hits
+
+
+def a4p2_retired_archive_intact(run_path=RUN_T0010, scan_dirs=A4P2_SCAN_DIRS):
+    """T0010 退役档案守护三重断言（先行断言，参数化接口供 T0021 teeth 探测）。
 
     A4b 退役（T0018 需求 5，2026-11-03 人批）后本检查不再守护活回归，转为守护
-    退役档案 run_t0010.py 本体：断言被删即说明有人无批准改动归档套件。"""
-    assert os.path.isfile(RUN_T0010), "run_t0010.py 不存在——T0010 退役档案缺失"
-    text = open(RUN_T0010, encoding="utf-8").read()
-    missing = [n for n in T0010_ASSERTIONS if n not in text]
-    assert not missing, "T0010 断言契约缺失（档案被删/掏空）：\n      " + ", ".join(missing)
+    退役档案 run_t0010.py 本体（T0020 桩化后旧 11 项断言名契约与现实矛盾成
+    孤儿红，T0021 对账改写）：①档案在位；②文件头含 superseded/退役声明；
+    ③不被活跃脚本引用执行（scan_dirs 内除档案守护形态外无执行形态调用）。
+    档案被删/声明被抹/复活调用即抛 AssertionError。"""
+    assert os.path.isfile(run_path), f"退役档案缺失：{run_path}"
+    with open(run_path, encoding="utf-8", errors="replace") as f:
+        head = "".join(f.readline() for _ in range(30))
+    assert ("superseded" in head.lower()) or ("退役" in head), (
+        "退役档案文件头缺 superseded/退役声明（声明须在头部醒目处，"
+        "防档案被无批准改动后冒充在役代码）"
+    )
+    hits = _scan_active_callers(list(scan_dirs), run_path,
+                                os.path.normpath(os.path.abspath(__file__)))
+    assert not hits, (
+        "退役档案被活跃脚本引用执行（除档案守护/退役验证形态外）：\n      "
+        + "\n      ".join(f"{p} L{i}: {ln}" for p, i, ln in hits)
+    )
 
 
 def a4a_check_card_passes():
@@ -188,7 +248,7 @@ def main():
         ("A3a PROTOCOL含≤40字会话形态规则", a3a_protocol_session_rule),
         ("A3b check-size零超限", a3b_check_size_passes),
         ("A4p1 坏卡证伪:check-card须拒缺title卡", a4p1_bad_card_rejected),
-        ("A4p2 T0010退役档案断言契约在位(11项)", a4p2_t0010_suite_intact),
+        ("A4p2 T0010退役档案在位+声明+不被活跃执行", a4p2_retired_archive_intact),
         ("A4a check-card无参零超限", a4a_check_card_passes),
     ]
     bad = 0
