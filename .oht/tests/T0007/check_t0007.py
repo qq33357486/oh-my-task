@@ -24,13 +24,14 @@ def check_a1():
 
 
 def check_a2():
-    """ci_check 预期未被误改：check_t0006.py 中 ci_check 相关断言仍要求输出含 RED。"""
+    """ci_check 预期未被误改：check_t0006.py 中 ci_check 相关断言仍要求输出含 GREEN
+    （前提：T0014 人批准 RED→GREEN——T0004 已落地工作流；守护语义保留，防改回 RED）。"""
     text = (REPO / TARGET).read_text(encoding="utf-8")
     hits = [m.start() for m in re.finditer(r"ci_check", text)]
     assert hits, f"{TARGET} 未提及 ci_check"
-    ok = any(('"RED"' in text[max(0, i - 100): i + 300])
-             or ("'RED'" in text[max(0, i - 100): i + 300]) for i in hits)
-    assert ok, "ci_check 相关断言不再要求输出含 RED（疑似被误改为 GREEN）"
+    ok = any(('"GREEN"' in text[max(0, i - 100): i + 300])
+             or ("'GREEN'" in text[max(0, i - 100): i + 300]) for i in hits)
+    assert ok, "ci_check 相关断言不再要求输出含 GREEN（疑似被改回 RED）"
 
 
 CHECKS = [("A1", check_a1), ("A2", check_a2)]
