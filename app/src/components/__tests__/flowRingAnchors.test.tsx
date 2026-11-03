@@ -146,17 +146,17 @@ describe('T0033/A2 环形连线边中点锚定（渲染级）', () => {
       expect(el, `顺序连线「${from}→${to}」应存在`).toBeTruthy();
       if (el) expectAnchored(pathDOf(el), `${from}→${to}`, boxOf(from), fs, boxOf(to), ts);
     }
-    // 闭合段 检查→需求：检查出底边绕左外侧 → 需求入左边（T0034）
+    // 闭合段 检查→需求：检查 top 上中出发（人指定）→ 需求入左边（T0034）
     const closing = container.querySelector('[data-flow-edge="检查→需求"] path');
     expect(closing, '闭合回边「检查→需求」应存在').toBeTruthy();
     if (closing) {
-      expectAnchored(pathDOf(closing), '检查→需求', boxOf('检查'), 'bottom', boxOf('需求'), 'left');
+      expectAnchored(pathDOf(closing), '检查→需求', boxOf('检查'), 'top', boxOf('需求'), 'left');
     }
-    // 打回弧 检查→实现：内圈空闲边（检查 top → 实现 right），上凹（T0034）
+    // 打回弧 检查→实现：卡片下到卡片下（bottom→bottom，人指定），下垂
     const back = container.querySelector('[data-flow-edge="检查→实现"] path');
     expect(back, '打回弧「检查→实现」应存在').toBeTruthy();
     if (back) {
-      expectAnchored(pathDOf(back), '检查→实现', boxOf('检查'), 'top', boxOf('实现'), 'right');
+      expectAnchored(pathDOf(back), '检查→实现', boxOf('检查'), 'bottom', boxOf('实现'), 'bottom');
 
       // 内凹判据：弧顶到环心 < 弦中点到环心 - 1px
       const names = ['需求', '实现', '检查'];
@@ -168,9 +168,8 @@ describe('T0033/A2 环形连线边中点锚定（渲染级）', () => {
         x: centers.reduce((s, p) => s + p.x, 0) / centers.length,
         y: centers.reduce((s, p) => s + p.y, 0) / centers.length,
       };
-      // 内凹判据（T0034 修正）：弧顶与环心在弦同侧且偏离弦 >1px——斜跨弦
-      //（弦几乎切环心）时「距环心比较」不鲁棒（弧顶越过环心距离不降），
-      // 「同侧」才是内圈本义（弧凸朝环心）
+      // 下垂判据（人 2026-11-04 指定「从下方经过」）：弧顶与环心在弦
+      // **异侧**（凸背离环心、从环外底部绕过），且偏离弦 >1px——正 sag
       const ctrl = parseCubic(pathDOf(back));
       const apex = cubicAt(0.5, ctrl);
       const chordSideOf = (pt: { x: number; y: number }) =>
@@ -179,8 +178,8 @@ describe('T0033/A2 环形连线边中点锚定（渲染级）', () => {
       const sideApex = chordSideOf(apex);
       const sideCenter = chordSideOf(ring);
       expect(
-        sideApex * sideCenter > 0 && Math.abs(sideApex) > 1,
-        `打回弧应内凹走内圈（弧顶与环心应同侧且偏离弦>1px；sideApex=${sideApex.toFixed(0)}, sideCenter=${sideCenter.toFixed(0)}）`,
+        sideApex * sideCenter < 0 && Math.abs(sideApex) > 1,
+        `打回弧应下垂从下方绕过（弧顶与环心应异侧且偏离弦>1px；sideApex=${sideApex.toFixed(0)}, sideCenter=${sideCenter.toFixed(0)}）`,
       ).toBe(true);
     }
   });
