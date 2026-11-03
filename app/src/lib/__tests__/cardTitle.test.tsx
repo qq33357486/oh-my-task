@@ -4,7 +4,10 @@
  * 锁定契约（批准方案：frontmatter 加 title 字段，2026-11-03 人在场批准）：
  * 1. 常规列卡片主视觉只显示 title（单行人话摘要）：
  *    - title 文本上卡面（主文本）；
- *    - 卡号（id 文本）不上卡面（现状 kanban-card__id 显示 id，应红）；
+ *    - 卡号 id 以编号 Tag 文本上卡面（T0017 round 1 批准改写：2026-11-03
+ *      人当面定案"卡面只余标题+编号 Tag"，原 T0015 断言"id 文本不上卡面"
+ *      随需求变更失效；先例 T0004/A4、T0007、T0009、T0013——批准的需求
+ *      变更同步改写锁定断言，非蒙混）；
  *    - "原话"首行（日期载体）不上卡面（现状 kanban-card__brief，应红）；
  *    - data-card-id 机器锚点保留（属性不可见，与"不上视觉"不冲突）。
  * 2. recorded 清单行主文本为 title（data-recorded-row + 行级 data-card-id
@@ -64,8 +67,8 @@ describe('T0015 看板主显 title', () => {
     ).toContain('看板清单化与视觉升级');
     expect(
       screen.queryByText('T-t1'),
-      '卡号 id 不应作为文本上卡面（现状 kanban-card__id 显示 id，应红）',
-    ).toBeNull();
+      '卡号 id 应以编号 Tag 文本上卡面（T0017 round 1 批准改写：卡面=标题+编号 Tag；当前实现常规卡无 id 文本，应红）',
+    ).not.toBeNull();
     expect(
       screen.queryByText('2026-11-03 带日期的原话首行不应上卡面'),
       '原话首行不应上卡面（现状 kanban-card__brief，应红）',

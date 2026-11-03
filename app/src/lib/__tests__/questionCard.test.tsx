@@ -1,41 +1,38 @@
 /**
- * T0017/A1 标题恒首行+决策块红测试（检查员锁定，实现员不得改本测试）。
+ * T0017 round 1 卡面极简化红测试（检查员锁定，实现员不得改本测试）。
  *
- * 本文件是 T0016 契约的批准改写版（2026-11-03 人批准的需求变更：need_human
- * 卡 question 主显不得顶掉标题；先例 T0004/A4、T0007、T0009、T0013——
- * 批准的需求变更同步改写锁定断言，非蒙混）。
+ * 本文件 lineage：T0016 契约 → T0017 round 0（标题恒首行+决策块，人批复
+ * B 不通过）→ T0017 round 1（2026-11-03 人当面定案：卡面只余标题+编号
+ * Tag）。两次均为批准的需求变更同步改写（先例 T0004/A4、T0007、T0009、
+ * T0013——批准的需求变更同步改写锁定断言，非蒙混）。
  *
- * 锁定契约（在 T0003/T0012/T0015 既有 DOM 契约之上改写/新增）：
- * 1. 标题恒为首行（T0017 新契约，与 T0015"卡面主显 title"跨卡一致）：
- *    - need_human 卡（question 非空）同样渲染 title 主显，卡面首个可见
- *      文本为 title（卡 textContent 去首尾空白后以 title 开头）；
- *    - question/stop_reason 渲染于标题之下的"决策块"容器，新契约锚点
- *      （自定并锁定）：全板恰一个 [data-decision-block="true"] 容器，
- *      位于该 need_human 卡（data-card-id 锚点）之内，包含 data-question
- *      与 data-stop-reason 两元素；视觉上非卡首行——title 主显元素在
- *      决策块（data-question 元素）之前，DOM 顺序以 compareDocumentPosition
- *      判定（jsdom 支持，样式实现自由）。
- * 2. T0016 既有契约保留：data-question 属性值 = question 全文、
- *    data-stop-reason 属性值 = stop_reason 全文，均位于该 need_human 卡
- *    内；卡面 textContent 含 question 全文与 stop_reason 全文（人眼可见）；
- *    点击 need_human 卡仍开全文弹层（Modal 含"需求"节片段，弹层契约
- *    不变，不在弹层上加新断言）。
- * 3. 回归子断言：其余列卡片不上 question——new 列卡无 data-question /
- *    data-stop-reason，卡面不含 question 文本。
- * 4. A2 回归用例（本文件第二个 it）：既有全部测试依赖的锚点（七列
- *    data-column、data-urgent 条件语义、data-card-id、data-recorded-row
- *    行级锚点、title 主显）在本次改写后仍成立——当前实现应绿，实现
- *    T0017 后仍绿（防改写假绿、防实现回归）。
+ * round 1 锁定契约（在 T0003/T0012/T0015 既有 DOM 契约之上改写/新增）：
+ * 1. 卡面极简（A1）：六常规列卡与 recorded 清单行一律只显示 title，卡 id
+ *    以小号中性 Tag 呈现（唯一保留的非标题信息）——卡面可见文本仅含
+ *    title 与卡 id；决策块（question/stop_reason）、round 徽标（R1 等）、
+ *    type 行、原话摘录、日期一律不上卡面。
+ * 2. 旧卡面契约废除（A1）：data-decision-block / data-question /
+ *    data-stop-reason 随决策块下架，全板 0 个。
+ * 3. title 恒首行不变（跨卡不变量，T0017 round 0 立、round 1 沿用）：
+ *    title 存在的卡，卡面首个可见文本为 title（textContent 去空白以
+ *    title 开头，编号 Tag 在其后）。
+ * 4. title 为空的卡以编号文本为主显（不空白）（需求 2）。
+ * 5. 决策信息一跳可达（A2）：点击 question 非空的 need_human 卡，弹层含
+ *    question 全文与 stop_reason 全文（弹层其余内容不变）；点击普通卡
+ *    弹层既有断言不回归。
+ * 6. DOM 契约不变（A3 回归用例）：data-column 列序、data-urgent 条件
+ *    语义、data-card-id 锚点（含 recorded 行级）、data-recorded-row、
+ *    点击开弹层。
  *
  * 数据管线即契约的一部分：夹具为完整卡原文（frontmatter 含 title /
  * question / stop_reason）→ parseCard → ParsedCard 直驱 <Kanban />（同
  * T0012 visual / T0015 cardTitle 的组件级集成锚点）。
  *
- * A2 全量回归不在本文件：由检查员命令层跑 vitest 全量 + build_check，
+ * A3 全量回归不在本文件：由检查员命令层跑 vitest 全量 + build_check，
  * 按"最红子项整条记红"规则在卡面记状态。
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Kanban } from '../../components/Kanban';
 import { parseCard } from '../parseCard';
 
@@ -46,6 +43,11 @@ const NEED_REQUIREMENT = 'need_human 夹具卡的需求节片段标记';
 const NEW_TITLE = '普通新卡人话标题';
 const RECORDED_TITLE = '回归归档卡人话标题';
 
+/** 夹具文本 → 弹层子串匹配用 regex（全文无 regex 元字符，转义保平安） */
+function asPattern(s: string): RegExp {
+  return new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+}
+
 /** 完整合法卡原文：frontmatter 含 title/question/stop_reason（真实卡形态） */
 function cardText(fields: {
   id: string;
@@ -55,13 +57,14 @@ function cardText(fields: {
   stopReason: string;
   whish: string;
   requirement: string;
+  round?: number;
 }): string {
   return `---
 id: ${fields.id}
 title: ${fields.title}
 type: 系统开发
 status: ${fields.status}
-round: 0
+round: ${fields.round ?? 0}
 parent: T0001
 origin: followup
 knowledge: []
@@ -87,38 +90,172 @@ ${fields.requirement}
 `;
 }
 
-/** 取 root 内包含 text 文本的最内层元素（无子元素再含该文本） */
-function innermostByText(root: Element, text: string): Element[] {
-  const all = Array.from(root.querySelectorAll('*'));
-  return all.filter(
-    (el) =>
-      (el.textContent ?? '').includes(text) &&
-      !Array.from(el.children).some((c) => (c.textContent ?? '').includes(text)),
-  );
-}
-
 afterEach(cleanup);
 
-describe('T0017 need_human 标题恒首行+决策块（T0016 契约批准改写）', () => {
-  it('A1 标题主显恒首行，question/stop_reason 移入标题下决策块；点击开全文；其他列卡不上 question', async () => {
+describe('T0017 round 1 卡面极简化（标题+编号 Tag，决策杂讯下架）', () => {
+  it('A1 卡面只余 title+编号 Tag：决策块/R1 徽标/type 行全下架，title 恒首行，空 title 编号主显；点击仍开弹层', async () => {
     const cards = [
       cardText({
-        id: 'T0016H',
+        id: 'T0017H',
         status: 'need_human',
         title: TITLE,
         question: QUESTION,
         stopReason: STOP_REASON,
         whish: '看板里需要人工介入的卡完全看不出是什么问题。',
         requirement: NEED_REQUIREMENT,
+        round: 1, // 锁定 round 徽标下架：round=1 卡不得出现 R1 文本
       }),
       cardText({
-        id: 'T0016N',
+        id: 'T0017N',
         status: 'new',
         title: NEW_TITLE,
         question: '',
         stopReason: '',
         whish: '普通新卡原话首行。',
         requirement: '普通新卡需求节片段。',
+      }),
+      cardText({
+        id: 'T0017E',
+        status: 'new',
+        title: '', // 旧卡无 title：以编号文本为主显（需求 2，不空白）
+        question: '',
+        stopReason: '',
+        whish: '无标题旧卡原话首行。',
+        requirement: '无标题旧卡需求节片段。',
+      }),
+    ].map((text) => parseCard(text));
+    expect(
+      cards.map((c) => c.ok),
+      '夹具自检：三张卡都必须是合法卡（ok=true）',
+    ).toEqual([true, true, true]);
+
+    const view = render(<Kanban cards={cards} />);
+
+    // 锚点健全：need_human 卡在其列内（T0003 契约现状）
+    const nhCard = view.container.querySelector('[data-card-id="T0017H"]');
+    expect(nhCard, 'need_human 夹具卡应以 data-card-id 渲染').not.toBeNull();
+    expect(
+      nhCard!.closest('[data-column]')?.getAttribute('data-column'),
+      'T0017H 应位于 need_human 列',
+    ).toBe('need_human');
+
+    // 卡面含 title 主显（T0015 契约沿用）
+    expect(
+      nhCard!.textContent ?? '',
+      'need_human 卡面应含 title 主显',
+    ).toContain(TITLE);
+
+    // title 恒首行（跨卡不变量）：卡面首个可见文本为 title，
+    // 编号 Tag 只能在其后（DOM 序锁定，样式实现自由）
+    expect(
+      (nhCard!.textContent ?? '').trim().startsWith(TITLE),
+      '卡面首个可见文本应为 title（标题恒首行不变）',
+    ).toBe(true);
+
+    // 卡 id 以文本上卡面（编号 Tag；当前实现常规卡无 id 文本，应红）
+    expect(
+      nhCard!.textContent ?? '',
+      'need_human 卡面应含卡 id 文本（编号 Tag）',
+    ).toContain('T0017H');
+
+    // 旧卡面契约废除：决策块三锚点全板 0 个（当前实现有决策块，应红）
+    expect(
+      view.container.querySelectorAll('[data-decision-block]').length,
+      'data-decision-block 应随决策块下架（全板 0 个）',
+    ).toBe(0);
+    expect(
+      view.container.querySelectorAll('[data-question]').length,
+      'data-question 契约应废除（全板 0 个）',
+    ).toBe(0);
+    expect(
+      view.container.querySelectorAll('[data-stop-reason]').length,
+      'data-stop-reason 契约应废除（全板 0 个）',
+    ).toBe(0);
+
+    // 卡面杂讯下架：question 全文 / stop_reason 全文 / R1 徽标 / type 行
+    // （当前实现决策块上卡面、round=1 渲染 R1、type 行常驻，应红）
+    expect(
+      nhCard!.textContent ?? '',
+      '卡面不得含 question 全文（决策信息入弹层）',
+    ).not.toContain(QUESTION);
+    expect(
+      nhCard!.textContent ?? '',
+      '卡面不得含 stop_reason 全文（决策信息入弹层）',
+    ).not.toContain(STOP_REASON);
+    expect(
+      nhCard!.textContent ?? '',
+      '卡面不得含 R1 徽标文本（round 徽标下架）',
+    ).not.toContain('R1');
+    expect(
+      nhCard!.textContent ?? '',
+      '卡面不得含 type 行文本（type 行下架）',
+    ).not.toContain('系统开发');
+
+    // 常规列卡同样极简：new 卡只余 title+编号 Tag
+    const newCard = view.container.querySelector('[data-card-id="T0017N"]');
+    expect(newCard, 'new 列卡应以 data-card-id 渲染').not.toBeNull();
+    expect(
+      newCard!.closest('[data-column]')?.getAttribute('data-column'),
+      'T0017N 应位于 new 列',
+    ).toBe('new');
+    expect(
+      newCard!.textContent ?? '',
+      'new 卡面应含 title 主显',
+    ).toContain(NEW_TITLE);
+    expect(
+      newCard!.textContent ?? '',
+      'new 卡面应含卡 id 文本（编号 Tag）',
+    ).toContain('T0017N');
+    expect(
+      newCard!.textContent ?? '',
+      'new 卡面不得含 type 行文本（type 行下架）',
+    ).not.toContain('系统开发');
+    expect(
+      newCard!.textContent ?? '',
+      'new 卡面不得出现 need_human 卡的 question 文本',
+    ).not.toContain(QUESTION);
+
+    // title 为空的旧卡：以编号文本为主显（不空白，需求 2）
+    const emptyCard = view.container.querySelector('[data-card-id="T0017E"]');
+    expect(emptyCard, '空 title 卡应以 data-card-id 渲染').not.toBeNull();
+    expect(
+      emptyCard!.closest('[data-column]')?.getAttribute('data-column'),
+      'T0017E 应位于 new 列',
+    ).toBe('new');
+    expect(
+      emptyCard!.textContent ?? '',
+      '空 title 卡面应以编号文本为主显（不空白）',
+    ).toContain('T0017E');
+
+    // 点击仍开全文弹层（DOM 契约不变：点击开弹层保留）
+    await act(async () => {
+      fireEvent.click(nhCard!);
+    });
+    expect(
+      await screen.findByText(asPattern(NEED_REQUIREMENT)),
+      '点击 need_human 卡应开全文弹层（需求节片段可见）',
+    ).toBeTruthy();
+  });
+
+  it('A2 决策信息弹层可达：点击 need_human 卡弹层含 question 与 stop_reason 全文；普通卡弹层不回归', async () => {
+    const cards = [
+      cardText({
+        id: 'T0017M',
+        status: 'need_human',
+        title: TITLE,
+        question: QUESTION,
+        stopReason: STOP_REASON,
+        whish: '弹层夹具 need_human 卡原话首行。',
+        requirement: '弹层夹具 need_human 卡需求节片段。',
+      }),
+      cardText({
+        id: 'T0017P',
+        status: 'new',
+        title: NEW_TITLE,
+        question: '',
+        stopReason: '',
+        whish: '弹层夹具普通卡原话首行。',
+        requirement: '弹层夹具普通卡需求节片段标记。',
       }),
     ].map((text) => parseCard(text));
     expect(
@@ -128,134 +265,38 @@ describe('T0017 need_human 标题恒首行+决策块（T0016 契约批准改写�
 
     const view = render(<Kanban cards={cards} />);
 
-    // 锚点健全：need_human 卡在其列内（T0003 契约现状）
-    const nhCard = view.container.querySelector('[data-card-id="T0016H"]');
-    expect(nhCard, 'need_human 夹具卡应以 data-card-id 渲染').not.toBeNull();
-    expect(
-      nhCard!.closest('[data-column]')?.getAttribute('data-column'),
-      'T0016H 应位于 need_human 列',
-    ).toBe('need_human');
-
-    // 红点一（T0017 新契约）：标题恒为首行——卡面含 title 主显
-    expect(
-      nhCard!.textContent ?? '',
-      'need_human 卡面应含 title 主显（当前 question 主显顶掉标题，应红）',
-    ).toContain(TITLE);
-
-    // 红点二（T0017 新契约）：title 是卡面首个可见文本（恒首行）
-    expect(
-      (nhCard!.textContent ?? '').trim().startsWith(TITLE),
-      'need_human 卡面首个可见文本应为 title（标题恒首行；当前首文本是 question，应红）',
-    ).toBe(true);
-
-    // 红点三（T0017 新契约）：决策块容器 data-decision-block="true"，
-    // 全板恰一个，位于 T0016H 卡内，包含 question 与 stop_reason 两元素
-    const blocks = Array.from(
-      view.container.querySelectorAll('[data-decision-block="true"]'),
-    );
-    expect(
-      blocks.length,
-      '全板应恰有一个 data-decision-block="true" 决策块容器（当前实现无此容器，应红）',
-    ).toBe(1);
-    expect(
-      blocks[0].closest('[data-card-id="T0016H"]'),
-      '决策块容器应位于 T0016H 卡内',
-    ).not.toBeNull();
-
-    // T0016 契约保留：data-question 属性承载 question 全文
-    const qEls = Array.from(view.container.querySelectorAll('[data-question]'));
-    expect(
-      qEls.length,
-      '全板应恰有一个 data-question 元素（仅 need_human 卡承载）',
-    ).toBe(1);
-    expect(
-      qEls[0].getAttribute('data-question'),
-      'data-question 属性值应为 question 全文',
-    ).toBe(QUESTION);
-    expect(
-      qEls[0].closest('[data-card-id="T0016H"]'),
-      'data-question 元素应位于 T0016H 卡内',
-    ).not.toBeNull();
-
-    // T0016 契约保留：data-stop-reason 属性承载 stop_reason 全文（次要行）
-    const sEls = Array.from(view.container.querySelectorAll('[data-stop-reason]'));
-    expect(
-      sEls.length,
-      '全板应恰有一个 data-stop-reason 元素',
-    ).toBe(1);
-    expect(
-      sEls[0].getAttribute('data-stop-reason'),
-      'data-stop-reason 属性值应为 stop_reason 全文',
-    ).toBe(STOP_REASON);
-    expect(
-      sEls[0].closest('[data-card-id="T0016H"]'),
-      'data-stop-reason 元素应位于 T0016H 卡内',
-    ).not.toBeNull();
-
-    // 决策块包含 question 与 stop_reason 两元素（分层容器契约）
-    expect(
-      blocks[0].contains(qEls[0]),
-      '决策块容器应包含 data-question 元素',
-    ).toBe(true);
-    expect(
-      blocks[0].contains(sEls[0]),
-      '决策块容器应包含 data-stop-reason 元素',
-    ).toBe(true);
-
-    // 红点四（T0017 新契约）：视觉上非卡首行——title 主显元素在决策块
-    // （data-question 元素）之前（DOM 顺序判定）
-    const titleEls = innermostByText(nhCard!, TITLE);
-    expect(
-      titleEls.length,
-      '卡内应存在 title 主显元素（当前 title 未渲染，应红）',
-    ).toBeGreaterThan(0);
-    expect(
-      qEls[0].compareDocumentPosition(titleEls[0]) &
-        Node.DOCUMENT_POSITION_PRECEDING,
-      'title 主显元素应位于决策块（data-question 元素）之前（标题恒首行，应红）',
-    ).toBeTruthy();
-
-    // T0016 契约保留：人眼可见——卡面文本含 question 全文与 stop_reason 全文
-    expect(
-      nhCard!.textContent ?? '',
-      'need_human 卡面应可见 question 全文',
-    ).toContain(QUESTION);
-    expect(
-      nhCard!.textContent ?? '',
-      'need_human 卡面应可见 stop_reason 次要行',
-    ).toContain(STOP_REASON);
-
-    // 点击仍开全文弹层（弹层契约不变：Modal 含该卡"需求"节片段）
+    // 点击 question 非空的 need_human 卡：弹层含 question 全文与
+    // stop_reason 全文（当前弹层无这两行，应红）。
+    // 断言限定在弹层容器（role="dialog"）内：round 0 决策块把两全文挂在
+    // 卡面，全 body 查询会被卡面文本满足而假绿——防假绿锁弹层本体。
+    const nhCard = view.container.querySelector('[data-card-id="T0017M"]')!;
+    expect(nhCard, 'need_human 夹具卡应渲染').not.toBeNull();
     await act(async () => {
-      fireEvent.click(nhCard!);
+      fireEvent.click(nhCard);
     });
+    const dialog = await screen.findByRole('dialog');
     expect(
-      await screen.findByText(/need_human 夹具卡的需求节片段标记/),
-      '点击 need_human 卡应开全文弹层（需求节片段可见）',
+      within(dialog).getByText(asPattern(QUESTION)),
+      '弹层应含 question 全文（决策信息一跳可达）',
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(asPattern(STOP_REASON)),
+      '弹层应含 stop_reason 全文（决策信息一跳可达）',
     ).toBeTruthy();
 
-    // 回归子断言：其他列卡片不上 question（标题主显由 T0015 契约锁定）
-    const newCard = view.container.querySelector('[data-card-id="T0016N"]');
-    expect(newCard, 'new 列卡应以 data-card-id 渲染').not.toBeNull();
+    // 点击普通卡：弹层既有断言不回归（Modal 含该卡"需求"节片段）
+    const newCard = view.container.querySelector('[data-card-id="T0017P"]')!;
+    await act(async () => {
+      fireEvent.click(newCard);
+    });
+    const dialog2 = await screen.findByRole('dialog');
     expect(
-      newCard!.closest('[data-column]')?.getAttribute('data-column'),
-      'T0016N 应位于 new 列',
-    ).toBe('new');
-    expect(
-      newCard!.querySelector('[data-question]'),
-      '其他列卡不得带 data-question',
-    ).toBeNull();
-    expect(
-      newCard!.querySelector('[data-stop-reason]'),
-      '其他列卡不得带 data-stop-reason',
-    ).toBeNull();
-    expect(
-      newCard!.textContent ?? '',
-      '其他列卡面不得出现 need_human 卡的 question 文本',
-    ).not.toContain(QUESTION);
+      within(dialog2).getByText(/弹层夹具普通卡需求节片段标记/),
+      '点击普通卡弹层仍含需求节片段（既有契约不回归）',
+    ).toBeTruthy();
   });
 
-  it('A2 回归：既有锚点（七列 data-column、data-urgent 条件、data-card-id、data-recorded-row 行级锚点、title 主显）仍成立', () => {
+  it('A3 回归：既有锚点（七列 data-column、data-urgent 条件、data-card-id、data-recorded-row 行级锚点、title 主显）仍成立', () => {
     const cards = [
       cardText({
         id: 'T0017H',

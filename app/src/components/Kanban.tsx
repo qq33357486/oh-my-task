@@ -16,26 +16,22 @@
  *   （T0012/A1 清单化）列元素自身不承载 data-card-id（T0013 契约统一，
  *   2026-11-03 人批准：废除旧"恰一张 recorded 卡时列元素自身承载 id"
  *   的巧合锚点——多卡+按 id 定位必与列内断言互斥）。
- * - 卡面主视觉只显示 title（T0015，2026-11-03 人批准：frontmatter 人话
- *   单行标题）；id 文本与"原话"首行（日期载体）不上卡面，id 仅保留为
- *   data-card-id 属性。
- * - 所有卡片（T0015 立，T0017 收紧，2026-11-03）：卡面首行恒为 title
- *   主显（round 徽标与 title 同行右对齐，DOM 序 title 在前；仅 title 为
- *   空的旧卡才单独渲染徽标行）。
- * - need_human 卡（T0016 立，T0017 改，2026-11-03）：title 恒首行，标题
- *   之下渲染决策块容器 data-decision-block="true"（视觉次级分层：浅底
- *   色块+左边线，弱于标题），块内 data-question 属性承载 question 全文
- *   （人的决策点人话直读）、data-stop-reason 属性承载 stop_reason 全文
- *   （次要弱化行）；仅 question 非空的 need_human 卡生效，question 为空
- *   的旧 need_human 卡只显示 title（无决策块）。其余列卡片不变（title
- *   主显，不带这些属性）。点击仍开全文弹层（弹层契约不变）。
+ * - 卡面可见信息只余 title + 编号 Tag（T0015 立主显、T0017 round 1 收紧，
+ *   2026-11-03 人当面定案）：常规列卡卡面只渲染 title 主显与 id 小号中性
+ *   Tag（id 是唯一保留的非标题信息）；决策块（question/stop_reason）、
+ *   round 徽标、type 行、原话摘录、日期一律不上卡面。title 恒为首行
+ *   （DOM 序 title 在编号 Tag 之前）；title 为空的旧卡以编号文本主显
+ *   （不空白）。
+ * - 决策信息一跳可达（T0017 round 1，2026-11-03）：question/stop_reason
+ *   不上卡面，改由点击弹层的 frontmatter 重建区补两行呈现（其余弹层内容
+ *   不变）——卡面不可见 ≠ 详情不可见。
  * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行元素
  *   自身带 data-card-id="<卡 id>" 行级锚点（多卡场景按 id 各唯一定位
- *   到行），行内含卡 id 文本与 title 主文本（T0015 起取代"原话"节首行），
+ *   到行），行内 id 以编号 Tag 呈现、title 为主文本（title 为空回退编号），
  *   点击行打开全文弹层（与其他卡共用 Modal）。
  */
 import { useMemo, useState } from 'react';
-import { Badge, Card, Modal, Tag, Tooltip } from 'antd';
+import { Badge, Card, Modal, Tag } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
 import { MarkdownText } from './MarkdownText';
 
@@ -84,6 +80,11 @@ function cardFullText(card: ParsedCard): string {
     `origin: ${card.origin}`,
     `lane: ${card.lane}`,
     `batch: ${card.batch}`,
+    // T0017 round 1：决策信息下架卡面后改由弹层一跳可达——frontmatter
+    // 重建补 stop_reason 与 question 两行（卡面不可见 ≠ 详情不可见；
+    // 旧卡缺字段时如实输出空值，与模板 question: "" 形态一致）。
+    `stop_reason: ${card.stop_reason ?? ''}`,
+    `question: ${card.question ?? ''}`,
   ].join('\n');
   const body = Object.entries(card.sections)
     .map(([name, content]) => `## ${name}\n${content.replace(/\n+$/, '')}`)
@@ -93,25 +94,11 @@ function cardFullText(card: ParsedCard): string {
 
 /** 常规列卡片：AntD Card 承载视觉，外层元素持 data-card-id 契约与点击 */
 function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) => void }) {
-  // T0015：卡面主视觉只显示 title（人话单行）；id/原话首行（日期载体）不
-  // 上卡面，id 仅保留为外层 data-card-id 属性。
-  // T0017：所有卡 title 恒为首行——round 徽标移入 title 同行右对齐（DOM
-  // 序 title 在前；仅 title 为空的旧卡保留独立徽标行）。
-  // T0016→T0017：need_human 卡（question 非空）question 全文不再顶掉
-  // 标题，移入标题之下"决策块"（data-decision-block 容器，视觉次级分
-  // 层），stop_reason 为块内次要弱化行；人只看卡面先知"这是哪件事"，再
-  // 知"要我决策什么"。question 为空的旧 need_human 卡只显示 title（无决
-  // 策块）；其余列不变。
-  const isNeedHuman = card.status === 'need_human';
-  const showQuestion = isNeedHuman && !!card.question;
-  const roundTag =
-    card.round > 0 ? (
-      <Tooltip title={`第 ${card.round} 轮返工`}>
-        <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-          R{card.round}
-        </Tag>
-      </Tooltip>
-    ) : null;
+  // T0017 round 1（2026-11-03 人当面定案）：卡面可见信息只余 title + 编号
+  // 小 Tag——决策块（question/stop_reason）、round 徽标、type 行、原话摘
+  // 录、日期一律下架，决策信息改由点击弹层一跳可达（cardFullText 补两
+  // 行）。id 以小号中性 Tag 上卡面（唯一保留的非标题信息），DOM 序 title
+  // 在前（恒首行不变量）；title 为空的旧卡以编号文本主显（不空白）。
   return (
     <div
       className={`kanban-card kanban-card--${card.status}${
@@ -124,24 +111,11 @@ function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) 
         {card.title ? (
           <div className="kanban-card__title-row">
             <div className="kanban-card__title">{card.title}</div>
-            {roundTag}
+            <Tag className="kanban-card__num">{card.id}</Tag>
           </div>
         ) : (
-          roundTag && <div className="kanban-card__head">{roundTag}</div>
+          <span className="kanban-card__num-main">{card.id}</span>
         )}
-        {showQuestion && (
-          <div className="kanban-card__decision" data-decision-block="true">
-            <div className="kanban-card__question" data-question={card.question}>
-              {card.question}
-            </div>
-            {card.stop_reason && (
-              <div className="kanban-card__stop-reason" data-stop-reason={card.stop_reason}>
-                {card.stop_reason}
-              </div>
-            )}
-          </div>
-        )}
-        {card.type && <div className="kanban-card__type">{card.type}</div>}
       </Card>
     </div>
   );
@@ -198,8 +172,11 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
                         data-card-id={card.id}
                         onClick={() => setActive(card)}
                       >
-                        <span className="kanban__row-id">{card.id}</span>
-                        <span className="kanban__row-title">{card.title}</span>
+                        {/* T0017 round 1：行内 id 以编号 Tag 呈现（与常规
+                            卡同款中性小号），title 为主文本；title 为空回
+                            退编号主显（不空白） */}
+                        <Tag className="kanban__row-num">{card.id}</Tag>
+                        <span className="kanban__row-title">{card.title || card.id}</span>
                       </div>
                     ))}
                   </div>

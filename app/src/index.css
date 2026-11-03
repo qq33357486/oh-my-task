@@ -154,9 +154,9 @@ body,
   word-break: break-all;
 }
 
-/* T0015：卡面主显人话单行标题（id 与日期不上主视觉）。
-   T0017：标题恒为首行——round 徽标与 title 同行右对齐（DOM 序 title 在
-   前，不顶掉标题首行位） */
+/* T0015 立主显、T0017 round 1 收紧（2026-11-03 人定案）：卡面可见信息
+   只余 title + 编号小 Tag——标题恒首行（DOM 序 title 在编号 Tag 前），
+   决策块/round 徽标/type 行样式随实现一并下架 */
 .kanban-card__title-row {
   display: flex;
   align-items: center;
@@ -178,35 +178,28 @@ body,
   text-overflow: ellipsis;
 }
 
+/* T0017 round 1：卡面编号 Tag（AntD Tag 默认中性灰、12px 小号即达标，
+   仅收掉冗余外边距、禁止压缩） */
+.kanban-card__num.ant-tag {
+  flex: none;
+  margin-inline-end: 0;
+}
+
+/* T0017 round 1：title 为空的旧卡以编号文本主显（不空白） */
+.kanban-card__num-main {
+  font-family: Consolas, Menlo, monospace;
+  font-weight: 600;
+  font-size: 13px;
+  color: #262626;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .kanban-card__type {
   margin-top: 4px;
   font-size: 12px;
   color: #8c8c8c;
-}
-
-/* T0016 立、T0017 改：need_human 决策块——标题之下的次级分层块（浅红
-   底色块+左边线，弱于标题、不抢首行），question 全文换行不截断（人眼可
-   读，字重字号均低于标题），stop_reason 为块内次要弱化行（小号灰字） */
-.kanban-card__decision {
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: #fff1f0;
-  border-left: 3px solid #ffa39e;
-  border-radius: 4px;
-}
-
-.kanban-card__question {
-  font-weight: 500;
-  font-size: 12px;
-  color: #434343;
-  word-break: break-all;
-}
-
-.kanban-card__stop-reason {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #8c8c8c;
-  word-break: break-all;
 }
 
 /* ===== recorded 清单行（轻量行：AntD list 视觉节奏，紧凑分隔线） ===== */
@@ -235,15 +228,13 @@ body,
   background: rgba(0, 0, 0, 0.04);
 }
 
-.kanban__row-id {
+/* T0017 round 1：归档行 id 改以编号 Tag 呈现（与常规卡同款中性小号） */
+.kanban__row-num.ant-tag {
   flex: none;
-  font-family: Consolas, Menlo, monospace;
-  font-weight: 600;
-  font-size: 12px;
-  color: #595959;
+  margin-inline-end: 0;
 }
 
-/* T0015：归档行主显人话标题（行内 id 文本按 T0012 契约保留） */
+/* T0015：归档行主显人话标题（行内 id 以编号 Tag 按 T0017 round 1 呈现） */
 .kanban__row-title {
   flex: 1 1 auto;
   min-width: 0;
