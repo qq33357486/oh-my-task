@@ -1,4 +1,7 @@
-/* T0003 看板布局样式：need_human 红色高亮固定最左，卡片信息不挤 */
+/* T0003 看板布局样式（need_human 红色高亮、列序布局）。
+   T0012 AntD 视觉升级：状态配色取 AntD 预设色，间距/圆角/阴影按主题
+   token 节奏；need_human 高亮仅在列内有卡时出现（条件类挂载）；
+   recorded 列为紧凑清单行。 */
 html,
 body,
 #root {
@@ -8,6 +11,7 @@ body,
 
 .app-layout {
   min-height: 100%;
+  background: #fff;
 }
 
 .app-header {
@@ -15,6 +19,8 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  z-index: 1;
 }
 
 /* 深色页眉上的文字提亮，保证可读 */
@@ -43,7 +49,7 @@ body,
 }
 
 .app-content {
-  padding: 16px;
+  padding: 20px 24px 28px;
 }
 
 .page-center {
@@ -51,10 +57,10 @@ body,
   margin: 80px auto 0;
 }
 
-/* 看板 */
+/* ===== 看板列 ===== */
 .kanban__columns {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: flex-start;
   overflow-x: auto;
   padding-bottom: 12px;
@@ -62,37 +68,33 @@ body,
 
 .kanban__column {
   flex: 1 1 0;
-  min-width: 168px;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 8px;
+  min-width: 176px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 10px;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
+/* need_human 条件高亮：仅列内有卡时挂载（kanban__column--urgent） */
 .kanban__column--urgent {
   background: #fff1f0;
-  border-color: #ffa39e;
-  box-shadow: inset 0 0 0 1px #ff7875;
+  border-color: #ffccc7;
+  box-shadow: inset 0 0 0 1px #ffa39e;
 }
 
 .kanban__column-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   font-weight: 600;
-  padding: 2px 4px 8px;
+  font-size: 14px;
+  padding: 2px 2px 10px;
 }
 
 .kanban__column--urgent .kanban__column-head {
   color: #cf1322;
-}
-
-.kanban__count {
-  font-weight: 400;
-  font-size: 12px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 10px;
-  padding: 0 8px;
 }
 
 .kanban__cards {
@@ -101,26 +103,34 @@ body,
   gap: 8px;
 }
 
-.kanban-card {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-left: 3px solid #d9d9d9;
-  border-radius: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
+/* ===== 卡片：AntD Card 承载视觉，外层元素持契约属性与点击 ===== */
+.kanban__cards .kanban-card .ant-card {
+  border-inline-start: 3px solid #d9d9d9;
 }
 
-.kanban-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+/* AntD 预设状态配色（与列头 Badge 同源） */
+.kanban-card--need_human .ant-card {
+  border-inline-start-color: #ff4d4f;
 }
 
-.kanban-card--urgent {
-  border-left-color: #cf1322;
+.kanban-card--new .ant-card {
+  border-inline-start-color: #2f54eb;
 }
 
-.kanban-card--broken {
-  border-left-color: #faad14;
+.kanban-card--tests .ant-card {
+  border-inline-start-color: #faad14;
+}
+
+.kanban-card--ready .ant-card {
+  border-inline-start-color: #13c2c2;
+}
+
+.kanban-card--review .ant-card {
+  border-inline-start-color: #722ed1;
+}
+
+.kanban-card--done .ant-card {
+  border-inline-start-color: #52c41a;
 }
 
 .kanban-card__head {
@@ -133,26 +143,72 @@ body,
 .kanban-card__id {
   font-family: Consolas, Menlo, monospace;
   font-weight: 600;
+  font-size: 13px;
 }
 
 .kanban-card__brief {
   margin-top: 4px;
   font-size: 13px;
-  color: #444;
+  color: #595959;
   word-break: break-all;
 }
 
 .kanban-card__type {
   margin-top: 4px;
   font-size: 12px;
-  color: #999;
+  color: #8c8c8c;
 }
 
+/* ===== recorded 清单行（轻量行：AntD list 视觉节奏，紧凑分隔线） ===== */
+.kanban__rows {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.kanban__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.kanban__row:last-child {
+  border-bottom: none;
+}
+
+.kanban__row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.kanban__row-id {
+  flex: none;
+  font-family: Consolas, Menlo, monospace;
+  font-weight: 600;
+  font-size: 12px;
+  color: #595959;
+}
+
+.kanban__row-brief {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #8c8c8c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 降级区（无法归列的残缺卡） ===== */
 .kanban__strays {
   margin-top: 16px;
-  border: 1px dashed #faad14;
-  border-radius: 8px;
+  border: 1px dashed #ffd591;
+  border-radius: 10px;
   padding: 12px;
+  background: #fffbe6;
 }
 
 .kanban__strays-title {
@@ -168,9 +224,20 @@ body,
 
 .kanban__strays-list .kanban-card {
   flex: 0 1 320px;
+  background: #fff;
+  border: 1px solid #ffd591;
+  border-left: 3px solid #faad14;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
 }
 
-/* 轻量 markdown 渲染 */
+.kanban__strays-list .kanban-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* ===== 轻量 markdown 渲染 ===== */
 .md-text h2,
 .md-text h3,
 .md-text h4 {

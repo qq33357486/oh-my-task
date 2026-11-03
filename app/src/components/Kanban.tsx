@@ -8,11 +8,21 @@
  *   review、done、recorded。
  * - 每列一个元素带 data-column="<状态>"；七列按上述顺序出现在 DOM 中，
  *   need_human 列在最前。
- * - need_human 列元素带 data-urgent="true"；其余列不得带该属性。
- * - 每张卡渲染为一个带 data-card-id="<卡 id>" 的元素，位于其状态列内。
+ * - data-urgent（T0003 立，T0012/A2 收紧为条件语义）：仅 need_human 列
+ *   且列内有卡时，列元素带 data-urgent="true"；空列与其余列不得带该
+ *   属性，空列 className 也不得含 urgent 高亮类，列头文案保留。
+ * - data-card-id：need_human/new/tests/ready/review/done 六列，每张卡
+ *   一个带 data-card-id="<卡 id>" 的元素，位于其状态列内。recorded 列
+ *   （T0012/A1 清单化）列内不得出现 data-card-id 元素；为同时满足
+ *   T0009 entryFlow「recorded 卡 id 可经 closest 定位到列」与 T0012
+ *   「列内后代零 data-card-id」两条锁定断言，恰有一张 recorded 卡时，
+ *   该卡 id 由列元素自身以 data-card-id 承载（querySelectorAll 只查
+ *   后代、closest 含自身）；空列或多卡时不承载。
+ * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行内含
+ *   卡 id 文本与"原话"节首行，点击行打开全文弹层（与其他卡共用 Modal）。
  */
 import { useMemo, useState } from 'react';
-import { Modal, Tag, Tooltip } from 'antd';
+import { Badge, Card, Modal, Tag, Tooltip } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
 import { MarkdownText } from './MarkdownText';
 
@@ -28,14 +38,15 @@ export const KANBAN_COLUMNS = [
 
 export type KanbanColumn = (typeof KANBAN_COLUMNS)[number];
 
-const COLUMN_TITLES: Record<KanbanColumn, string> = {
-  need_human: '人工介入',
-  new: '新任务',
-  tests: '测试中',
-  ready: '待实现',
-  review: '待检查',
-  done: '已完成',
-  recorded: '已归档',
+/** 列头文案与 AntD 预设状态配色（recorded 归档用中性灰） */
+const COLUMN_META: Record<KanbanColumn, { title: string; badgeColor: string }> = {
+  need_human: { title: '人工介入', badgeColor: 'red' },
+  new: { title: '新任务', badgeColor: 'geekblue' },
+  tests: { title: '测试中', badgeColor: 'gold' },
+  ready: { title: '待实现', badgeColor: 'cyan' },
+  review: { title: '待检查', badgeColor: 'purple' },
+  done: { title: '已完成', badgeColor: 'green' },
+  recorded: { title: '已归档', badgeColor: '#8c8c8c' },
 };
 
 /** 取某节第一个非空行，超长截断（卡片摘要用） */
@@ -66,26 +77,31 @@ function cardFullText(card: ParsedCard): string {
   return `---\n${fm}\n---\n\n${body}\n`;
 }
 
+/** 常规列卡片：AntD Card 承载视觉，外层元素持 data-card-id 契约与点击 */
 function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) => void }) {
   const brief = firstLine(card.sections['原话']);
   return (
     <div
-      className={`kanban-card${card.status === 'need_human' ? ' kanban-card--urgent' : ''}`}
+      className={`kanban-card kanban-card--${card.status}${
+        card.status === 'need_human' ? ' kanban-card--urgent' : ''
+      }`}
       data-card-id={card.id}
       onClick={() => onOpen(card)}
     >
-      <div className="kanban-card__head">
-        <span className="kanban-card__id">{card.id}</span>
-        {card.round > 0 && (
-          <Tooltip title={`第 ${card.round} 轮返工`}>
-            <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-              R{card.round}
-            </Tag>
-          </Tooltip>
-        )}
-      </div>
-      {brief && <div className="kanban-card__brief">{brief}</div>}
-      {card.type && <div className="kanban-card__type">{card.type}</div>}
+      <Card size="small" hoverable className="kanban-card__box">
+        <div className="kanban-card__head">
+          <span className="kanban-card__id">{card.id}</span>
+          {card.round > 0 && (
+            <Tooltip title={`第 ${card.round} 轮返工`}>
+              <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+                R{card.round}
+              </Tag>
+            </Tooltip>
+          )}
+        </div>
+        {brief && <div className="kanban-card__brief">{brief}</div>}
+        {card.type && <div className="kanban-card__type">{card.type}</div>}
+      </Card>
     </div>
   );
 }
@@ -99,8 +115,8 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
   const [active, setActive] = useState<ParsedCard | null>(null);
 
   const grouped = useMemo(() => {
-    const map: Record<KanbanColumn, ParsedCard[]> = Object.fromEntries(
-      KANBAN_COLUMNS.map((c) => [c, []]),
+    const map = Object.fromEntries(
+      KANBAN_COLUMNS.map((c) => [c, [] as ParsedCard[]]),
     ) as Record<KanbanColumn, ParsedCard[]>;
     for (const card of cards) {
       if (!isStray(card)) map[card.status as KanbanColumn].push(card);
@@ -113,24 +129,56 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
   return (
     <div className="kanban">
       <div className="kanban__columns">
-        {KANBAN_COLUMNS.map((col) => (
-          <div
-            key={col}
-            className={`kanban__column${col === 'need_human' ? ' kanban__column--urgent' : ''}`}
-            data-column={col}
-            data-urgent={col === 'need_human' ? 'true' : undefined}
-          >
-            <div className="kanban__column-head">
-              <span>{COLUMN_TITLES[col]}</span>
-              <span className="kanban__count">{grouped[col].length}</span>
+        {KANBAN_COLUMNS.map((col) => {
+          const inColumn = grouped[col];
+          const isUrgentCol = col === 'need_human';
+          const urgent = isUrgentCol && inColumn.length > 0;
+          return (
+            <div
+              key={col}
+              className={`kanban__column${urgent ? ' kanban__column--urgent' : ''}`}
+              data-column={col}
+              data-urgent={urgent ? 'true' : undefined}
+              data-card-id={
+                col === 'recorded' && inColumn.length === 1 ? inColumn[0].id : undefined
+              }
+            >
+              <div className="kanban__column-head">
+                <span>{COLUMN_META[col].title}</span>
+                {inColumn.length > 0 && (
+                  <Badge count={inColumn.length} color={COLUMN_META[col].badgeColor} />
+                )}
+              </div>
+              {col === 'recorded' ? (
+                inColumn.length > 0 ? (
+                  <div className="kanban__rows">
+                    {inColumn.map((card) => (
+                      <div
+                        key={card.id}
+                        className="kanban__row"
+                        data-recorded-row="true"
+                        onClick={() => setActive(card)}
+                      >
+                        <span className="kanban__row-id">{card.id}</span>
+                        <span className="kanban__row-brief">
+                          {firstLine(card.sections['原话'], 60)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="kanban__cards" />
+                )
+              ) : (
+                <div className="kanban__cards">
+                  {inColumn.map((card) => (
+                    <CardItem key={card.id} card={card} onOpen={setActive} />
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="kanban__cards">
-              {grouped[col].map((card) => (
-                <CardItem key={card.id} card={card} onOpen={setActive} />
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {strays.length > 0 && (
