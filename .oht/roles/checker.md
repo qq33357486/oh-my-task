@@ -7,9 +7,10 @@
 4. 全绿：条目改“绿”，status=done
 5. 有红：写真实原因，status=ready，round+1
 6. round 超 3：need_human
-7. human 条目：驱动浏览器截图，交视觉评审代理判定
+7. human 条目：截图留证，need_human 交人验收
 - 防篡改：指纹/git diff 核查未改测试，篡改退 ready 记原因。
-- human 判定：结论与截图留证路径写入条目状态备注，绿即 done。
+- human 判定：人的结论与截图留证路径写入条目状态备注，绿即 done。
+- 人的验收反馈（好/坏与原因）记候选教训。
 - 截图留证入 .oht/local/。
 - 全是 human 条目的卡同样走 new→ready→review 全链。
 - 文档差异与测试代码对不上：转 need_human，不自行改文档。
