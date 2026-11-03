@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]  # .oht/tests/T0006/ → 仓库根
-ALLOWED = {"AGENTS.md", "README.md", ".gitignore", ".git", ".zcode", "app", ".oht"}
+ALLOWED = {"AGENTS.md", "README.md", ".gitignore", ".git", ".zcode", "app", ".oht",
+           ".github"}  # .github 前提：T0004（46fc2d9）落地工作流时引入根目录 .github/
 SCRIPTS = [
     ".oht/tests/T0002/test_t0002.py",
     ".oht/tests/T0003/build_check.sh",
@@ -35,13 +36,13 @@ def check_a2():
 
 
 def check_a3():
-    """迁移后脚本仍可跑：test_t0002 exit 0；ci_check 输出 RED（T0004 未实现，红属正常）；
+    """迁移后脚本仍可跑：test_t0002 exit 0；ci_check 输出 GREEN（前提：T0004 已落地工作流，46fc2d9）；
     build_check 输出 GREEN（前提：T0003 已实现构建，2026-11-03 起 build_check 为 GREEN）。"""
     r = run([sys.executable, "-I", ".oht/tests/T0002/test_t0002.py"])
     out = ((r.stdout or "") + (r.stderr or "")).strip()
     assert r.returncode == 0, f".oht/tests/T0002/test_t0002.py exit={r.returncode}\n{out}"
     for name, rel, want in [
-        ("ci_check.sh", ".oht/tests/T0004/ci_check.sh", "RED"),  # T0004 未实现，工作流文件不存在
+        ("ci_check.sh", ".oht/tests/T0004/ci_check.sh", "GREEN"),  # T0004 已落地工作流（46fc2d9），ci_check 为 GREEN
         ("build_check.sh", ".oht/tests/T0003/build_check.sh", "GREEN"),  # T0003 已实现构建（2026-11-03 起）
     ]:
         r = run(["bash", rel])
