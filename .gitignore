@@ -1,2 +1,3 @@
 .zcode/config.json
 .oht/tasks/.lock
+__pycache__/

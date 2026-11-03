@@ -10,10 +10,11 @@
 ## status=review：复跑判定
 1. 复跑本卡全部测试
 2. 核对 knowledge 里的旧错误
-3. 全绿：条目改“绿”，status=done
-4. 有红：写真实原因，status=ready，round+1
-5. round 超 3：need_human
-6. human 条目：need_human，问选择题
+3. 查工作区无本卡临时产物残留，有则退回
+4. 全绿：条目改“绿”，status=done
+5. 有红：写真实原因，status=ready，round+1
+6. round 超 3：need_human
+7. human 条目：need_human，问选择题
 ## 规则
 - 测试写好即锁定，实现员不得改。
 - 复跑与写测前审覆盖：用户链路无集成锚点即退回补条目。
