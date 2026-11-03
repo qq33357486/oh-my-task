@@ -16,10 +16,13 @@
  *   （T0012/A1 清单化）列元素自身不承载 data-card-id（T0013 契约统一，
  *   2026-11-03 人批准：废除旧"恰一张 recorded 卡时列元素自身承载 id"
  *   的巧合锚点——多卡+按 id 定位必与列内断言互斥）。
+ * - 卡面主视觉只显示 title（T0015，2026-11-03 人批准：frontmatter 人话
+ *   单行标题）；id 文本与"原话"首行（日期载体）不上卡面，id 仅保留为
+ *   data-card-id 属性。
  * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行元素
  *   自身带 data-card-id="<卡 id>" 行级锚点（多卡场景按 id 各唯一定位
- *   到行），行内含卡 id 文本与"原话"节首行，点击行打开全文弹层（与其
- *   他卡共用 Modal）。
+ *   到行），行内含卡 id 文本与 title 主文本（T0015 起取代"原话"节首行），
+ *   点击行打开全文弹层（与其他卡共用 Modal）。
  */
 import { useMemo, useState } from 'react';
 import { Badge, Card, Modal, Tag, Tooltip } from 'antd';
@@ -63,6 +66,7 @@ function firstLine(text: string | undefined, max = 40): string {
 function cardFullText(card: ParsedCard): string {
   const fm = [
     `id: ${card.id}`,
+    `title: ${card.title}`,
     `type: ${card.type}`,
     `status: ${card.status}`,
     `round: ${card.round}`,
@@ -79,7 +83,8 @@ function cardFullText(card: ParsedCard): string {
 
 /** 常规列卡片：AntD Card 承载视觉，外层元素持 data-card-id 契约与点击 */
 function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) => void }) {
-  const brief = firstLine(card.sections['原话']);
+  // T0015：卡面主视觉只显示 title（人话单行）；id/原话首行（日期载体）不
+  // 上卡面，id 仅保留为外层 data-card-id 属性。
   return (
     <div
       className={`kanban-card kanban-card--${card.status}${
@@ -89,17 +94,16 @@ function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) 
       onClick={() => onOpen(card)}
     >
       <Card size="small" hoverable className="kanban-card__box">
-        <div className="kanban-card__head">
-          <span className="kanban-card__id">{card.id}</span>
-          {card.round > 0 && (
+        {card.round > 0 && (
+          <div className="kanban-card__head">
             <Tooltip title={`第 ${card.round} 轮返工`}>
               <Tag color="orange" style={{ marginInlineEnd: 0 }}>
                 R{card.round}
               </Tag>
             </Tooltip>
-          )}
-        </div>
-        {brief && <div className="kanban-card__brief">{brief}</div>}
+          </div>
+        )}
+        {card.title && <div className="kanban-card__title">{card.title}</div>}
         {card.type && <div className="kanban-card__type">{card.type}</div>}
       </Card>
     </div>
@@ -158,9 +162,7 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
                         onClick={() => setActive(card)}
                       >
                         <span className="kanban__row-id">{card.id}</span>
-                        <span className="kanban__row-brief">
-                          {firstLine(card.sections['原话'], 60)}
-                        </span>
+                        <span className="kanban__row-title">{card.title}</span>
                       </div>
                     ))}
                   </div>

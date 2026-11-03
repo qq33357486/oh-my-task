@@ -7,10 +7,19 @@
  */
 import { memDir, type DirTree } from './mockFs';
 
-/** 最小合法卡：frontmatter 关键字段 + 原话/需求两节（parseCard 契约内） */
-function card(id: string, status: string, type: string, whish: string, requirement: string): string {
+/** 最小合法卡：frontmatter 关键字段 + 原话/需求两节（parseCard 契约内）。
+ * T0015 起夹具卡带 title（看板主显字段，与真实卡形态一致）。 */
+function card(
+  id: string,
+  status: string,
+  title: string,
+  type: string,
+  whish: string,
+  requirement: string,
+): string {
   return `---
 id: ${id}
+title: ${title}
 type: ${type}
 status: ${status}
 round: 0
@@ -43,6 +52,7 @@ ${requirement}
 const T0002 = card(
   'T0002',
   'recorded',
+  '循环工程收进单目录形态',
   '系统开发',
   '循环工程全部目录收进单一目录，不影响宿主项目根目录',
   '把 oh-my-task 迁移为单目录形态，产物同时作为初始化功能的模板形态。',
@@ -52,6 +62,7 @@ const T0002 = card(
 const T0004 = card(
   'T0004',
   'done',
+  '一键初始化循环工程',
   '系统开发',
   '把循环工程装进任意目录，一键初始化',
   '初始化目录：runInit 生成 .oht/ 框架全套并附引导卡，目录已含 .oht/ 时拒绝执行不覆盖。',
@@ -61,6 +72,7 @@ const T0004 = card(
 const T0005 = card(
   'T0005',
   'new',
+  '页面骨架与三态内容',
   '系统开发',
   '网页要有一个像样的页面骨架',
   '页面骨架：页眉（目录名、刷新）+ 三态内容（选目录/未初始化/看板）。',
@@ -70,6 +82,7 @@ const T0005 = card(
 const T0006 = card(
   'T0006',
   'tests',
+  '看板轮询跟进任务变化',
   '系统开发',
   '目录里任务卡变了，看板要跟得上',
   '集成锚点：轮询周期内看板应反映任务卡目录的变化。',
@@ -79,6 +92,7 @@ const T0006 = card(
 const T0008 = card(
   'T0008',
   'need_human',
+  '后台角色定时器驱动',
   '系统开发',
   '后台角色要有定时器',
   '巡检员与整理员等后台角色由 Agent 侧定时器驱动，项目目录里不放配置文件。',
@@ -87,6 +101,7 @@ const T0008 = card(
 // _ 前缀模板（真实 .oht/tasks/_template.md 的精简形态；id 若渲染即 T0000）
 const TEMPLATE = `---
 id: T0000
+title: ""
 type: 模板
 status: new
 round: 0
@@ -145,7 +160,16 @@ export function initializedRoot(writeLog?: string[]): {
   const tree: DirTree = {
     '.oht': {
       'AGENTS.md': '# 循环工程入口\n已有框架。\n',
-      tasks: { 'T0001.md': card('T0001', 'recorded', '引导', '引导卡', '已初始化的既有卡。') },
+      tasks: {
+        'T0001.md': card(
+          'T0001',
+          'recorded',
+          '循环工程引导卡',
+          '引导',
+          '引导卡',
+          '已初始化的既有卡。',
+        ),
+      },
     },
     'AGENTS.md': '# 宿主项目\n项目自身的说明，一个字都不能动。\n',
     app: { 'index.ts': 'export {};\n' },

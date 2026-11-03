@@ -146,11 +146,22 @@ body,
   font-size: 13px;
 }
 
+/* 降级区残缺卡摘要行（T0015 起仅 strays 使用；常规卡主显 __title） */
 .kanban-card__brief {
   margin-top: 4px;
   font-size: 13px;
   color: #595959;
   word-break: break-all;
+}
+
+/* T0015：卡面主显人话单行标题（id 与日期不上主视觉） */
+.kanban-card__title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #262626;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kanban-card__type {
@@ -193,10 +204,11 @@ body,
   color: #595959;
 }
 
-.kanban__row-brief {
+/* T0015：归档行主显人话标题（行内 id 文本按 T0012 契约保留） */
+.kanban__row-title {
   flex: 1 1 auto;
   min-width: 0;
-  color: #8c8c8c;
+  color: #262626;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

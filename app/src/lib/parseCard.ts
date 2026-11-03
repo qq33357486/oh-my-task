@@ -5,7 +5,8 @@
  *
  * 契约：
  * - 输入为一张任务卡的完整文本（frontmatter + 正文九节）。
- * - frontmatter 关键字段：id、type、status、round、parent、origin、lane、batch。
+ * - frontmatter 关键字段：id、type、status、round、parent、origin、lane、batch、
+ *   title（T0015 新增：人话单行标题，看板主显用；旧卡缺该字段时为 ''）。
  *   round 解析为 number，其余为 string。
  * - sections：键 = 正文九节标题（不含 "## "）：
  *   原话、需求、复述卡、验收条目、系统文档改动、进度、失败原因、候选教训、人的回复；
@@ -16,6 +17,8 @@
  */
 export interface ParsedCard {
   id: string;
+  /** 人话单行标题（T0015：看板卡面主显；旧卡缺失时为 ''） */
+  title: string;
   type: string;
   status: string;
   round: number;
@@ -33,6 +36,7 @@ export interface ParsedCard {
 function failedCard(error: string): ParsedCard {
   return {
     id: '',
+    title: '',
     type: '',
     status: '',
     round: 0,
@@ -121,6 +125,7 @@ export function parseCard(text: string): ParsedCard {
     const sections = splitSections(text.slice(fmMatch[0].length));
     return {
       id: fm.id,
+      title: fm.title ?? '',
       type: fm.type ?? '',
       status: fm.status ?? '',
       round: Number.isFinite(roundNum) ? roundNum : 0,

@@ -11,6 +11,10 @@
  *      零 data-card-id"断言——旧形态下锚点靠"恰一张卡时列元素自身承载
  *      id"的巧合，多卡+按 id 定位必再撞互斥）。同步改写 entryFlow
  *      T0009/A2（先例：T0004/A4、T0007、T0009，批准的需求变更同步改写）；
+ *    - T0015 需求节 5（2026-11-03 人批准）：归档行主显由"原话首行"改为
+ *      frontmatter title（看板卡面不再上日期/编号），A1 中"清单行应含
+ *      原话首行"断言同步改写为"应含 title"，夹具卡补 title 字段（先例
+ *      同上：批准的需求变更同步改写，非蒙混）；
  *    - 其余列（如 new）仍以 `[data-card-id]` 渲染卡片；
  *    - 点击 recorded 行 → 弹层（Modal）含该卡"需求"节片段
  *      （与 T0009 弹层断言同法：screen.findByText）。
@@ -52,11 +56,14 @@ describe('T0012 看板视觉', () => {
       makeCard({
         id: 'T-rec-1',
         status: 'recorded',
+        // T0015 需求节 5（人批准）：夹具补 title，归档行主显 title
+        title: '归档第一卡人话标题',
         sections: { 原话: '归档第一卡原话首行', 需求: '归档第一卡的需求节片段标记' },
       }),
       makeCard({
         id: 'T-rec-2',
         status: 'recorded',
+        title: '归档第二卡人话标题',
         sections: { 原话: '归档第二卡原话首行', 需求: '归档第二卡的需求节片段标记' },
       }),
       makeCard({ id: 'T-new-1', status: 'new', sections: { 原话: '新任务卡原话首行' } }),
@@ -74,14 +81,15 @@ describe('T0012 看板视觉', () => {
       'recorded 列应有两行 data-recorded-row="true" 清单行（当前实现是卡片，应红）',
     ).toBe(2);
 
-    // 每行含卡 id 文本与原话首行
+    // 每行含卡 id 文本与 title 主显（T0015 需求节 5 人批准改写：原断言
+    // "应含原话首行"随主显变更失效，见文件头注记）
     for (const card of cards.filter((c) => c.status === 'recorded')) {
       const row = rows.find((r) => r.textContent?.includes(card.id));
       expect(row, `清单行应含卡 id ${card.id}`).toBeTruthy();
       expect(
         row!.textContent ?? '',
-        `清单行 ${card.id} 应含原话首行`,
-      ).toContain(card.sections['原话']);
+        `清单行 ${card.id} 应含 title 主显`,
+      ).toContain(card.title);
       expect(
         row!.getAttribute('data-recorded-row'),
         `清单行 ${card.id} 的 data-recorded-row 应为 "true"`,

@@ -70,12 +70,14 @@ export const HOST_REFERENCE_LINE =
 
 /**
  * 引导卡（T0004 需求 4）：status=new、type=引导，教使用者三件事。
- * 内容按卡格式写（frontmatter + 九节），保证目标项目跑 check-card.py 可过。
+ * 内容按卡格式写（frontmatter + 九节），保证目标项目跑 check-card.py 可过
+ * （T0015 起 frontmatter 须含合规 title）。
  */
 export const BOOTSTRAP_CARD: TemplateFile = {
   path: '.oht/tasks/T0001.md',
   content: `---
 id: T0001
+title: 循环工程引导卡
 type: 引导
 status: new
 round: 0

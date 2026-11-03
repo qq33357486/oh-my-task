@@ -1,6 +1,8 @@
-"""任务卡检查：头部、八节、验收条目、状态与条目状态一致、复述卡字数。
+"""任务卡检查：头部、八节、验收条目、状态与条目状态一致、复述卡字数、title 字段。
 用法：python3 -I .oht/scripts/check-card.py [.oht根目录 | 卡片文件路径]
-目录模式下扫到 0 张卡时打印"未扫描到任何卡片，请确认 ROOT 路径"并 exit 1；单卡模式无此判定。"""
+目录模式下扫到 0 张卡时打印"未扫描到任何卡片，请确认 ROOT 路径"并 exit 1；单卡模式无此判定。
+title（T0015）：非 _ 开头卡 frontmatter 必填，人话单行 ≤24 字（无日期、卡号、
+括号注记，给人看的摘要）；缺 title 或超 24 字报错。"""
 import re, sys, glob, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +17,7 @@ STATUS = {"new", "tests", "ready", "review", "done", "recorded", "need_human"}
 SECTIONS = ["原话", "需求", "复述卡", "验收条目", "系统文档改动", "进度", "失败原因", "候选教训", "人的回复"]
 NEED4 = ["stopped_at", "resume_to", "stop_reason", "question"]
 BRIEF_MAX = 200
+TITLE_MAX = 24
 
 bad = 0
 cards = []
@@ -48,6 +51,11 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         err(name, f"status 无效：{st}")
     if h.get("id") != name[:-3]:
         err(name, "id 与文件名不一致")
+    title = h.get("title", "")
+    if not title:
+        err(name, "缺 title（frontmatter 必填：人话单行 ≤24 字，给人看的摘要）")
+    elif len(title) > TITLE_MAX:
+        err(name, f"title {len(title)} 字 > {TITLE_MAX}")
     if st == "need_human":
         for k in NEED4:
             if not h.get(k):
