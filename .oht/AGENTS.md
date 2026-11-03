@@ -13,6 +13,7 @@
 3. 纠正旧任务：建跟进卡，写 parent 和 origin
 4. 拿不准：反问一个选择题
 - 人丢进 tasks/ 的卡文件照常认。
+- 定稿后唤醒调度员，dispatch-worker.sh dispatcher
 
 ## 规则
 强制：

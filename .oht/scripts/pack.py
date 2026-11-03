@@ -24,7 +24,6 @@ FRAMEWORK_FILES = [
     ".oht/roles/consultant-brief.md",
     ".oht/roles/consultant.md",
     ".oht/roles/curator.md",
-    ".oht/roles/dispatcher-intake.md",
     ".oht/roles/dispatcher.md",
     ".oht/roles/implementer.md",
     ".oht/roles/memory-tools.md",

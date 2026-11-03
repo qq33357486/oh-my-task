@@ -9,7 +9,7 @@
   A4-1 唤醒调用：bash .oht/scripts/dispatch-worker.sh dispatcher（无卡号，
        ZCODE_BIN 指 stub）→ exit 0；stub 收到的提示词含「dispatcher」与
        .oht/roles/dispatcher.md 路径；日志 .oht/local/w-dispatcher.log 同步生成
-  A4-2 接待建卡后唤醒：dispatcher-intake.md 含「建卡后唤醒调度员」条款
+  A4-2 接待建卡后唤醒：入口 AGENTS.md 含「定稿后唤醒调度员」条款（批2 迁自 dispatcher-intake）
        （语义匹配：唤醒/拉起调度员 + dispatch-worker 脚本引用）
   A4-3 调度员文档自洽：dispatcher.md 含 dispatcher 唤醒用法（含
        dispatch-worker 与 dispatcher 同现）与定时唤醒同入口条款
@@ -32,7 +32,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 SCRIPT = os.path.join(ROOT, ".oht", "scripts", "dispatch-worker.sh")
-INTAKE = os.path.join(ROOT, ".oht", "roles", "dispatcher-intake.md")
+INTAKE = os.path.join(ROOT, ".oht", "AGENTS.md")  # 批2：intake 退役，唤醒条款迁入口四分法
 DISPATCHER_MD = os.path.join(ROOT, ".oht", "roles", "dispatcher.md")
 LOG = os.path.join(ROOT, ".oht", "local", "w-dispatcher.log")
 
@@ -140,7 +140,7 @@ def check_wake_call():
 
 def check_prompts():
     for path, label, groups in (
-        (INTAKE, "dispatcher-intake.md 建卡后唤醒条款",
+        (INTAKE, "入口 AGENTS.md 建卡后唤醒条款（批2 迁自 dispatcher-intake）",
          [("唤醒语义", INTAKE_WAKE), ("唤醒命令", INTAKE_CMD)]),
         (DISPATCHER_MD, "dispatcher.md 唤醒与定时条款",
          [("dispatcher唤醒用法", MD_WAKE), ("定时唤醒同入口", MD_TIMER),
