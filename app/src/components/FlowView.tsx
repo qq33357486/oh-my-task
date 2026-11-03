@@ -1,5 +1,7 @@
 /**
- * 【锁定接口】实现员只能实现本签名，不得修改（T0019/A3+A4）。
+ * 【锁定接口】实现员只能实现本签名，不得修改（T0019/A3+A4；T0033 改写
+ * DOM 契约：画布四环节化 + 弧线外翻，改前 sha1
+ * 37dc6b94016ffc59d794c4b38afaa53b0ccbb7fd，人已批准写入 T0033 原话）。
  *
  * <FlowView cards={ParsedCard[]} topicTags?: Record<string, string> />
  *
@@ -9,14 +11,15 @@
  * DOM 契约（data-flow-* 为 T0019 新域，与看板 data-* 零交集）：
  * - data-flow-view="true" 根容器恰一；round 2 兼 data-flow-fit="true"
  *   （整页自适应承载层，承诺无横向滚动）；
- * - data-flow-node 恰五环节（需求/测试/实现/检查/记录）按流程序；
+ * - data-flow-node 恰四环节（需求/实现/检查/记录）按流程序（T0033
+ *   四环节化：tests 态删除后「测试」节点恒空摆设，删除，不得复活）；
  * - data-flow-node-head="true" 节点标题栏，每节点恰一（round 1/A6）；
  * - data-flow-port="in"|"out" 端口圆点，每节点 in/out 恰各一（A6）；
- * - data-flow-card-id：tests/ready/review/done 卡挂对应环节节点内；
- *   need_human/new/recorded 及解析失败卡不占画布；
+ * - data-flow-card-id：new/ready/review 卡挂对应环节节点内；
+ *   need_human/done/recorded 及解析失败卡不占画布；
  * - data-flow-inbox="true" 收件箱面板（need_human 卡直显 question/
  *   stop_reason，未知状态卡也降级到此）；data-flow-todo="true" 未开始
- *   面板（new 卡）；data-flow-archive="true" 归档面板（recorded 卡）
+ *   面板（new 卡）；data-flow-archive="true" 归档面板（done/recorded 卡）
  *   —— round 2 布局定案：左=两层清单（收件箱+未开始），右=单层清单
  *   （归档），中=环形画布；三面板为页面侧栏静态面板；
  * - 卡面：编号 + 人话标题主显；round>0 显示「第N轮」徽标；知识标签
@@ -24,11 +27,12 @@
  * - data-flow-edge 恰两条回边：「检查→实现」（检查不通过打回）与
  *   「记录→需求」（循环闭合），→ 为 U+2192，承载于 SVG <g>；
  *   round 2 起两回边融入环形连线（环上反向弧段），不再是独立上弧；
- * - data-flow-link="<from>→<to>" 恰四条环节顺序连线（A6，有意避开
- *   data-flow-edge——该域被回边「恰两条」断言锁定，复用即互斥）；
- *   round 2 起四段顺序线同为环上弧段（椭圆环）；
- * - data-flow-ring="true" 环形布局容器（round 2/A8）：五节点与全部
- *   六条连线均为其后代；节点内联 style 呈环形几何（椭圆环，b/a=0.75，
+ * - data-flow-link="<from>→<to>" 恰三条环节顺序连线（A6 立「恰四条」，
+ *   T0033 四环节化改「恰三条」，有意避开 data-flow-edge——该域被回边
+ *   「恰两条」断言锁定，复用即互斥）；round 2 起顺序线同为环上弧段
+ *   （椭圆环）；
+ * - data-flow-ring="true" 环形布局容器（round 2/A8）：四节点与全部
+ *   五条连线均为其后代；节点内联 style 呈环形几何（椭圆环，b/a=0.75，
  *   宽屏适配形态，红测已验证兼容）；
  * - data-flow-viewport="true" 平移/缩放容器（A7）；data-flow-grid="true"
  *   深色网格点阵底（A7）；round 2 起 viewport 住 data-flow-center="true"
@@ -37,12 +41,24 @@
  *   文本为环节名）｜card-num/card-title（每张渲染卡各恰一）｜panel-head
  *   （三清单面板各恰一）｜edge-label（两回边各恰一）。
  *
+ * T0033 弧线外翻与锚点契约（人 2026-11-04 原话定案）：环形顺序三段与
+ * 闭合回边「记录→需求」弧线外翻（凸向环外：弧顶到环心距离 > 弦中点到
+ * 环心距离，红测 flowRingOutward.test.tsx）；五条线端点一律锚「卡片边
+ * 的中点」（人原话：右卡下中→下卡右中、下卡左中→左卡下中、打回走内
+ * 圈从上中到左中），实现为 computeAnchoredLink（新纯函数）+ NODE_OUT/
+ * NODE_IN 出入边锚点表；打回弧「检查→实现」走内圈空闲边（检查 top →
+ * 实现 left）内凹（锚点与内凹断言红测 flowRingAnchors.test.tsx）。
+ * 前史（bow/负 sag 车道方案，已被锚点方案取代，锁定测试随人裁决改写）：
+ * computeLink 的 bow 参数（默认 1 现行为，-1 全幅镜像）保留为公共契约，
+ * 分离绿锚仅锁 bow=1（bow=-1 分离与镜像断言几何不可两全，500 对种子
+ * 实测见卡「进度」节，人裁决 2026-11-04）。
+ *
  * round 2 技术取舍（环形布局 + 自适应居中，仍不引画布库）：
- * - 环形几何：椭圆环（中心/横纵半径常量），五节点按环序布点（需求居顶）；
- *   六条连线由 flowGeometry.computeLink 纯函数生成（T0027）：端点自盒中心
- *   沿弦方向与盒边界求交（slab）后外推贴边（gap 6px，悬空根除），法线弧
- *   带车道偏移使正反向弧分居弦两侧不重叠——顺序四段 sag=0.15、打回弧
- *   0.22（与顺序弧不同弧度）、闭合段 0.15（d 含 C，满足 A6 曲线契约）。
+ * - 环形几何：椭圆环（中心/横纵半径常量），节点按环序布点（需求居顶）；
+ *   连线由 flowGeometry 纯函数生成：T0033 起环形五线走 computeAnchoredLink
+ *   （边中点锚定，顺序/闭合段 sag=-0.15 外圈外翻、打回弧 -0.22 内圈，
+ *   d 含 C 满足 A6 曲线契约）；computeLink（slab 求交+车道分离）保留，
+ *   T0027 千对性质与 bow 契约测试继续以它为锚。
  * - 节点盒 = itemPos + NODE_W + NODE_H；NODE_H=280 为 JS 常量并与 CSS
  *   .flow-node height: 280px 同源——jsdom 不应用 CSS（T0019 教训），连线
  *   端点计算两侧须取得同一盒高；椭圆轨道 cy = RING_CY + NODE_H/2（跟随
@@ -64,15 +80,17 @@ import type { ParsedCard } from '../lib/parseCard';
 import { mapStatusToNode } from '../lib/flowMap';
 import { NODE_CARD_LIMIT, capNodeCards } from '../lib/nodeCards';
 import { ARCHIVE_LIMIT, archiveMoreText } from '../lib/archiveList';
-import { computeLink, type NodeBox } from '../lib/flowGeometry';
+import { computeAnchoredLink, type AnchorSide, type NodeBox } from '../lib/flowGeometry';
 import { MarkdownText } from './MarkdownText';
 import { cardFullText } from './Kanban';
 
 /** 未开始面板完整清单的显示上限（T0030：截最近 50 张 + 更早提示） */
 const TODO_PANEL_LIMIT = 50;
 
-/** 画布五环节（流程序，非状态码） */
-const CANVAS_NODES = ['需求', '测试', '实现', '检查', '记录'] as const;
+/** 画布环节（流程序，非状态码）。T0033 契约：恰四环节
+ *  （需求/实现/检查/记录，「测试」节点删除不得复活）——实现落地：
+ *  环节集合、布局、挂卡桶、连线集合同步四环节化。 */
+const CANVAS_NODES = ['需求', '实现', '检查', '记录'] as const;
 type CanvasNode = (typeof CANVAS_NODES)[number];
 
 type Vec = { x: number; y: number };
@@ -94,13 +112,40 @@ const RING_CY = 600;
 const RING_RX = 520;
 const RING_RY = 390;
 
-/** 默认环形布局（世界坐标）：盒左上角，left = 环点 x - 半宽，top = 环点 y */
+/** 环上弧度与弧向（T0033 锚点方案，人 2026-11-04 原话定案）：端点一律锚
+ *  边中点（computeAnchoredLink），顺序三段+闭合段外圈外翻（SAG_OUT 负
+ *  sag），打回弧「检查→实现」走内圈（SAG_BACK 亦负 sag，弧度与顺序段
+ *  区分）。锚点：顺时针环序下每节点出边=朝下一节点的顺时针侧边、入边=
+ *  对称侧；打回弧占两卡内圈侧空闲边（检查 top / 实现 left）。 */
+const SAG_OUT = -0.15;
+const SAG_BACK = -0.22;
+
+/** 环序出边/入边锚（T0033 锚点表）：顺序段与闭合段 from 出边 → to 入边
+ *  ——需求出右入左、实现出下入上、检查出左入右、记录出上入下；打回弧
+ *  另走内圈空闲边：检查 top（出/入皆非）→ 实现 left。人原话三条对照：
+ *  右卡下中→下卡右中、下卡左中→左卡下中、打回上中→左中（检查/实现）。 */
+const NODE_OUT: Record<CanvasNode, AnchorSide> = {
+  需求: 'right',
+  实现: 'bottom',
+  检查: 'left',
+  记录: 'top',
+};
+const NODE_IN: Record<CanvasNode, AnchorSide> = {
+  需求: 'left',
+  实现: 'top',
+  检查: 'right',
+  记录: 'bottom',
+};
+
+/** 默认环形布局（世界坐标，罗盘位）：盒左上角，left = 环点 x - 半宽，
+ *  top = 环点 y。四节点按环序 需求(顶)→实现(右)→检查(底)→记录(左)
+ *  首尾相接成环（顺时针），盒中心恰落在椭圆轨道（cy=RING_CY+NODE_H/2）
+ *  上；T0033 四环节化，「测试」节点删除不得复活 */
 const DEFAULT_LAYOUT: Record<CanvasNode, Vec> = {
   需求: { x: 1020, y: 210 },
-  测试: { x: 1515, y: 480 },
-  实现: { x: 1326, y: 916 },
-  检查: { x: 714, y: 916 },
-  记录: { x: 525, y: 480 },
+  实现: { x: 1540, y: 600 },
+  检查: { x: 1020, y: 990 },
+  记录: { x: 500, y: 600 },
 };
 
 /** SVG 边层尺寸（覆盖环带；overflow visible 兜底） */
@@ -112,10 +157,11 @@ const WORLD_SVG_H = 1300;
 const GRID_W = 8000;
 const GRID_H = 6000;
 
-/** fit 内容包围盒（环形布局 + 节点盒 + 视觉余量，世界坐标）；maxY 随
- *  NODE_H=280 同步（检查/实现 top 916 + 280 + 原余量 90 = 1286），保
- *  fit 居中不截底 */
-const FIT_CONTENT = { minX: 455, minY: 140, maxX: 1845, maxY: 1286 };
+/** fit 内容包围盒（环形布局 + 节点盒 + 视觉余量，世界坐标）；罗盘四环节
+ *  内容域：左=记录 500、右=实现 1800、顶=需求 210、底=检查 1270（990 +
+ *  NODE_H=280）。余量沿 T0027 口径四周 70、底部 90 → maxY=1360，保 fit
+ *  居中不截底 */
+const FIT_CONTENT = { minX: 430, minY: 140, maxX: 1870, maxY: 1360 };
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
@@ -148,8 +194,8 @@ function placeOf(card: ParsedCard): Place {
   const node = mapStatusToNode(card.status);
   if (node === '收件箱') return 'inbox';
   if (node === '归档') return 'archive';
-  // T0030 新契约：五环节节点一律直挂卡（new 挂需求节点）；new 另入
-  // 「未开始」面板作完整清单（在 buckets 分流处同时收集），不再是二选一
+    // T0030 新契约：环节节点一律直挂卡（new 挂需求节点）；new 另入
+    // 「未开始」面板作完整清单（在 buckets 分流处同时收集），不再是二选一
   return 'canvas';
 }
 
@@ -343,7 +389,6 @@ export function FlowView({
   const buckets = useMemo(() => {
     const canvas: Record<CanvasNode, ParsedCard[]> = {
       需求: [],
-      测试: [],
       实现: [],
       检查: [],
       记录: [],
@@ -383,45 +428,59 @@ export function FlowView({
     [buckets.archive],
   );
 
-  // 六条连线全部由 flowGeometry.computeLink 生成（T0027）：端点贴节点盒
-  // 边缘（slab 求交 + 外推 gap），正反向弧分居弦两侧不重叠。顺序四段
-  // sag=0.15；「检查→实现」为打回弧 sag=0.22（与顺序弧不同弧度，旧实现
-  // 与顺序线弧中点同 90° 逐点重合，根除）；「记录→需求」闭合段 sag=0.15。
-  // d 由节点位置实时推导（拖节点即重算跟随，A6）。
+  // 连线全部由 flowGeometry.computeAnchoredLink 生成（T0033 锚点方案）：
+  // 端点锚边中点（外推 gap），d 由节点位置实时推导（拖节点即重算跟随，
+  // A6）。连线集合 = 顺序三段 + 回边两段 = 五条（四环节化）；顺序三段与
+  // 闭合段 from 出边 → to 入边、sag=SAG_OUT 外圈外翻；打回弧走内圈空闲
+  // 边（检查 top → 实现 left）、sag=SAG_BACK 内凹（弧度与顺序段区分）。
   const ringLinks = useMemo(
     () =>
       CANVAS_NODES.slice(0, -1).map((from, i) => {
         const to = CANVAS_NODES[i + 1];
         return {
           id: `${from}→${to}`,
-          d: computeLink(nodeBoxOf(itemPos[from]), nodeBoxOf(itemPos[to]), 0.15).d,
+          d: computeAnchoredLink(
+            nodeBoxOf(itemPos[from]),
+            NODE_OUT[from],
+            nodeBoxOf(itemPos[to]),
+            NODE_IN[to],
+            SAG_OUT,
+          ).d,
         };
       }),
     [itemPos],
   );
 
-  const ringEdges = useMemo(
-    () =>
-      [
-        { id: '检查→实现' as const, label: '打回', sag: 0.22 },
-        { id: '记录→需求' as const, label: '循环', sag: 0.15 },
-      ].map(({ id, label, sag }) => {
-        const [from, to] = id.split('→') as [CanvasNode, CanvasNode];
-        const { d, apex, side } = computeLink(
-          nodeBoxOf(itemPos[from]),
-          nodeBoxOf(itemPos[to]),
-          sag,
-        );
-        return {
-          id,
-          label,
-          d,
-          // 标签位：弧顶沿凸侧外法向外推（不压线；打回弧凸向环底外侧）
-          labelPos: { x: apex.x + side.x * 22, y: apex.y + side.y * 22 },
-        };
-      }),
-    [itemPos],
-  );
+  const ringEdges = useMemo(() => {
+    /** 打回锚（内圈空闲边）：检查 top 中点 → 实现 left 中点（人原话） */
+    const BACK_ANCHOR = {
+      '检查→实现': ['top', 'left'],
+    } as const;
+    return [
+      { id: '检查→实现' as const, label: '打回', sag: SAG_BACK },
+      { id: '记录→需求' as const, label: '循环', sag: SAG_OUT },
+    ].map(({ id, label, sag }) => {
+      const [from, to] = id.split('→') as [CanvasNode, CanvasNode];
+      const [fromSide, toSide] =
+        id === '检查→实现'
+          ? BACK_ANCHOR['检查→实现']
+          : ([NODE_OUT[from], NODE_IN[to]] as [AnchorSide, AnchorSide]);
+      const { d, apex, side } = computeAnchoredLink(
+        nodeBoxOf(itemPos[from]),
+        fromSide,
+        nodeBoxOf(itemPos[to]),
+        toSide,
+        sag,
+      );
+      // 标签位：弧顶沿凸侧法向外推（side 已恒指凸侧，不压线）
+      return {
+        id,
+        label,
+        d,
+        labelPos: { x: apex.x + side.x * 22, y: apex.y + side.y * 22 },
+      };
+    });
+  }, [itemPos]);
 
   return (
     <div className="flow-view" data-flow-view="true" data-flow-fit="true">
@@ -488,7 +547,7 @@ export function FlowView({
             data-flow-grid="true"
             style={{ left: 0, top: 0, width: GRID_W, height: GRID_H }}
           >
-            {/* 环形布局容器（A8 ring 锚）：五节点与全部六条连线均在其内 */}
+            {/* 环形布局容器（A8 ring 锚）：四节点与全部五条连线均在其内（T0033） */}
             <div className="flow-ring" data-flow-ring="true">
               <svg
                 className="flow-svg"
@@ -520,7 +579,7 @@ export function FlowView({
                   </marker>
                 </defs>
 
-                {/* 椭圆轨道线：强化「五环节首尾相接成环」观感；cy 跟随
+                {/* 椭圆轨道线：强化「四环节首尾相接成环」观感（T0033）；cy 跟随
                     节点中心带（T0027：RING_CY + NODE_H/2 = 740） */}
                 <ellipse
                   cx={RING_CX}
@@ -530,7 +589,7 @@ export function FlowView({
                   className="flow-orbit"
                 />
 
-                {/* 顺序连线恰四条（环上正向弧段）：需求→测试→实现→检查→记录 */}
+                {/* 顺序连线（环上正向弧段）：T0033 契约恰三条 需求→实现→检查→记录 */}
                 {ringLinks.map((link) => (
                   <g key={link.id}>
                     <path
@@ -565,10 +624,10 @@ export function FlowView({
                 ))}
               </svg>
 
-              {/* 五环节实体节点：环上布点（内联 style 即 A8 环形几何判据） */}
+              {/* 环节实体节点：环上布点（内联 style 即 A8 环形几何判据；T0033 契约恰四环节） */}
               {CANVAS_NODES.map((name) => {
                 const cardsHere = buckets.canvas[name];
-                // T0030：五环节节点统一速览窗口——最新 4 张直挂，超出折叠为
+                // T0030：环节节点统一速览窗口——最新 4 张直挂，超出折叠为
                 // 「更多」计数提示（需求节点附「见左侧」指引全量清单）
                 const { shown: cardsShown, hidden: hiddenCount } = capNodeCards(
                   cardsHere,

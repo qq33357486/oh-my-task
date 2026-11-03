@@ -40,7 +40,11 @@
 - 正常推进放行：实录见新动作新产出，不杀，继续等完成。
 - 禁纯产物 mtime 判滞：死循环测试持续产出运行痕迹，产物新≠有进展。
 
-## 后台派发
-逐卡执行 `bash .oht/scripts/dispatch-worker.sh <卡号> <角色>`（角色按卡面：new→consultant、ready→implementer、review→checker）。
+## 后台派发与唤醒
+逐卡执行 `bash .oht/scripts/dispatch-worker.sh <角色> [卡号]`（角色按卡面：new→consultant、ready→implementer、review→checker）。
 脚本自带 CLI 定位、提示词组装与日志（.oht/local/w-<卡号>.log），后台拉起即返回。
 - 派发后核验日志已生成；空或即退报错则重派一次，仍败转报告留痕。
+
+唤醒入口（唯一）：`bash .oht/scripts/dispatch-worker.sh dispatcher`（无卡号）。
+拉起一个调度员会话，由其读台账与卡片后按需派发，脚本即返不等候。
+定时唤醒（宿主有定时时）走同一脚本入口；PROTOCOL「定时器与人的消息同为触发器」不变。

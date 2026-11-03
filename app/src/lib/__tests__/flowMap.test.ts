@@ -2,13 +2,16 @@
  * T0019/A1 状态→环节映射纯函数红测试（检查员锁定，实现员不得改本测试）。
  *
  * 【锁定接口】实现员新建 app/src/lib/flowMap.ts，只能实现本签名，不得修改：
- *   export type FlowNode = '需求' | '测试' | '实现' | '检查' | '记录' | '归档' | '收件箱';
+ *   export type FlowNode = '需求' | '实现' | '检查' | '记录' | '归档' | '收件箱';
  *   export function mapStatusToNode(status: string): FlowNode;
  *
  * 契约（T0019/A1 立；T0031 需求 5 人批改写——五态化 done 即终态归档，改前
  * sha1：50e42ab50d1f2277cb19b80fce1d1198fecfefcf；T0032 需求 6 再批改写——
- * tests 态删除四态机，改前 sha1：06fb4c70dc9364965b84e13a5af64237a63adc1a，
- * 两轮均循 T0004/A4 先例：历史锁定测试按批准变更改写须录指纹）：
+ * tests 态删除四态机，改前 sha1：06fb4c70dc9364965b84e13a5af64237a63adc1a；
+ * T0033 再批改写——FlowNode 去「测试」成员（改前 sha1：
+ * 956198dc1208370f1ba99bf944752155b44a4e83），tests 态删除后画布「测试」
+ * 节点恒空摆设，人已批准四环节化，环节集合不含「测试」；均循 T0004/A4
+ * 先例：历史锁定测试按批准变更改写须录指纹）：
  * - new→需求、ready→实现、review→检查（画布三环节挂卡）；
  * - done→归档（done 即归档显示）、recorded→归档（历史卡兼容，同落归档清单）、
  *   need_human→收件箱（左侧清单，不占画布）；

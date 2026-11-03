@@ -32,6 +32,7 @@ FRAMEWORK_FILES = [
     ".oht/roles/patrol.md",
     ".oht/scripts/check-card.py",
     ".oht/scripts/check-size.py",
+    ".oht/scripts/dispatch-worker.sh",
     ".oht/scripts/install.py",
     ".oht/scripts/lock.py",
     ".oht/scripts/newcard.py",
