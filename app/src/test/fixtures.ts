@@ -8,7 +8,9 @@
 import { memDir, type DirTree } from './mockFs';
 
 /** 最小合法卡：frontmatter 关键字段 + 原话/需求两节（parseCard 契约内）。
- * T0015 起夹具卡带 title（看板主显字段，与真实卡形态一致）。 */
+ * T0015 起夹具卡带 title（看板主显字段，与真实卡形态一致）。
+ * T0016 起支持 question/stopReason（need_human 卡人话决策点，与真实卡
+ * need_human 形态一致；默认空串保持既有卡行为不变）。 */
 function card(
   id: string,
   status: string,
@@ -16,6 +18,8 @@ function card(
   type: string,
   whish: string,
   requirement: string,
+  question = '',
+  stopReason = '',
 ): string {
   return `---
 id: ${id}
@@ -32,8 +36,8 @@ touches: [app]
 batch: ""
 stopped_at: ""
 resume_to: ""
-stop_reason: ""
-question: ""
+stop_reason: ${stopReason}
+question: ${question}
 replied: false
 ---
 
@@ -88,7 +92,8 @@ const T0006 = card(
   '集成锚点：轮询周期内看板应反映任务卡目录的变化。',
 );
 
-// 精简自 .oht/tasks/T0008.md（真实 need_human 卡）
+// 精简自 .oht/tasks/T0008.md（真实 need_human 卡；T0016 起补 question/
+// stop_reason——真实 need_human 卡两字段本就非空，夹具随形态对齐）
 const T0008 = card(
   'T0008',
   'need_human',
@@ -96,6 +101,8 @@ const T0008 = card(
   '系统开发',
   '后台角色要有定时器',
   '巡检员与整理员等后台角色由 Agent 侧定时器驱动，项目目录里不放配置文件。',
+  '后台定时器放哪：A Agent 侧定时器驱动（推荐）／B 页面内置定时器',
+  '定时器落点需人拍板',
 );
 
 // _ 前缀模板（真实 .oht/tasks/_template.md 的精简形态；id 若渲染即 T0000）

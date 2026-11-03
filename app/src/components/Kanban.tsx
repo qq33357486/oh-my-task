@@ -19,6 +19,11 @@
  * - 卡面主视觉只显示 title（T0015，2026-11-03 人批准：frontmatter 人话
  *   单行标题）；id 文本与"原话"首行（日期载体）不上卡面，id 仅保留为
  *   data-card-id 属性。
+ * - need_human 卡例外（T0016，2026-11-03）：卡面主显 question 全文
+ *   （data-question 属性承载，人的决策点人话直读），stop_reason 为次要
+ *   弱化行（data-stop-reason 属性承载）；仅 question 非空的 need_human
+ *   卡生效，旧卡回退 title 主显。其余列卡片不变（title 主显，不带这两个
+ *   属性）。点击仍开全文弹层（弹层契约不变）。
  * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行元素
  *   自身带 data-card-id="<卡 id>" 行级锚点（多卡场景按 id 各唯一定位
  *   到行），行内含卡 id 文本与 title 主文本（T0015 起取代"原话"节首行），
@@ -85,6 +90,11 @@ function cardFullText(card: ParsedCard): string {
 function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) => void }) {
   // T0015：卡面主视觉只显示 title（人话单行）；id/原话首行（日期载体）不
   // 上卡面，id 仅保留为外层 data-card-id 属性。
+  // T0016：need_human 卡（question 非空）改主显 question 全文——人只看
+  // 卡面即知"要我决策什么"；stop_reason 为次要弱化行。旧 need_human 卡
+  // 无 question 时回退 title 主显；其余列不变。
+  const isNeedHuman = card.status === 'need_human';
+  const showQuestion = isNeedHuman && !!card.question;
   return (
     <div
       className={`kanban-card kanban-card--${card.status}${
@@ -103,7 +113,20 @@ function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) 
             </Tooltip>
           </div>
         )}
-        {card.title && <div className="kanban-card__title">{card.title}</div>}
+        {showQuestion ? (
+          <>
+            <div className="kanban-card__question" data-question={card.question}>
+              {card.question}
+            </div>
+            {card.stop_reason && (
+              <div className="kanban-card__stop-reason" data-stop-reason={card.stop_reason}>
+                {card.stop_reason}
+              </div>
+            )}
+          </>
+        ) : (
+          card.title && <div className="kanban-card__title">{card.title}</div>
+        )}
         {card.type && <div className="kanban-card__type">{card.type}</div>}
       </Card>
     </div>

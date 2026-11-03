@@ -6,7 +6,10 @@
  * 契约：
  * - 输入为一张任务卡的完整文本（frontmatter + 正文九节）。
  * - frontmatter 关键字段：id、type、status、round、parent、origin、lane、batch、
- *   title（T0015 新增：人话单行标题，看板主显用；旧卡缺该字段时为 ''）。
+ *   title（T0015 新增：人话单行标题，看板主显用；旧卡缺该字段时为 ''）、
+ *   question 与 stop_reason（T0016 新增：need_human 卡的人话决策问题与
+ *   终止原因，看板卡面直显用；frontmatter 缺该字段时为 undefined，
+ *   与既有必填字段的 '' 缺省不同——本两类字段按需可选）。
  *   round 解析为 number，其余为 string。
  * - sections：键 = 正文九节标题（不含 "## "）：
  *   原话、需求、复述卡、验收条目、系统文档改动、进度、失败原因、候选教训、人的回复；
@@ -26,6 +29,10 @@ export interface ParsedCard {
   origin: string;
   lane: string;
   batch: string;
+  /** need_human 卡的人话决策问题（T0016：frontmatter question；缺失时 undefined） */
+  question?: string;
+  /** need_human 卡的终止原因（T0016：frontmatter stop_reason；缺失时 undefined） */
+  stop_reason?: string;
   /** 九节标题 → 内容，键不含 "## " 前缀 */
   sections: Record<string, string>;
   ok: boolean;
@@ -133,6 +140,10 @@ export function parseCard(text: string): ParsedCard {
       origin: fm.origin ?? '',
       lane: fm.lane ?? '',
       batch: fm.batch ?? '',
+      // T0016：仅在 frontmatter 有该字段时承载（缺失保持 undefined）；
+      // 字段存在但为空串（如模板 question: ""）时如实传 ''，由渲染层判空。
+      question: fm.question,
+      stop_reason: fm.stop_reason,
       sections,
       ok: true,
     };
