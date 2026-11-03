@@ -203,8 +203,14 @@ export function App() {
               上次刷新 {new Date(lastRefreshAt).toLocaleTimeString('zh-CN')}
             </Typography.Text>
           )}
+          {/* T0025：className 挂刷新 Button——CSS 端 .app-header__refresh 以
+              min-width:88px 锁宽，loading 图标插入/撤出零位移 */}
           {root && (
-            <Button onClick={() => void refresh()} loading={loading}>
+            <Button
+              className="app-header__refresh"
+              loading={loading}
+              onClick={() => void refresh()}
+            >
               刷新
             </Button>
           )}
