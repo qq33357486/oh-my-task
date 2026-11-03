@@ -155,10 +155,10 @@ const DEFAULT_LAYOUT: Record<CanvasNode, Vec> = {
  *  - 整理员：独立形象，无连线；
  *  - 调度：环心形象（等边三角质心带，非容器），细虚线辐射恰 5 条
  *    （三环节+咨询员+巡查），表达派发关系（无箭头，与实线弧区分）。 */
-const ROLE_CONSULTANT = { x: 1150, y: 120, r: 36 };
-const ROLE_CURATOR = { x: 1900, y: 300, r: 36 };
-const ROLE_DISPATCHER = { x: 1150, y: 846, r: 40 };
-const ROLE_PATROL = { x: 80, y: 520, w: 220, h: 120 };
+const ROLE_CONSULTANT = { x: 1150, y: 120, r: 42, img: '/roles/consultant.png' };
+const ROLE_CURATOR = { x: 1900, y: 300, r: 42, img: '/roles/curator.png' };
+const ROLE_DISPATCHER = { x: 1150, y: 846, r: 52, img: '/roles/dispatcher.png' };
+const ROLE_PATROL = { x: 80, y: 520, w: 220, h: 120, img: '/roles/patrol.png' };
 
 /** 喂需线端点（世界坐标）：咨询员形象底 → 需求 top 中点上方；
  *  巡查面板右缘 → 需求左缘偏上（避开闭合弧入锚 left 中点） */
@@ -199,7 +199,7 @@ const GRID_H = 6000;
 /** fit 内容包围盒（T0034 正三角+外围角色）：左=巡查面板 80、右=整理员
  *  形象 1936+余量、顶=咨询员形象 84、底=底边外凸弧顶≈1337+余量。余量
  *  沿 T0027 口径四周 70、底部 90 */
-const FIT_CONTENT = { minX: 10, minY: 14, maxX: 2006, maxY: 1430 };
+const FIT_CONTENT = { minX: 10, minY: 8, maxX: 2012, maxY: 1430 };
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
@@ -712,33 +712,28 @@ export function FlowView({
 
               {/* 外围四角色（T0034，人拍板）：咨询员/整理员/调度=形象节点
                   （非容器），巡查员=空壳面板容器（将来巡查产卡落此） */}
-              <div
-                className="flow-role flow-role--consultant"
-                data-flow-role="咨询员"
-                style={{ left: ROLE_CONSULTANT.x - ROLE_CONSULTANT.r, top: ROLE_CONSULTANT.y - ROLE_CONSULTANT.r, width: ROLE_CONSULTANT.r * 2, height: ROLE_CONSULTANT.r * 2 }}
-              >
-                <span className="flow-role__name">咨询员</span>
-              </div>
-              <div
-                className="flow-role flow-role--curator"
-                data-flow-role="整理员"
-                style={{ left: ROLE_CURATOR.x - ROLE_CURATOR.r, top: ROLE_CURATOR.y - ROLE_CURATOR.r, width: ROLE_CURATOR.r * 2, height: ROLE_CURATOR.r * 2 }}
-              >
-                <span className="flow-role__name">整理员</span>
-              </div>
-              <div
-                className="flow-role flow-role--dispatcher"
-                data-flow-role="调度"
-                style={{ left: ROLE_DISPATCHER.x - ROLE_DISPATCHER.r, top: ROLE_DISPATCHER.y - ROLE_DISPATCHER.r, width: ROLE_DISPATCHER.r * 2, height: ROLE_DISPATCHER.r * 2 }}
-              >
-                <span className="flow-role__name">调度</span>
-              </div>
+              {[ROLE_CONSULTANT, ROLE_CURATOR, ROLE_DISPATCHER].map((role) => (
+                <div
+                  key={role.img}
+                  className={`flow-role${role === ROLE_DISPATCHER ? ' flow-role--dispatcher' : ''}`}
+                  data-flow-role={role === ROLE_CONSULTANT ? '咨询员' : role === ROLE_CURATOR ? '整理员' : '调度'}
+                  style={{ left: role.x - role.r, top: role.y - role.r, width: role.r * 2, height: role.r * 2 }}
+                >
+                  <img src={role.img} alt="" className="flow-role__img" draggable={false} />
+                  <span className="flow-role__name">
+                    {role === ROLE_CONSULTANT ? '咨询员' : role === ROLE_CURATOR ? '整理员' : '调度'}
+                  </span>
+                </div>
+              ))}
               <div
                 className="flow-role-panel"
                 data-flow-role="巡查员"
                 style={{ left: ROLE_PATROL.x, top: ROLE_PATROL.y, width: ROLE_PATROL.w, height: ROLE_PATROL.h }}
               >
-                <div className="flow-role-panel__head">巡查员</div>
+                <div className="flow-role-panel__head">
+                  <img src={ROLE_PATROL.img} alt="" className="flow-role-panel__img" draggable={false} />
+                  巡查员
+                </div>
                 <div className="flow-role-panel__empty">巡查未配置</div>
               </div>
 

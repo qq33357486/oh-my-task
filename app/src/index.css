@@ -1238,22 +1238,42 @@ body {
 /* ===== T0034 外围四角色（形象节点/巡查空壳面板/调度虚线辐射/喂需线） ===== */
 .flow-role {
   position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(38, 42, 54, 0.85);
-  color: #cfd3dd;
-  font-size: 13px;
-  letter-spacing: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: #232733;
   user-select: none;
   z-index: 3;
+  box-shadow: 0 0 18px rgba(77, 216, 255, 0.08);
+}
+.flow-role__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.flow-role__name {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: rgba(16, 18, 25, 0.72);
+  color: #dfe3ec;
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
 }
 .flow-role--dispatcher {
-  border-style: double;
-  border-width: 3px;
+  border-width: 2px;
+  border-color: rgba(77, 216, 255, 0.55);
+  box-shadow: 0 0 26px rgba(77, 216, 255, 0.22);
+}
+.flow-role--dispatcher .flow-role__name {
   font-weight: 600;
+  color: #9fe8ff;
 }
 .flow-role-panel {
   position: absolute;
@@ -1267,6 +1287,16 @@ body {
   font-size: 13px;
   color: #cfd3dd;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-role-panel__img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(94, 234, 160, 0.35);
 }
 .flow-role-panel__empty {
   font-size: 12px;
