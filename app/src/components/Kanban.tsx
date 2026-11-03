@@ -13,13 +13,13 @@
  *   属性，空列 className 也不得含 urgent 高亮类，列头文案保留。
  * - data-card-id：need_human/new/tests/ready/review/done 六列，每张卡
  *   一个带 data-card-id="<卡 id>" 的元素，位于其状态列内。recorded 列
- *   （T0012/A1 清单化）列内不得出现 data-card-id 元素；为同时满足
- *   T0009 entryFlow「recorded 卡 id 可经 closest 定位到列」与 T0012
- *   「列内后代零 data-card-id」两条锁定断言，恰有一张 recorded 卡时，
- *   该卡 id 由列元素自身以 data-card-id 承载（querySelectorAll 只查
- *   后代、closest 含自身）；空列或多卡时不承载。
- * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行内含
- *   卡 id 文本与"原话"节首行，点击行打开全文弹层（与其他卡共用 Modal）。
+ *   （T0012/A1 清单化）列元素自身不承载 data-card-id（T0013 契约统一，
+ *   2026-11-03 人批准：废除旧"恰一张 recorded 卡时列元素自身承载 id"
+ *   的巧合锚点——多卡+按 id 定位必与列内断言互斥）。
+ * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行元素
+ *   自身带 data-card-id="<卡 id>" 行级锚点（多卡场景按 id 各唯一定位
+ *   到行），行内含卡 id 文本与"原话"节首行，点击行打开全文弹层（与其
+ *   他卡共用 Modal）。
  */
 import { useMemo, useState } from 'react';
 import { Badge, Card, Modal, Tag, Tooltip } from 'antd';
@@ -139,9 +139,6 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
               className={`kanban__column${urgent ? ' kanban__column--urgent' : ''}`}
               data-column={col}
               data-urgent={urgent ? 'true' : undefined}
-              data-card-id={
-                col === 'recorded' && inColumn.length === 1 ? inColumn[0].id : undefined
-              }
             >
               <div className="kanban__column-head">
                 <span>{COLUMN_META[col].title}</span>
@@ -157,6 +154,7 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
                         key={card.id}
                         className="kanban__row"
                         data-recorded-row="true"
+                        data-card-id={card.id}
                         onClick={() => setActive(card)}
                       >
                         <span className="kanban__row-id">{card.id}</span>

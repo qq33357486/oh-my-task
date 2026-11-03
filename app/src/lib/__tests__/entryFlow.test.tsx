@@ -12,6 +12,12 @@
  *    初始化直接写"已选中的句柄"，不得再次弹 picker；点击后句柄中出现
  *    .oht/AGENTS.md 与 .oht/tasks/T0001.md，页面转看板。（A3）
  * 5. picker 拒绝（NotAllowedError）不崩溃：停留原页、有提示。（A6 前半）
+ * 6. T0013 契约统一（2026-11-03 人批准）：recorded 归档卡定位语义回归
+ *    行级——归档清单行带 data-card-id，按 id 可定位到行且行在 recorded
+ *    列内；不再依赖"恰一张 recorded 卡时列元素自身承载 data-card-id"的
+ *    巧合（旧形态下多卡+按 id 定位必与"列内后代零 data-card-id"互斥）。
+ *    本变更同步改写本文件与 visual.test.tsx 两条锁定测试（先例：
+ *    T0004/A4、T0007、T0009——批准的需求变更同步改写，非蒙混）。
  *
  * 技术路线：jsdom 注入假 showDirectoryPicker 与假 IndexedDB（见
  * src/test/mockFs.ts），目录树由真实卡精简夹具构造（src/test/fixtures.ts），
@@ -121,7 +127,7 @@ describe('T0009 入口单流', () => {
     expect(columns[0].getAttribute('data-column')).toBe('need_human');
     expect(columns[0].getAttribute('data-urgent')).toBe('true');
 
-    const assertInColumn = (id: string, col: string) => {
+    const assertCardInColumn = (id: string, col: string) => {
       const els = view.container.querySelectorAll(`[data-card-id="${id}"]`);
       expect(els.length, `卡 ${id} 应恰好渲染一次`).toBe(1);
       expect(
@@ -129,10 +135,23 @@ describe('T0009 入口单流', () => {
         `卡 ${id} 应落在 ${col} 列`,
       ).toBe(col);
     };
-    assertInColumn('T0008', 'need_human');
-    assertInColumn('T0005', 'new');
-    assertInColumn('T0004', 'done');
-    assertInColumn('T0002', 'recorded');
+    // T0013 契约统一（2026-11-03 人批准）：recorded 定位语义回归行级——
+    // 归档清单行带 data-card-id，按 id 定位到行且行在 recorded 列内
+    // （多卡场景每行一个 id；"恰一次"针对行级锚点，不再看列元素自身）。
+    const assertRecordedRowInColumn = (id: string) => {
+      const rows = view.container.querySelectorAll(
+        `[data-recorded-row="true"][data-card-id="${id}"]`,
+      );
+      expect(rows.length, `归档卡 ${id} 应按 id 恰定位到一行清单行`).toBe(1);
+      expect(
+        rows[0].closest('[data-column]')?.getAttribute('data-column'),
+        `归档行 ${id} 应落在 recorded 列`,
+      ).toBe('recorded');
+    };
+    assertCardInColumn('T0008', 'need_human');
+    assertCardInColumn('T0005', 'new');
+    assertCardInColumn('T0004', 'done');
+    assertRecordedRowInColumn('T0002');
 
     // _ 前缀模板（id T0000）不得被扫描渲染
     expect(view.container.querySelectorAll('[data-card-id="T0000"]')).toHaveLength(0);

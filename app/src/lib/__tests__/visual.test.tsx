@@ -5,7 +5,12 @@
  * 1. A1 recorded 清单化：
  *    - recorded 列内每张卡渲染为一个 `[data-recorded-row="true"]` 清单行，
  *      行内含该卡 id 文本与"原话"节首行文本；
- *    - recorded 列内不得出现 `[data-card-id]` 卡片结构（卡片专属其余列）；
+ *    - T0013 契约统一（2026-11-03 人批准）：recorded 列内无卡片结构类
+ *      （.ant-card 等 data-recorded-row 清单行以外的卡载体）；清单行自身
+ *      带 data-card-id 行级锚点，按 id 可唯一定位到行（取代旧"列内后代
+ *      零 data-card-id"断言——旧形态下锚点靠"恰一张卡时列元素自身承载
+ *      id"的巧合，多卡+按 id 定位必再撞互斥）。同步改写 entryFlow
+ *      T0009/A2（先例：T0004/A4、T0007、T0009，批准的需求变更同步改写）；
  *    - 其余列（如 new）仍以 `[data-card-id]` 渲染卡片；
  *    - 点击 recorded 行 → 弹层（Modal）含该卡"需求"节片段
  *      （与 T0009 弹层断言同法：screen.findByText）。
@@ -83,11 +88,26 @@ describe('T0012 看板视觉', () => {
       ).toBe('true');
     }
 
-    // recorded 列内不得出现卡片结构（data-card-id 卡片专属其余列）
+    // T0013 契约统一（2026-11-03 人批准）收紧：recorded 列内无卡片结构类
+    // （.ant-card 等 data-recorded-row 清单行以外的卡载体）；清单行自身以
+    // data-card-id 行级锚点承载 id，按 id 可唯一定位到行。
     expect(
-      recordedCol!.querySelectorAll('[data-card-id]').length,
-      'recorded 列内不得出现 data-card-id 卡片结构',
+      recordedCol!.querySelectorAll('.ant-card').length,
+      'recorded 列内不得出现 .ant-card 卡片结构（清单行以外的卡载体）',
     ).toBe(0);
+    for (const card of cards.filter((c) => c.status === 'recorded')) {
+      const rowsById = recordedCol!.querySelectorAll(
+        `[data-recorded-row="true"][data-card-id="${card.id}"]`,
+      );
+      expect(
+        rowsById.length,
+        `清单行 ${card.id} 应带 data-card-id 行级锚点且按 id 恰定位一行`,
+      ).toBe(1);
+      expect(
+        rowsById[0].closest('[data-column]')?.getAttribute('data-column'),
+        `行级锚点 ${card.id} 应落在 recorded 列`,
+      ).toBe('recorded');
+    }
 
     // 其余列（new）仍为卡片结构
     const newCard = view.container.querySelector('[data-card-id="T-new-1"]');
