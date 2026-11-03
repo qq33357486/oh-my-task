@@ -11,6 +11,7 @@ import type { ParsedCard } from '../../lib/parseCard';
 function makeCard(overrides: Partial<ParsedCard>): ParsedCard {
   return {
     id: 'T0000',
+    title: '',
     type: '系统开发',
     status: 'new',
     round: 0,
