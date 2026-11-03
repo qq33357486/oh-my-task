@@ -4,14 +4,22 @@
  * T0009 入口单流：全站只剩一个「选择目录」入口（readwrite 模式），
  * 选定后按目录状态分支——含 .oht/ 直接进看板，不含则由 NoProject
  * 提供「初始化此目录」/取消；初始化动作只存在于未初始化分支。
+ * T0019 视图切换：页眉加看板 ⇄ 流程图同层切换（无路由库），两视图
+ * 共享同一份 cards 与轮询；流程图的知识标签映射由 topics 文档经
+ * parseTopicTag 算出（App 层装配），文档缺失时降级为无标签。
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Layout, Space, Tag, Typography } from 'antd';
 import { useAppStore } from './store';
 import { Kanban } from './components/Kanban';
+import { FlowView } from './components/FlowView';
 import { NoProject } from './components/NoProject';
+import { scanTopicTags } from './lib/scanTopics';
 
 const POLL_MS = 5000;
+
+/** 视图标识：流程图（默认，round 2）/ 看板；无路由库，App 本地状态即切 */
+type AppView = 'kanban' | 'flow';
 
 function UnsupportedPage() {
   return (
@@ -77,6 +85,12 @@ export function App() {
   const init = useAppStore((s) => s.init);
   const refresh = useAppStore((s) => s.refresh);
 
+  // T0019：视图状态与知识标签映射（App 本地态，不进全局 store——
+  // 标签只是流程图展示辅助，最小侵入不扩大 store 契约面）。
+  // round 2 定案：流程图为默认视图（进入页面即流程图，看板可切换查看）。
+  const [view, setView] = useState<AppView>('flow');
+  const [topicTags, setTopicTags] = useState<Record<string, string>>({});
+
   // 启动恢复句柄
   useEffect(() => {
     void init();
@@ -90,6 +104,22 @@ export function App() {
     return () => clearInterval(timer);
   }, [refresh]);
 
+  // 知识标签：每次成功刷新（lastRefreshAt 变化）后重扫 topics 文档；
+  // 无 knowledge/topics 时 scanTopicTags 容错返回 {}，不影响看板/流程图
+  useEffect(() => {
+    if (!root) return;
+    let cancelled = false;
+    void scanTopicTags(root).then((tags) => {
+      if (!cancelled) setTopicTags(tags);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [root, lastRefreshAt]);
+
+  // 看板/流程图内容的进入条件（与下方 else 分支同款判断）
+  const boardVisible = Boolean(root && hasOht !== false && (lastRefreshAt > 0 || loading));
+
   let content;
   if (!supported) {
     content = <UnsupportedPage />;
@@ -100,7 +130,22 @@ export function App() {
   } else if (hasOht === false) {
     content = <NoProject />;
   } else {
-    content = <Kanban cards={cards.map((c) => c.card)} />;
+    // T0019 round 2：进看板态后两视图并存渲染（同一份 cards 与轮询），
+    // 以 CSS 隐藏非活动视图实现互斥可见——保证看板列 DOM 稳定（T0009/
+    // T0013 锁定契约按 DOM 存在性断言），同时活动视图切换零重挂载。
+    // pane 序：Kanban 在前、FlowView 在后——锁定断言按 DOM 序取首个
+    // data-card-id（boardFlow），看板卡须先命中。
+    content = (
+      <>
+        <div style={{ display: view === 'kanban' ? undefined : 'none' }}>
+          <Kanban cards={cards.map((c) => c.card)} />
+        </div>
+        <div style={{ display: view === 'flow' ? undefined : 'none' }}>
+          {/* T0019：流程图视图（round 2 默认视图）——同一份 cards */}
+          <FlowView cards={cards.map((c) => c.card)} topicTags={topicTags} />
+        </div>
+      </>
+    );
   }
 
   return (
@@ -113,6 +158,30 @@ export function App() {
           {root && <Tag color="blue">{root.name}</Tag>}
         </div>
         <Space size="middle" align="center">
+          {/* T0019 视图切换：看板 ⇄ 流程图（同层并列，无路由库；
+              仅进入看板态后显示，选目录/重授权态无视图可切） */}
+          {boardVisible && (
+            <div className="app-header__views" role="group" aria-label="视图切换">
+              {/* 原生 button 而非 AntD Button：AntD 对两字文本自动插空格
+                  （「看 板」），破坏「看板」这一锁定文本契约；原生无此行为，
+                  样式自控，不动全局 ConfigProvider（避免波及其他按钮既有形态）。
+                  round 2：「流程图」排最前（默认视图在前，A9 锁定 DOM 序） */}
+              <button
+                type="button"
+                className={`app-header__view-btn${view === 'flow' ? ' app-header__view-btn--active' : ''}`}
+                onClick={() => setView('flow')}
+              >
+                流程图
+              </button>
+              <button
+                type="button"
+                className={`app-header__view-btn${view === 'kanban' ? ' app-header__view-btn--active' : ''}`}
+                onClick={() => setView('kanban')}
+              >
+                看板
+              </button>
+            </div>
+          )}
           <Typography.Text type="secondary" className="app-header__hint">
             仅 Chrome/Edge 支持
           </Typography.Text>

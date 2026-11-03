@@ -314,3 +314,477 @@ body,
 .md-text p {
   margin: 6px 0;
 }
+
+/* ===== T0019 流程图视图（FlowView）—— round 2 环形布局三栏页 =====
+   round 2 定案：左=两层清单（收件箱+未开始）、右=单层清单（归档）、
+   中=环形画布；整页自适应无横向滚动（布局层保证），4K 下画布居中。 */
+
+/* 根容器（A10 fit 锚：整页自适应承载层）：flex 三栏 + overflow hidden
+   ——无横向滚动由布局层承诺。仅流程图视图深色；看板视图不受影响。
+   高度按视口算：内容区父链无定高（app-content 为 auto），100% 会塌 0；
+   页眉 64px + 内容区上下 padding 48px = 112px 出头（环形布局下保持） */
+.flow-view {
+  display: flex;
+  align-items: stretch;
+  height: calc(100vh - 112px);
+  min-height: 520px;
+  overflow: hidden;
+  background: #17171b;
+  border-radius: 8px;
+  user-select: none;
+}
+
+/* 左右侧栏：清单承载（左两层 / 右单层）；窄窗收窄保画布空间 */
+.flow-side {
+  flex: none;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+}
+
+.flow-side--left {
+  border-right: 1px solid #2c2c34;
+}
+
+.flow-side--right {
+  border-left: 1px solid #2c2c34;
+}
+
+@media (max-width: 1500px) {
+  .flow-side {
+    width: 260px;
+  }
+}
+
+/* 中间画布（A10 center 锚：画布居中承载层）：占据侧栏之外的窗口余量，
+   viewport 平铺其上；环形内容的居中与缩放由 mount 时 fit 计算（真实
+   效果归 A5 人看，jsdom 无布局） */
+.flow-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* App 视图窗格：并存渲染 + 内联 display 隐藏非活动视图（round 2 默认
+   视图；不用类选择器——vitest 默认不应用 CSS，内联 style 在 jsdom 与
+   浏览器两侧均生效，看板列 DOM 稳定以守 T0009/T0013 锁定契约） */
+
+/* 视口：transform 承载平移/缩放（A7 契约锚），住居中层内 */
+.flow-viewport {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 网格点阵世界：大尺寸底板随画布一起平移缩放（ComfyUI 同款观感）。
+   双层点阵——细密小点 + 稀疏亮点，深色底上营造节点编辑器纵深感 */
+.flow-world {
+  position: absolute;
+  background-color: #1e1e24;
+  background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.17) 1.2px,
+      transparent 1.7px
+    ),
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.5px);
+  background-size: 140px 140px, 28px 28px;
+}
+
+/* SVG 边层：铺在内容域下方，不拦截指针（拖拽/滚轮穿透到视口） */
+.flow-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 边：正向青蓝 / 回边橙——深色底上高对比；流光语义保留：
+   实色底线 + 高亮短划粒子层沿边流动（stroke-dashoffset 动画） */
+.flow-edge {
+  fill: none;
+}
+
+.flow-edge--main {
+  stroke: #0891b2;
+  stroke-width: 2.5;
+}
+
+.flow-edge--back {
+  stroke: #ea8a3a;
+  stroke-width: 2.5;
+}
+
+.flow-spark {
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 4 34;
+  stroke-width: 4;
+  animation: flow-spark 1.5s linear infinite;
+}
+
+.flow-spark--main {
+  stroke: #7dd3fc;
+}
+
+.flow-spark--back {
+  stroke: #ffc48a;
+}
+
+@keyframes flow-spark {
+  to {
+    stroke-dashoffset: -38;
+  }
+}
+
+.flow-arrow--main {
+  fill: #22d3ee;
+}
+
+.flow-arrow--back {
+  fill: #fb923c;
+}
+
+.flow-edge__label {
+  font-size: 14px;
+  font-weight: 600;
+  fill: #e5e7eb;
+  paint-order: stroke;
+  stroke: #1e1e24;
+  stroke-width: 4px;
+}
+
+/* 环形布局容器（A8 ring 锚）：铺满世界坐标域，五节点与连线层均在其内；
+   不拦截指针（点空白落到底下 viewport 平移） */
+.flow-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.flow-ring .flow-node {
+  pointer-events: auto;
+}
+
+/* 椭圆轨道线：强化「五环节首尾相接成环」观感（淡色虚线，不抢节点） */
+.flow-orbit {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.22);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 10;
+}
+
+/* 环上环节节点：圆角深色面板 + 标题栏（ComfyUI 节点形态，绝对定位于
+   世界坐标；内联 left/top/width 即 A8 环形几何判据的读取源） */
+.flow-node {
+  position: absolute;
+  z-index: 2;
+  min-height: 220px;
+  background: #292931;
+  border: 1px solid #46464f;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 侧栏清单面板：圆角深色面板（静态，不随画布平移缩放） */
+.flow-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #292931;
+  border: 1px solid #46464f;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.flow-node__head,
+.flow-panel__head {
+  height: 36px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-bottom: 1px solid #3a3a44;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(180deg, #3b3b46, #31313a);
+  color: #f3f4f6;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 2px;
+  cursor: grab;
+}
+
+/* 环节标题栏各自点缀色（ComfyUI 节点彩色标题栏语义） */
+.flow-node[data-flow-node='需求'] .flow-node__head {
+  color: #7dd3fc;
+}
+
+.flow-node[data-flow-node='测试'] .flow-node__head {
+  color: #c4b5fd;
+}
+
+.flow-node[data-flow-node='实现'] .flow-node__head {
+  color: #86efac;
+}
+
+.flow-node[data-flow-node='检查'] .flow-node__head {
+  color: #fdba74;
+}
+
+.flow-node[data-flow-node='记录'] .flow-node__head {
+  color: #67e8f9;
+}
+
+/* 收件箱面板醒目（待你定 = 页面最重要入口）；归档弱化青 */
+.flow-panel--inbox {
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+.flow-panel--inbox .flow-panel__head {
+  background: linear-gradient(180deg, #4c2f33, #3a2427);
+  color: #fecaca;
+}
+
+.flow-panel--archive .flow-panel__head {
+  color: #a5f3fc;
+}
+
+/* 有卡挂着的环节节点高亮（发光呼吸 = 该环节在转） */
+.flow-node--active {
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35),
+    0 0 20px rgba(34, 211, 238, 0.22), 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+.flow-node--active .flow-node__head {
+  animation: flow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes flow-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.3);
+  }
+}
+
+.flow-node__count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #0e7490;
+  color: #ecfeff;
+  font-size: 12px;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+/* 端口圆点：in 左 / out 右，锚在标题栏垂直中点（ComfyUI 端口语义） */
+.flow-port {
+  position: absolute;
+  top: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #1e1e24;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.6);
+  z-index: 3;
+}
+
+.flow-port--in {
+  left: -6px;
+  background: #38bdf8;
+}
+
+.flow-port--out {
+  right: -6px;
+  background: #c084fc;
+}
+
+.flow-node__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 240px;
+}
+
+.flow-panel__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.flow-node__hint {
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: center;
+  padding: 2px 0 4px;
+}
+
+.flow-panel__empty {
+  color: #6b7280;
+  font-size: 12px;
+  padding: 6px 2px;
+}
+
+/* 深色滚动条（面板/节点内容超长时） */
+.flow-node__cards::-webkit-scrollbar,
+.flow-panel__cards::-webkit-scrollbar {
+  width: 8px;
+}
+
+.flow-node__cards::-webkit-scrollbar-thumb,
+.flow-panel__cards::-webkit-scrollbar-thumb {
+  background: #46464f;
+  border-radius: 4px;
+}
+
+.flow-node__cards::-webkit-scrollbar-track,
+.flow-panel__cards::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 流程卡面（深色行卡）：编号 + 标题主显 + round 徽标 + 知识标签 */
+.flow-card {
+  background: #33333c;
+  border: 1px solid #46464f;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.flow-card:hover {
+  border-color: #22d3ee;
+  background: #3a3a45;
+}
+
+.flow-card--urgent {
+  border-color: #f87171;
+  background: #3c2a2c;
+}
+
+.flow-card--urgent:hover {
+  border-color: #ef4444;
+  background: #45302f;
+}
+
+.flow-card__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.flow-card__num {
+  color: #d1d5db;
+  font-size: 13px;
+  font-family: Consolas, Menlo, monospace;
+}
+
+.flow-card__round {
+  background: #3b2f1c;
+  border: 1px solid #b45309;
+  color: #fcd34d;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 6px;
+}
+
+.flow-card__tag {
+  background: #2e2a44;
+  border: 1px solid #7c6cf0;
+  color: #c4b5fd;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  padding: 0 6px;
+}
+
+.flow-card__title {
+  font-size: 14px;
+  color: #e5e7eb;
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+.flow-card__stop {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.flow-card__question {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #fca5a5;
+  background: #2a2122;
+  border: 1px dashed #f87171;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+/* 页眉视图切换（看板 ⇄ 流程图，原生 button 自绘仿 AntD 形态） */
+.app-header__views {
+  display: flex;
+}
+
+.app-header__view-btn {
+  appearance: none;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  color: rgba(0, 0, 0, 0.88);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 22px;
+  padding: 4px 14px;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.app-header__view-btn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.app-header__view-btn:last-child {
+  border-radius: 0 6px 6px 0;
+  margin-left: -1px;
+}
+
+.app-header__view-btn:hover {
+  color: #1677ff;
+  border-color: #1677ff;
+  position: relative;
+  z-index: 1;
+}
+
+.app-header__view-btn--active {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #e6f4ff;
+  position: relative;
+  z-index: 1;
+}

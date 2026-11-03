@@ -68,8 +68,12 @@ function firstLine(text: string | undefined, max = 40): string {
   return line.length > max ? line.slice(0, max) + '…' : line;
 }
 
-/** 由 ParsedCard 重建卡片全文（锁定接口未携带原文，按约定格式拼回） */
-function cardFullText(card: ParsedCard): string {
+/**
+ * 由 ParsedCard 重建卡片全文（锁定接口未携带原文，按约定格式拼回）。
+ * T0019 起导出供 FlowView 弹层复用：点卡弹层两视图必须同构，
+ * 单一实现防漂移（只改可见性，签名与行为不动）。
+ */
+export function cardFullText(card: ParsedCard): string {
   const fm = [
     `id: ${card.id}`,
     `title: ${card.title}`,
