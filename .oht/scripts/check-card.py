@@ -89,8 +89,8 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
             err(name, f"{aid} auto 状态无效：{s}")
         if ty == "human" and s not in ("人看", "绿"):
             err(name, f"{aid} human 状态无效：{s}")
-        if ty == "auto" and st in ("ready", "review") and s != "红":
-            err(name, f"{aid} {st} 时 auto 应为红，实为 {s}")
+        if ty == "auto" and st in ("ready", "review") and s == "未写":
+            err(name, f"{aid} {st} 时 auto 不得未写（须红或绿，如实记录）")
         if st in ("done", "recorded") and s != "绿":
             err(name, f"{aid} {st} 时应为绿，实为 {s}")
 if ONLY is None and n_cards == 0:
