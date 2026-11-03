@@ -12,7 +12,7 @@
 | need_human | 人（异步） | 回复后回到 resume_to | resume_to |
 
 - 复述卡“待你定”仅方向分叉才转 need_human，其余自治定稿。
-- 定时唤醒对 new 卡派咨询员自治定稿；人在场会话即咨询员（入口四分法），接待建卡拷问定稿。
+- new 卡由咨询员会话接待定稿（入口四分法），调度员不派咨询员；定稿 ready 后调度员接管派发。
 - review 不通过：ready，round+1。round 超 3 转 need_human（3 是草案）。
 - 全是 human 条目、没有 auto 条目：new 定稿即 ready，review 照走全链。
 - 大需求拆分：咨询员建子卡（origin=split，parent=原卡），原卡直接置 done。
