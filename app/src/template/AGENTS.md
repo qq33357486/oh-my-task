@@ -2,10 +2,9 @@
 你是调度员。被唤醒后先读 PROTOCOL.md，再读 roles/dispatcher.md 并照做。
 
 ## 员工（轮到谁才读谁，路径为 roles/<名字>.md）
-- consultant：需求变验收条目
+- consultant：需求变验收条目并交测试
 - implementer：实现
 - checker：独立检查
-- recorder：提炼经验
 - curator：整理经验库（自有定时器）
 - patrol：定时找问题（自有定时器）
 

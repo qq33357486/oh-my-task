@@ -23,7 +23,6 @@ import ROLE_IMPLEMENTER from './template/roles/implementer.md?raw'; // 来源：
 import ROLE_MEMORY from './template/roles/memory.md?raw'; // 来源：.oht/roles/memory.md
 import ROLE_MEMORY_TOOLS from './template/roles/memory-tools.md?raw'; // 来源：.oht/roles/memory-tools.md
 import ROLE_PATROL from './template/roles/patrol.md?raw'; // 来源：.oht/roles/patrol.md
-import ROLE_RECORDER from './template/roles/recorder.md?raw'; // 来源：.oht/roles/recorder.md
 import SCRIPT_CHECK_CARD from './template/scripts/check-card.py?raw'; // 来源：.oht/scripts/check-card.py
 import SCRIPT_CHECK_SIZE from './template/scripts/check-size.py?raw'; // 来源：.oht/scripts/check-size.py
 import TASKS_TEMPLATE from './template/tasks/_template.md?raw'; // 来源：.oht/tasks/_template.md
@@ -50,7 +49,6 @@ export const TEMPLATE_FILES: TemplateFile[] = [
   { path: '.oht/roles/memory.md', content: ROLE_MEMORY },
   { path: '.oht/roles/memory-tools.md', content: ROLE_MEMORY_TOOLS },
   { path: '.oht/roles/patrol.md', content: ROLE_PATROL },
-  { path: '.oht/roles/recorder.md', content: ROLE_RECORDER },
   { path: '.oht/scripts/check-card.py', content: SCRIPT_CHECK_CARD },
   { path: '.oht/scripts/check-size.py', content: SCRIPT_CHECK_SIZE },
   { path: '.oht/tasks/_template.md', content: TASKS_TEMPLATE },
@@ -96,7 +94,7 @@ replied: false
 ---
 
 ## 原话
-欢迎使用循环工程。本卡是初始化时自动生成的引导卡：教你发出第一个需求、看懂任务卡流转、开启定时角色。三件事都试过一遍后，把本卡交给 Agent 置 recorded 即可。
+欢迎使用循环工程。本卡是初始化时自动生成的引导卡：教你发出第一个需求、看懂任务卡流转、开启定时角色。三件事都试过一遍后，把本卡交给 Agent 收尾即可。
 
 ## 需求
 本卡教使用者三件事，各花一分钟：
@@ -116,7 +114,7 @@ replied: false
 ## 系统文档改动
 
 ## 进度
-- 初始化时由程序生成（T0004 模板）。三件事照做完，让 Agent 把本卡置 recorded。
+- 初始化时由程序生成（T0004 模板）。三件事照做完，让 Agent 把本卡收尾。
 
 ## 失败原因
 

@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { runInit } from '../initProject';
 
-/** roles/ 全套 = 本仓库 roles/ 现有 11 个文件（结构约定锁定） */
+/** roles/ 全套 = 本仓库 roles/ 现有 10 个文件（结构约定锁定；recorder 已随 T0031 五态化废除） */
 const ROLE_FILES = [
   'checker',
   'consultant',
@@ -18,7 +18,6 @@ const ROLE_FILES = [
   'memory',
   'memory-tools',
   'patrol',
-  'recorder',
 ] as const;
 
 const REQUIRED_FILES: string[] = [

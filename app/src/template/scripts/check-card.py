@@ -13,7 +13,9 @@ if _arg and os.path.isfile(_arg):  # 传入单张卡片：只校验该卡
 else:
     ROOT = _arg or os.path.dirname(HERE)  # 默认 .oht/（脚本所在目录的上一级）
     ONLY = None
-STATUS = {"new", "tests", "ready", "review", "done", "recorded", "need_human"}
+STATUS = {"new", "ready", "review", "done", "recorded", "need_human"}
+# recorded=历史终态（T0031 五态化后状态机止于 done，不再新产生；保留枚举只为兼容历史卡）
+# tests 已废（T0032 四态化 new→ready→review→done：写测试自证红归咨询员，红=ready 交付初始态）
 SECTIONS = ["原话", "需求", "复述卡", "验收条目", "系统文档改动", "进度", "失败原因", "候选教训", "人的回复"]
 NEED4 = ["stopped_at", "resume_to", "stop_reason", "question"]
 BRIEF_MAX = 200
