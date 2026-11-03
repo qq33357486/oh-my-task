@@ -19,8 +19,8 @@ export const STATUS_COLORS = {
 export const FONT_FAMILY =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif';
 
-/** AntD 全局主题：靛蓝主色 + 浅灰底 + 深色页眉（headerHeight 64 不可改：
- * 流程图 .flow-view 的 calc(100vh - 112px) 依赖它） */
+/** AntD 全局主题：靛蓝主色 + 浅灰底 + 深色页眉（headerHeight 64：
+ * 流程图右栏 .flow-archive 的 max-height: calc(100vh - 108px) 依赖它） */
 export const appTheme = {
   token: {
     colorPrimary: '#4f46e5',

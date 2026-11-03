@@ -1,71 +1,45 @@
-"""T0033 A4 红测试：调度员唤醒链路落地（咨询员 authored，实现员不得改）。
+"""T0033 A4 改写（2026-11-04 人直批直改）：唤醒链路改纯提示词——定时器到点
+注入调度令句，入口分流到调度员；不再有脚本唤醒入口。
 
-出处 T0033 需求 ④（人原话：可以单独开会话提需求，提完需求，等调度员那边
-被唤醒，就会分派任务——但调度员无唤醒机制，落不了地。修法技术取舍咨询员
-定：不新造常驻进程，以 dispatch-worker.sh 的 dispatcher 无卡号调用为唯一
-唤醒入口，接待会话建卡后即拉起，定时唤醒走同一入口）。
+出处：同 a3（人原话「工具只需要知道如何创建定时器……其他的它自己会去
+搞定」）。唤醒 = 一句提示词，宿主定时器原生注入；接待定稿即止，要即时
+唤醒就由宿主后台拉起同一句。
 
-锁定契约（提示词与脚本规格，见卡「需求」节）：
-  A4-1 唤醒调用：bash .oht/scripts/dispatch-worker.sh dispatcher（无卡号，
-       ZCODE_BIN 指 stub）→ exit 0；stub 收到的提示词含「dispatcher」与
-       .oht/roles/dispatcher.md 路径；日志 .oht/local/w-dispatcher.log 同步生成
-  A4-2 接待建卡后唤醒：入口 AGENTS.md 含「定稿后唤醒调度员」条款（批2 迁自 dispatcher-intake）
-       （语义匹配：唤醒/拉起调度员 + dispatch-worker 脚本引用）
-  A4-3 调度员文档自洽：dispatcher.md 含 dispatcher 唤醒用法（含
-       dispatch-worker 与 dispatcher 同现）与定时唤醒同入口条款
-       （定时…唤醒…同一脚本/入口语义）；旧参数序
-       `dispatch-worker.sh <卡号> <角色>` 应已改写为 `<角色> [卡号]`
-       （旧序无法表达无卡号唤醒，不得残留）
+锁定契约：
+  A4-1 入口分流：.oht/AGENTS.md 含「首条消息带「调度令」」判定、
+       指派角色路由行、「定稿即止…调度令」即时唤醒行。
+  A4-2 唤醒句定稿：dispatcher.md 与 README.md 均含完整调度令句
+       「调度令：读 .oht/AGENTS.md 并照做。」；dispatcher.md 含定时器
+       注入语义。
+  A4-3 上手指引：README 含三步上手（安装/建定时器/提需求）与频率建议
+       （10~30 分钟）。
+  A4-4 不回归：PROTOCOL.md 仍含「定时器与人的消息同为触发器」。
+  A4-5 无脚本残留：框架文档与 README 无 dispatch-worker 引用。
 
-红因（修前）：脚本不存在 → A4-1 红；dispatcher-intake.md 无唤醒条款、
-dispatcher.md 无 dispatcher 唤醒与定时条款且残留旧参数序 → A4-2/A4-3 红。
+红因（改前）：唤醒条款全部指向 bash dispatch-worker.sh dispatcher →
+A4-1/2/3/5 红；A4-4 旧绿锚保持。
 用法：python -I .oht/tests/T0033/a4_wake_chain.test.py   （cwd 任意）
 """
+import glob
 import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
-SCRIPT = os.path.join(ROOT, ".oht", "scripts", "dispatch-worker.sh")
-INTAKE = os.path.join(ROOT, ".oht", "AGENTS.md")  # 批2：intake 退役，唤醒条款迁入口四分法
+ENTRY_MD = os.path.join(ROOT, ".oht", "AGENTS.md")
 DISPATCHER_MD = os.path.join(ROOT, ".oht", "roles", "dispatcher.md")
-LOG = os.path.join(ROOT, ".oht", "local", "w-dispatcher.log")
+PROTOCOL_MD = os.path.join(ROOT, ".oht", "PROTOCOL.md")
+README = os.path.join(ROOT, "README.md")
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-STUB_SH = "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$T0033_STUB_LOG\"\n"
+WAKE_SENTENCE = "调度令：读 .oht/AGENTS.md 并照做。"
 
-# A4-2/A4-3 语义匹配正则组（不锁措辞，先例 T0032/a2）
-INTAKE_WAKE = [  # 建卡后唤醒调度员（语义）
-    r"建卡后[^。\n]{0,30}(唤醒|拉起|后台拉起)",
-    r"(唤醒|拉起)调度员",
-]
-INTAKE_CMD = [  # 唤醒命令落档
-    r"dispatch-worker\.sh\s+dispatcher",
-    r"dispatch-worker\.sh[^。\n]{0,40}dispatcher",
-]
-MD_WAKE = [  # dispatcher 唤醒用法
-    r"dispatch-worker\.sh\s+dispatcher",
-    r"唤醒调度员[^。\n]{0,60}dispatch-worker",
-    r"dispatch-worker[^。\n]{0,40}唤醒",
-]
-MD_TIMER = [  # 定时唤醒同入口
-    r"定时[^。\n]{0,40}(dispatch-worker|同一脚本|同一入口|同入口)",
-    r"(dispatch-worker|同一脚本|同一入口)[^。\n]{0,40}定时",
-]
-MD_NEW_USAGE = [  # 新参数序 <角色> [卡号]
-    r"dispatch-worker\.sh\s*<?角色>\s*\[?卡号\]?",
-    r"dispatch-worker\.sh\s*<角色>",
-]
-MD_OLD_USAGE = [  # 反向断言：旧参数序残留即红（无法表达无卡号唤醒）
-    r"dispatch-worker\.sh\s*<卡号>\s*<角色>",
-]
+DOC_FILES = [ENTRY_MD, PROTOCOL_MD, DISPATCHER_MD, README] \
+    + sorted(glob.glob(os.path.join(ROOT, ".oht", "roles", "*.md"))) \
+    + sorted(glob.glob(os.path.join(ROOT, ".oht", "knowledge", "topics", "*.md")))
 
 FAILED = 0
 
@@ -80,96 +54,79 @@ def ok(msg):
     print("  绿 %s" % msg)
 
 
-def first_hit(txt, pats):
-    for p in pats:
-        m = re.search(p, txt)
-        if m:
-            return m.group(0)
-    return ""
+def read(path):
+    return open(path, encoding="utf-8", errors="replace").read()
 
 
-def run_bash(args, env_extra=None, timeout=30):
-    env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
-    return subprocess.run(["bash"] + args, cwd=ROOT, capture_output=True,
-                          text=True, encoding="utf-8", errors="replace",
-                          timeout=timeout, env=env)
+def check_entry():
+    txt = read(ENTRY_MD)
+    if "首条消息带「调度令」" in txt:
+        ok("[入口分流] 调度令判定行在位")
+    else:
+        fail("[入口分流] 缺「首条消息带「调度令」」判定行")
+    if "指派角色的会话按指派走" in txt:
+        ok("[入口分流] 指派角色路由行在位")
+    else:
+        fail("[入口分流] 缺指派角色路由行（派发的工作者会被误路由到咨询员）")
+    if re.search(r"定稿即止[^。\n]{0,30}调度令", txt):
+        ok("[入口分流] 定稿即止 + 即时唤醒调度令行在位")
+    else:
+        fail("[入口分流] 缺「定稿即止…调度令」即时唤醒行")
 
 
-def check_wake_call():
-    tmp = tempfile.mkdtemp(prefix="t0033_wake_")
-    stub = os.path.join(tmp, "fake-zcode.sh")
-    stub_log = os.path.join(tmp, "calls.log")
-    with open(stub, "w", encoding="utf-8", newline="\n") as f:
-        f.write(STUB_SH)
-    os.chmod(stub, 0o755)
-    try:
-        if not os.path.isfile(SCRIPT):
-            fail("[唤醒调用] dispatch-worker.sh 缺失，dispatcher 无法被唤醒")
-            fail("[提示词组装] 脚本缺失，跳过（红随上）")
-            fail("[唤醒日志] 脚本缺失，跳过（红随上）")
-            return
-        r = run_bash([".oht/scripts/dispatch-worker.sh", "dispatcher"],
-                     env_extra={"ZCODE_BIN": stub, "T0033_STUB_LOG": stub_log})
-        if r.returncode != 0:
-            fail("[唤醒调用] dispatcher 无卡号调用 exit=%d 应为 0：%s"
-                 % (r.returncode, (r.stderr or "").strip()[:200]))
-            return
-        ok("[唤醒调用] dispatcher 无卡号调用 exit 0")
-        deadline = time.time() + 8
-        calls = ""
-        while time.time() < deadline and not os.path.isfile(stub_log):
-            time.sleep(0.2)
-        if os.path.isfile(stub_log):
-            calls = open(stub_log, encoding="utf-8", errors="replace").read()
-        if "dispatcher" in calls and ".oht/roles/dispatcher.md" in calls:
-            ok("[提示词组装] stub 收到调度员提示词（含角色与 roles/dispatcher.md 路径）")
+def check_wake_sentence():
+    for path, label in ((DISPATCHER_MD, "dispatcher.md"), (README, "README.md")):
+        txt = read(path)
+        if WAKE_SENTENCE in txt:
+            ok("[唤醒句] %s 含完整调度令句" % label)
         else:
-            fail("[提示词组装] 提示词缺 dispatcher 角色或 roles 路径：%s" % calls.strip()[:200])
-        if os.path.isfile(LOG) and "dispatcher" in open(LOG, encoding="utf-8",
-                                                        errors="replace").read():
-            ok("[唤醒日志] .oht/local/w-dispatcher.log 同步生成")
-        else:
-            fail("[唤醒日志] .oht/local/w-dispatcher.log 缺失（须同步写头部）")
-    finally:
-        if os.path.isfile(LOG):
-            os.remove(LOG)
-        shutil.rmtree(tmp, ignore_errors=True)
+            fail("[唤醒句] %s 缺调度令句「%s」" % (label, WAKE_SENTENCE))
+    txt = read(DISPATCHER_MD)
+    if re.search(r"定时器到点注入", txt):
+        ok("[唤醒句] dispatcher.md 含定时器注入语义")
+    else:
+        fail("[唤醒句] dispatcher.md 缺定时器注入语义")
 
 
-def check_prompts():
-    for path, label, groups in (
-        (INTAKE, "入口 AGENTS.md 建卡后唤醒条款（批2 迁自 dispatcher-intake）",
-         [("唤醒语义", INTAKE_WAKE), ("唤醒命令", INTAKE_CMD)]),
-        (DISPATCHER_MD, "dispatcher.md 唤醒与定时条款",
-         [("dispatcher唤醒用法", MD_WAKE), ("定时唤醒同入口", MD_TIMER),
-          ("新参数序<角色>[卡号]", MD_NEW_USAGE)]),
-    ):
-        if not os.path.isfile(path):
-            fail("[%s] 文件缺失 %s" % (label, path))
-            continue
-        txt = open(path, encoding="utf-8").read()
-        for name, pats in groups:
-            hit = first_hit(txt, pats)
-            if hit:
-                ok("[%s|%s] %s" % (label, name, hit[:60]))
-            else:
-                fail("[%s|%s] 未命中语义行（修前无此条款，应红）" % (label, name))
-    if os.path.isfile(DISPATCHER_MD):
-        txt = open(DISPATCHER_MD, encoding="utf-8").read()
-        old = first_hit(txt, MD_OLD_USAGE)
-        if old:
-            fail("[dispatcher.md|无旧参数序] 残留旧参数序：%s（无法表达无卡号唤醒）" % old)
-        else:
-            ok("[dispatcher.md|无旧参数序] 旧参数序 <卡号> <角色> 已改写")
+def check_quickstart():
+    txt = read(README)
+    if "三步上手" in txt and re.search(r"建定时器[^。\n]{0,60}提示词", txt):
+        ok("[上手指引] README 含三步上手（建定时器步骤在位）")
+    else:
+        fail("[上手指引] README 缺三步上手或建定时器步骤")
+    if "10~30 分钟" in txt:
+        ok("[上手指引] README 含频率建议")
+    else:
+        fail("[上手指引] README 缺频率建议")
+
+
+def check_no_regression():
+    txt = read(PROTOCOL_MD)
+    if "定时器与人的消息同为触发器" in txt:
+        ok("[不回归] PROTOCOL「定时器与人的消息同为触发器」在位")
+    else:
+        fail("[不回归] PROTOCOL 缺「定时器与人的消息同为触发器」")
+
+
+def check_no_residue():
+    bad = []
+    for path in DOC_FILES:
+        if os.path.isfile(path) and re.search(r"dispatch-worker", read(path)):
+            bad.append(os.path.relpath(path, ROOT))
+    if bad:
+        fail("[无脚本残留] 仍引用 dispatch-worker：%s" % "、".join(bad))
+    else:
+        ok("[无脚本残留] 框架文档与 README 无 dispatch-worker 引用")
 
 
 def main():
     global FAILED
-    print("== T0033 A4 调度员唤醒链路 ==")
-    check_wake_call()
-    check_prompts()
+    print("== T0033 A4 唤醒链路（提示词契约）==")
+    check_entry()
+    check_wake_sentence()
+    check_quickstart()
+    check_no_regression()
+    check_no_residue()
     if FAILED:
         print("== 结果：红（%d 处未达标，exit 1）==" % FAILED)
         return 1

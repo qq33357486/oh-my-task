@@ -60,6 +60,9 @@ function failedCard(error: string): ParsedCard {
 /** 去掉值两侧的引号（模板里 parent: "" 这类写法） */
 function unquote(raw: string): string {
   const v = raw.trim();
+  // 带行内注释的引号值：title: "xxx"   # 必填：…  → 只取引号内文本
+  const commented = /^(["'])(.*)\1\s+#.*$/.exec(v);
+  if (commented) return commented[2];
   if (v.length >= 2) {
     const first = v[0];
     const last = v[v.length - 1];

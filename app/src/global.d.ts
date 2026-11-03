@@ -14,6 +14,7 @@ interface Window {
 declare module 'node:fs' {
   export function readFileSync(path: string, encoding: string): string;
   export function existsSync(path: string): boolean;
+  export function statSync(path: string): { size: number };
 }
 
 declare module 'node:path' {

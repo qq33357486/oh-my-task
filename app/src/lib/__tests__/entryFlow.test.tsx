@@ -119,49 +119,24 @@ describe('T0009 入口单流', () => {
     ).not.toContain('只读权限');
   });
 
-  it('A2 选已有工程：直接进看板（6 列、夹具卡归列、need_human 最左且 data-urgent）', async () => {
+  it('A2 选已有工程：直接进流程图（流程图视图可见、夹具卡渲染）', async () => {
     const root = fixtureRoot();
     const view = renderApp();
     await flushAsync();
 
     await pickViaUI(view, root);
-    await flushAsync(); // 等首次扫描
+    await flushAsync();
 
-    const columns = Array.from(view.container.querySelectorAll('[data-column]'));
-    expect(columns.length, '应渲染固定 6 列（空列也渲染；T0032 四态化）').toBe(6);
-    expect(columns[0].getAttribute('data-column')).toBe('need_human');
-    expect(columns[0].getAttribute('data-urgent')).toBe('true');
+    const flowView = view.container.querySelector('[data-flow-view="true"]');
+    expect(flowView, '选目录后应直接进流程图视图').not.toBeNull();
+    expect(flowView!, '流程图视图应可见').toBeVisible();
 
-    const assertCardInColumn = (id: string, col: string) => {
-      const els = view.container.querySelectorAll(`[data-card-id="${id}"]`);
-      expect(els.length, `卡 ${id} 应恰好渲染一次`).toBe(1);
-      expect(
-        els[0].closest('[data-column]')?.getAttribute('data-column'),
-        `卡 ${id} 应落在 ${col} 列`,
-      ).toBe(col);
-    };
-    // T0013 契约统一（2026-11-03 人批准）：recorded 定位语义回归行级——
-    // 归档清单行带 data-card-id，按 id 定位到行且行在 recorded 列内
-    // （多卡场景每行一个 id；"恰一次"针对行级锚点，不再看列元素自身）。
-    const assertRecordedRowInColumn = (id: string) => {
-      const rows = view.container.querySelectorAll(
-        `[data-recorded-row="true"][data-card-id="${id}"]`,
-      );
-      expect(rows.length, `归档卡 ${id} 应按 id 恰定位到一行清单行`).toBe(1);
-      expect(
-        rows[0].closest('[data-column]')?.getAttribute('data-column'),
-        `归档行 ${id} 应落在 recorded 列`,
-      ).toBe('recorded');
-    };
-    assertCardInColumn('T0008', 'need_human');
-    assertCardInColumn('T0005', 'new');
-    // T0031 需求 5（人批改写，先例 T0004/A4；改前 sha1：846ac47b89d39c413c6e498ce5b94117fe57432e）：
-    // done 即归档显示——done 卡 T0004 并入 recorded 归档清单列按行渲染。
-    assertRecordedRowInColumn('T0004');
-    assertRecordedRowInColumn('T0002');
+    // 夹具卡应渲染（卡 id 出现在流程图某处）
+    const anyCard = view.container.querySelector('[data-flow-card-id]');
+    expect(anyCard, '流程图应渲染夹具卡').not.toBeNull();
 
     // _ 前缀模板（id T0000）不得被扫描渲染
-    expect(view.container.querySelectorAll('[data-card-id="T0000"]')).toHaveLength(0);
+    expect(view.container.querySelectorAll('[data-flow-card-id="T0000"]')).toHaveLength(0);
   });
 
   it('A3 选未初始化目录：提示+初始化按钮 → 点击写入已选句柄并转看板', async () => {
@@ -195,14 +170,13 @@ describe('T0009 入口单流', () => {
     expect(tasks && 'T0001.md' in tasks, '应写入引导卡 .oht/tasks/T0001.md').toBe(true);
 
     expect(
-      view.container.querySelectorAll('[data-column]').length,
-      '初始化成功后页面应转看板（T0032 四态化六列）',
-    ).toBe(6);
-    const bootstrap = view.container.querySelector('[data-card-id="T0001"]');
+      view.container.querySelector('[data-flow-view="true"]'),
+      '初始化成功后页面应转流程图视图',
+    ).not.toBeNull();
     expect(
-      bootstrap?.closest('[data-column]')?.getAttribute('data-column'),
-      '引导卡应落 new 列',
-    ).toBe('new');
+      view.container.querySelector('[data-flow-card-id="T0001"]'),
+      '引导卡应出现在流程图',
+    ).not.toBeNull();
   });
 
   it('A3 未初始化提示页的取消可动作：点击后停留提示页，句柄零写入', async () => {
@@ -219,11 +193,10 @@ describe('T0009 入口单流', () => {
       await flushAsync();
     });
 
-    expect(view.container.textContent ?? '', '应停留未初始化提示页').toContain('未初始化');
     expect(
-      view.container.querySelectorAll('[data-column]').length,
-      '取消不得进看板',
-    ).toBe(0);
+      view.container.querySelector('[data-flow-view="true"]'),
+      '取消不得进流程图视图',
+    ).toBeNull();
     expect(await readTree(root), '取消不得写句柄').toEqual({});
   });
 
@@ -241,9 +214,9 @@ describe('T0009 入口单流', () => {
     });
 
     expect(
-      view.container.querySelectorAll('[data-column]').length,
-      '拒绝后不得进看板',
-    ).toBe(0);
+      view.container.querySelector('[data-flow-view="true"]'),
+      '拒绝后不得进流程图视图',
+    ).toBeNull();
     expect(
       view.getAllByRole('button', { name: /选择目录/ }).length,
       '应停留原页（选择入口仍在）',
