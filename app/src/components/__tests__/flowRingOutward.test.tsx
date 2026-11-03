@@ -102,7 +102,7 @@ describe('T0033/A2 环形连线弧线外翻（凸向环外）', () => {
     );
 
     // 环心：四环节节点锚点质心（环序布点下即环心）
-    const names = ['需求', '实现', '检查', '记录'];
+    const names = ['需求', '实现', '检查'];
     const anchors = names.map(
       (name) => ringPointOf(container.querySelector(`[data-flow-node="${name}"]`)!),
     );
@@ -111,16 +111,16 @@ describe('T0033/A2 环形连线弧线外翻（凸向环外）', () => {
       y: anchors.reduce((s, p) => s + p.y, 0) / anchors.length,
     };
 
-    // 外翻对象：顺序三段（T0033 恰三条）+ 闭合回边「记录→需求」
+    // 外翻对象：顺序两条（T0034 恰两条）+ 闭合回边「检查→需求」
     const targets: Array<[string, Element]> = [];
-    for (const id of ['需求→实现', '实现→检查', '检查→记录']) {
+    for (const id of ['需求→实现', '实现→检查']) {
       const el = container.querySelector(`path[data-flow-link="${id}"]`);
-      expect(el, `顺序连线「${id}」应存在（T0033 恰三条契约；当前实现无此线，应红）`).toBeTruthy();
+      expect(el, `顺序连线「${id}」应存在（T0034 恰两条契约；当前实现无此线，应红）`).toBeTruthy();
       if (el) targets.push([id, el]);
     }
-    const closing = container.querySelector('[data-flow-edge="记录→需求"] path');
-    expect(closing, '闭合回边「记录→需求」应存在（A4 既有契约）').toBeTruthy();
-    if (closing) targets.push(['记录→需求', closing]);
+    const closing = container.querySelector('[data-flow-edge="检查→需求"] path');
+    expect(closing, '闭合回边「检查→需求」应存在（T0034 三节点化）').toBeTruthy();
+    if (closing) targets.push(['检查→需求', closing]);
 
     for (const [id, el] of targets) {
       const d = pathDOf(el);

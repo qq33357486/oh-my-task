@@ -171,19 +171,23 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       '应有恰一的 data-flow-view 根容器（当前实现无 FlowView，应红）',
     ).not.toBeNull();
 
-    // 四环节节点：恰四个、按流程序、节点文本含环节名
+    // 三环节节点：恰三个、按流程序、节点文本含环节名（T0034 改写）
     //（T0033 四环节化：恰五环节旧契约已由人批准解除，改前 sha1 见文件头）
     const nodes = Array.from(view.container.querySelectorAll('[data-flow-node]'));
     expect(
       nodes.map((n) => n.getAttribute('data-flow-node')),
-      '四环节节点应按 需求→实现→检查→记录 流程序恰四个渲染（当前实现五环节，应红）',
-    ).toEqual(['需求', '实现', '检查', '记录']);
-    for (const name of ['需求', '实现', '检查', '记录']) {
+      '三环节节点应按 需求→实现→检查 流程序恰三个渲染（当前实现四环节，应红）',
+    ).toEqual(['需求', '实现', '检查']);
+    for (const name of ['需求', '实现', '检查']) {
       const node = view.container.querySelector(`[data-flow-node="${name}"]`)!;
       expect(node.textContent ?? '', `「${name}」节点应含环节名文本（人话名，非状态码）`).toContain(name);
     }
 
-    // 「测试」节点防复活守护（T0033）：tests 态已废后该环节恒空，节点删除
+    // 「测试」「记录」节点防复活守护（T0033/T0034）：两者恒空已删，不得复活
+    expect(
+      view.container.querySelector('[data-flow-node="记录"]'),
+      '「记录」节点不得复活（T0034：done 即归档，画布不设记录环节）',
+    ).toBeNull();
     expect(
       view.container.querySelector('[data-flow-node="测试"]'),
       '「测试」节点已删除（T0033 四环节化），不得复活（当前实现仍在，应红）',
@@ -310,7 +314,7 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
   // round 2 批准变更改写（先例 T0004/A4）：回边融入环形连线，不再单独画弧
   // ——断言语义由「恰两独立回边元素」改为「环上两处回边定位」：data-flow-edge
   // 仍恰两、值不变，但均须定位在环形容器 data-flow-ring 内。
-  it('环形画布上两处回边定位：「检查→实现」「记录→需求」均位于环容器内', () => {
+  it('环形画布上两处回边定位：「检查→实现」「检查→需求」均位于环容器内', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
     const ring = view.container.querySelector('[data-flow-ring="true"]');
     expect(
@@ -321,7 +325,7 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
     const values = new Set(edges.map((e) => e.getAttribute('data-flow-edge')));
     expect(edges.length, '应恰有两条 data-flow-edge 回边元素').toBe(2);
     expect(values.has('检查→实现'), '应有「检查→实现」回边（检查不通过打回）').toBe(true);
-    expect(values.has('记录→需求'), '应有「记录→需求」回边（循环闭合）').toBe(true);
+    expect(values.has('检查→需求'), '应有「检查→需求」回边（循环闭合，T0034 三节点化）').toBe(true);
     for (const edge of edges) {
       expect(
         ring!.contains(edge),
@@ -515,7 +519,7 @@ describe('T0019/A6 实体节点与端口贝塞尔连线（round 1）', () => {
   it('环节节点为实体面板：标题栏锚点恰一 + 端口圆点 in/out 恰各一', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
     const nodes = Array.from(view.container.querySelectorAll('[data-flow-node]'));
-    expect(nodes.length, '前置：四环节节点应渲染（T0033 四环节化改写，原 round 0 五节点契约）').toBe(4);
+    expect(nodes.length, '前置：三环节节点应渲染（T0034 三节点化改写）').toBe(3);
     for (const node of nodes) {
       const name = node.getAttribute('data-flow-node');
       expect(
@@ -541,15 +545,15 @@ describe('T0019/A6 实体节点与端口贝塞尔连线（round 1）', () => {
     const links = Array.from(view.container.querySelectorAll('[data-flow-link]'));
     expect(
       links.map((l) => l.getAttribute('data-flow-link')),
-      '顺序连线应恰三条按流程序（当前实现四条含需求→测试，应红）',
-    ).toEqual(['需求→实现', '实现→检查', '检查→记录']);
+      '顺序连线应恰两条按流程序（当前实现三条含检查→记录，应红）',
+    ).toEqual(['需求→实现', '实现→检查']);
 
     // 全部连线 d 含贝塞尔指令（C/S/Q）：顺序三条 + 回边两条
     const allD = [
       ...links.map(pathDOf),
       ...Array.from(view.container.querySelectorAll('[data-flow-edge]')).map(pathDOf),
     ];
-    expect(allD.length, '顺序三条 + 回边两条 = 恰五条连线（T0033：6→5）').toBe(5);
+    expect(allD.length, '顺序两条 + 回边两条 = 恰四条连线（T0034：5→4）').toBe(4);
     for (const d of allD) {
       expect(d, `连线 d 应含贝塞尔曲线指令 C/S/Q，实际：${d.slice(0, 40)}`).toMatch(/[CSQ]/);
     }
@@ -566,7 +570,7 @@ describe('T0019/A6 实体节点与端口贝塞尔连线（round 1）', () => {
     };
 
     // 拖动「实现」节点：相邻两条连线「需求→实现」「实现→检查」应跟随
-    //（T0033 四环节化：原「测试→实现」段随「测试」节点删除改为「需求→实现」）
+    //（T0034 三节点化后实现节点的相邻段仍为这两条）
     const node = view.container.querySelector('[data-flow-node="实现"]')!;
     const before1 = linkD('需求→实现');
     const before2 = linkD('实现→检查');
@@ -689,7 +693,7 @@ describe('T0019/A8 环形布局（round 2；环序名单 T0033 四环节化改�
       '应有 data-flow-ring="true" 环形容器（当前实现横排无环容器，应红）',
     ).not.toBeNull();
     const nodes = Array.from(view.container.querySelectorAll('[data-flow-node]'));
-    expect(nodes.length, '前置：四环节节点应渲染（T0033 四环节化）').toBe(4);
+    expect(nodes.length, '前置：三环节节点应渲染（T0034 三节点化）').toBe(3);
     for (const node of nodes) {
       expect(
         ring!.contains(node),
@@ -699,7 +703,7 @@ describe('T0019/A8 环形布局（round 2；环序名单 T0033 四环节化改�
 
     // 环形几何：按环序顶点构成非退化环形分布（横排时 y 全等 → 面积 0、
     // 包围盒高度 0，两条均红）
-    const seq = ['需求', '实现', '检查', '记录'].map(
+    const seq = ['需求', '实现', '检查'].map(
       (name) => ringPointOf(view.container.querySelector(`[data-flow-node="${name}"]`)!),
     );
     const xs = seq.map((p) => p.x);
@@ -708,12 +712,12 @@ describe('T0019/A8 环形布局（round 2；环序名单 T0033 四环节化改�
     const bboxH = Math.max(...ys) - Math.min(...ys);
     expect(
       bboxH / bboxW,
-      '四节点分布包围盒高宽比应 ≥ 0.35（环形态；横排时高≈0 应红）',
+      '三节点分布包围盒高宽比应 ≥ 0.35（正三角环形态；横排时高≈0 应红）',
     ).toBeGreaterThanOrEqual(0.35);
     const areaRatio = polygonArea(seq) / (bboxW * bboxH);
     expect(
       areaRatio,
-      '按环序连线构成的多边形面积应 ≥ 包围盒面积的 0.25（环形分布；横排时面积≈0 应红）',
+      '按环序连线构成的三角形面积应 ≥ 包围盒面积的 0.25（正三角≈0.5；横排时面积≈0 应红）',
     ).toBeGreaterThanOrEqual(0.25);
   });
 
@@ -727,8 +731,8 @@ describe('T0019/A8 环形布局（round 2；环序名单 T0033 四环节化改�
     const links = Array.from(view.container.querySelectorAll('[data-flow-link]'));
     expect(
       links.map((l) => l.getAttribute('data-flow-link')),
-      '前置：顺序连线应恰三条按流程序（A6 契约，T0033 改写）',
-    ).toEqual(['需求→实现', '实现→检查', '检查→记录']);
+      '前置：顺序连线应恰两条按流程序（A6 契约，T0034 改写）',
+    ).toEqual(['需求→实现', '实现→检查']);
     const edges = Array.from(view.container.querySelectorAll('[data-flow-edge]'));
     expect(edges.length, '前置：回边应恰两处（A4 既有契约）').toBe(2);
     for (const line of [...links, ...edges]) {
@@ -738,23 +742,22 @@ describe('T0019/A8 环形布局（round 2；环序名单 T0033 四环节化改�
       ).toBe(true);
     }
 
-    // 首尾相接的几何表征：「记录→需求」距离与相邻环节同量级（≤ 最小相邻
+    // 首尾相接的几何表征：「检查→需求」闭合段距离与相邻段同量级（≤ 最小相邻
     // 段的 2 倍）。横排布局时记录在最右、需求在最左，距离为各段相邻距
     // 离的数倍，必红。
     const points: Record<string, { x: number; y: number }> = {};
-    for (const name of ['需求', '实现', '检查', '记录']) {
+    for (const name of ['需求', '实现', '检查']) {
       points[name] = ringPointOf(view.container.querySelector(`[data-flow-node="${name}"]`)!);
     }
     const adjacent = [
       dist(points['需求']!, points['实现']!),
       dist(points['实现']!, points['检查']!),
-      dist(points['检查']!, points['记录']!),
     ];
     const minAdj = Math.min(...adjacent);
-    const closing = dist(points['记录']!, points['需求']!);
+    const closing = dist(points['检查']!, points['需求']!);
     expect(
       closing,
-      `「记录→需求」闭合段距离应 ≤ 最小相邻段 2 倍（环首尾相接；横排时记录与需求分居两端应红）。closing=${closing.toFixed(0)}, minAdj=${minAdj.toFixed(0)}`,
+      `「检查→需求」闭合段距离应 ≤ 最小相邻段 2 倍（正三角等边即≈1.0 倍；横排/三角退化应红）。closing=${closing.toFixed(0)}, minAdj=${minAdj.toFixed(0)}`,
     ).toBeLessThanOrEqual(2 * minAdj);
   });
 });
@@ -844,8 +847,8 @@ describe('T0019/A11 文字层级可读性锚点（round 2）', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
 
     // 节点名：每环节恰一 data-flow-text="node-name"，文本为环节名
-    //（T0033 四环节化：环序名单去「测试」）
-    for (const name of ['需求', '实现', '检查', '记录']) {
+    //（T0034 三节点化：环序名单 需求/实现/检查）
+    for (const name of ['需求', '实现', '检查']) {
       const node = view.container.querySelector(`[data-flow-node="${name}"]`)!;
       const labels = node.querySelectorAll('[data-flow-text="node-name"]');
       expect(

@@ -136,31 +136,30 @@ describe('T0033/A2 环形连线边中点锚定（渲染级）', () => {
       }
     };
 
-    // 顺序三段：from 出边 → to 入边（含人原话两条：实现→检查、检查→记录）
+    // 顺序两条：from 出边 → to 入边（T0034 三节点锚点表）
     const SEQ: Array<[string, Side, string, Side]> = [
       ['需求', 'right', '实现', 'top'],
-      ['实现', 'bottom', '检查', 'right'],
-      ['检查', 'left', '记录', 'bottom'],
+      ['实现', 'left', '检查', 'right'],
     ];
     for (const [from, fs, to, ts] of SEQ) {
       const el = container.querySelector(`path[data-flow-link="${from}→${to}"]`);
       expect(el, `顺序连线「${from}→${to}」应存在`).toBeTruthy();
       if (el) expectAnchored(pathDOf(el), `${from}→${to}`, boxOf(from), fs, boxOf(to), ts);
     }
-    // 闭合段 记录→需求：记录出上边 → 需求入左边
-    const closing = container.querySelector('[data-flow-edge="记录→需求"] path');
-    expect(closing, '闭合回边「记录→需求」应存在').toBeTruthy();
+    // 闭合段 检查→需求：检查出底边绕左外侧 → 需求入左边（T0034）
+    const closing = container.querySelector('[data-flow-edge="检查→需求"] path');
+    expect(closing, '闭合回边「检查→需求」应存在').toBeTruthy();
     if (closing) {
-      expectAnchored(pathDOf(closing), '记录→需求', boxOf('记录'), 'top', boxOf('需求'), 'left');
+      expectAnchored(pathDOf(closing), '检查→需求', boxOf('检查'), 'bottom', boxOf('需求'), 'left');
     }
-    // 打回弧 检查→实现：检查上边中点 → 实现左边中点（内圈空闲边）
+    // 打回弧 检查→实现：内圈空闲边（检查 top → 实现 right），上凹（T0034）
     const back = container.querySelector('[data-flow-edge="检查→实现"] path');
     expect(back, '打回弧「检查→实现」应存在').toBeTruthy();
     if (back) {
-      expectAnchored(pathDOf(back), '检查→实现', boxOf('检查'), 'top', boxOf('实现'), 'left');
+      expectAnchored(pathDOf(back), '检查→实现', boxOf('检查'), 'top', boxOf('实现'), 'right');
 
       // 内凹判据：弧顶到环心 < 弦中点到环心 - 1px
-      const names = ['需求', '实现', '检查', '记录'];
+      const names = ['需求', '实现', '检查'];
       const centers = names.map((n) => {
         const b = boxOf(n);
         return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
@@ -169,14 +168,19 @@ describe('T0033/A2 环形连线边中点锚定（渲染级）', () => {
         x: centers.reduce((s, p) => s + p.x, 0) / centers.length,
         y: centers.reduce((s, p) => s + p.y, 0) / centers.length,
       };
+      // 内凹判据（T0034 修正）：弧顶与环心在弦同侧且偏离弦 >1px——斜跨弦
+      //（弦几乎切环心）时「距环心比较」不鲁棒（弧顶越过环心距离不降），
+      // 「同侧」才是内圈本义（弧凸朝环心）
       const ctrl = parseCubic(pathDOf(back));
       const apex = cubicAt(0.5, ctrl);
-      const mid = { x: (ctrl[0].x + ctrl[3].x) / 2, y: (ctrl[0].y + ctrl[3].y) / 2 };
-      const apexDist = Math.hypot(apex.x - ring.x, apex.y - ring.y);
-      const midDist = Math.hypot(mid.x - ring.x, mid.y - ring.y);
+      const chordSideOf = (pt: { x: number; y: number }) =>
+        (ctrl[3].x - ctrl[0].x) * (pt.y - ctrl[0].y) -
+        (ctrl[3].y - ctrl[0].y) * (pt.x - ctrl[0].x);
+      const sideApex = chordSideOf(apex);
+      const sideCenter = chordSideOf(ring);
       expect(
-        apexDist < midDist - 1,
-        `打回弧应内凹走内圈（弧顶距环心 ${apexDist.toFixed(0)}px 应 < 弦中点 ${midDist.toFixed(0)}px - 1）`,
+        sideApex * sideCenter > 0 && Math.abs(sideApex) > 1,
+        `打回弧应内凹走内圈（弧顶与环心应同侧且偏离弦>1px；sideApex=${sideApex.toFixed(0)}, sideCenter=${sideCenter.toFixed(0)}）`,
       ).toBe(true);
     }
   });
