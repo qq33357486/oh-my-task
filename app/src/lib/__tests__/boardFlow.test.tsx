@@ -6,8 +6,10 @@
  * 2. A5 轮询：变更句柄中一张卡的 status → 一个轮询周期内（App 轮询间隔
  *    5 秒，这里推进 6 秒留余量）看板列变化（data-card-id 所在
  *    data-column 改变）。轮询必须走 App 挂载的定时器，测试只推进时钟。
- * 3. A6 残缺卡：夹具含无 frontmatter 的残缺卡文本 → 降级显示、七列仍全、
- *    不崩溃（Kanban 的 data-* 契约沿用 T0003 锁定接口）。
+ * 3. A6 残缺卡：夹具含无 frontmatter 的残缺卡文本 → 降级显示、列仍全、
+ *    不崩溃（Kanban 的 data-* 契约沿用 T0003 锁定接口；T0032 需求 6
+ *    四态化授权改写，改前 sha1：c23eac5bee1abb3c10fd548626e9e7b2b64e8d72，
+ *    先例 T0004/A4：七列改六列、夹具卡 tests 态改 ready）。
  *
  * 技术路线：同 entryFlow.test.tsx —— jsdom 假 picker/假 IndexedDB +
  * 真实卡精简夹具驱动真实 App。A5 用 vi.useFakeTimers 只伪造 interval
@@ -70,10 +72,10 @@ describe('T0009 看板交互', () => {
     await pickViaUI(view, root);
     await flushAsync();
 
-    // 前置：T0006 落在 tests 列
+    // 前置：T0006 落在 ready 列（T0032 四态化：原 tests 夹具态已废改 ready）
     const before = view.container.querySelector('[data-card-id="T0006"]');
     expect(before, '夹具卡 T0006 应渲染').not.toBeNull();
-    expect(before!.closest('[data-column]')?.getAttribute('data-column')).toBe('tests');
+    expect(before!.closest('[data-column]')?.getAttribute('data-column'), 'T0006 应在 ready 列').toBe('ready');
 
     // 点卡 → 弹层含"需求"节片段（Modal 挂在 document.body）
     await act(async () => {
@@ -84,7 +86,7 @@ describe('T0009 看板交互', () => {
       '弹层应含该卡"需求"节片段',
     ).toBeTruthy();
 
-    // 变更句柄中的卡：tests → done
+    // 变更句柄中的卡：ready → done
     await memWriteFile(root, '.oht/tasks/T0006.md', `---
 id: T0006
 type: 系统开发
@@ -113,15 +115,20 @@ batch: ""
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    const after = view.container.querySelector('[data-card-id="T0006"]');
-    expect(after, '轮询后 T0006 仍应渲染').not.toBeNull();
+    // T0031 需求 5（人批改写，先例 T0004/A4；改前 sha1：97f6019e51e59a8ed1b8b4c1d980c71278cbcb59）：
+    // done 即归档显示——轮询后 T0006（status: done）并入 recorded 归档
+    // 清单列按行渲染（data-recorded-row 行级锚点）。
+    const after = view.container.querySelector(
+      '[data-recorded-row="true"][data-card-id="T0006"]',
+    );
+    expect(after, '轮询后 T0006 仍应渲染（归档清单行）').not.toBeNull();
     expect(
       after!.closest('[data-column]')?.getAttribute('data-column'),
-      '一个轮询周期后 T0006 应从 tests 列移到 done 列',
-    ).toBe('done');
+      '一个轮询周期后 T0006 应从 ready 列移到 recorded 归档列（done 即归档显示）',
+    ).toBe('recorded');
   });
 
-  it('A6 残缺卡：降级显示、七列仍全、不崩溃', async () => {
+  it('A6 残缺卡：降级显示、六列仍全、不崩溃', async () => {
     const root = fixtureRoot(); // 夹具含 broken.md（无 frontmatter）
     const view = render(<App />);
     await flushAsync();
@@ -131,8 +138,8 @@ batch: ""
 
     expect(
       view.container.querySelectorAll('[data-column]').length,
-      '残缺卡不得影响七列渲染',
-    ).toBe(7);
+      '残缺卡不得影响六列渲染（T0032 四态化）',
+    ).toBe(6);
     expect(
       view.container.textContent ?? '',
       '残缺卡应有可见的降级提示',

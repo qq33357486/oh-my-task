@@ -17,6 +17,10 @@
  * 落点说明：新增独立文件 app/src/components/__tests__/kanbanEmpty.test.tsx，
  * 直驱 <Kanban />（同 T0003/T0012 组件级集成锚点方式）。当前实现无任何
  * 空列占位 → 红。
+ *
+ * 授权变更（2026-11-04 T0032 需求 6，先例 T0004/A4，改前 sha1：
+ * 66dfb192be4663dab650d241414c5255f4f34e82）：tests 态删除四态化，
+ * 列数 7→6，仅 new 有卡时空列占位 6→5，其余契约不变。
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
@@ -50,7 +54,7 @@ describe('T0023/A4 空列占位', () => {
     const view = render(<Kanban cards={cards} />);
 
     const readyCol = view.container.querySelector('[data-column="ready"]');
-    expect(readyCol, 'ready 列应渲染（七列契约）').not.toBeNull();
+    expect(readyCol, 'ready 列应渲染（六列契约）').not.toBeNull();
     const readyEmpty = readyCol!.querySelectorAll(
       '.kanban__empty[data-empty-column]',
     );
@@ -78,7 +82,7 @@ describe('T0023/A4 空列占位', () => {
     ).toBe(1);
   });
 
-  it('通用规则：全板占位数恰等于空列数（仅 new 有卡时为 6），且占位不承载 data-card-id', () => {
+  it('通用规则：全板占位数恰等于空列数（仅 new 有卡时为 5），且占位不承载 data-card-id', () => {
     const cards = [
       makeCard({ id: 'T23N', status: 'new', title: '唯一有卡列的新卡' }),
     ];
@@ -86,8 +90,8 @@ describe('T0023/A4 空列占位', () => {
 
     expect(
       view.container.querySelectorAll('[data-empty-column]').length,
-      '七列中仅 new 有卡，占位应恰 6 个（每空列一个）',
-    ).toBe(6);
+      '六列中仅 new 有卡，占位应恰 5 个（每空列一个；T0032 四态化 7→6 列）',
+    ).toBe(5);
 
     for (const placeholder of view.container.querySelectorAll(
       '[data-empty-column]',

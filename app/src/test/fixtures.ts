@@ -1,7 +1,7 @@
 /**
  * T0009 集成测试夹具：任务卡取自 .oht/tasks/T0001~T0008 真实卡的精简版
  * （保留 frontmatter 形态与"需求"节的可断言片段；status 按验收条目 A2 的
- * 需要构造：need_human 一张，其余 new/done/recorded/tests 等）。
+ * 需要构造：need_human 一张，其余 new/done/recorded/ready 等）。
  * 另含一张残缺卡（无 frontmatter）供 A6 降级显示，与 _template.md
  * （_ 前缀，扫描必须跳过）。
  */
@@ -82,10 +82,11 @@ const T0005 = card(
   '页面骨架：页眉（目录名、刷新）+ 三态内容（选目录/未初始化/看板）。',
 );
 
-// 精简自 .oht/tasks/T0006.md（status 按夹具需要构造为 tests；A5 轮询变更此卡）
+// 精简自 .oht/tasks/T0006.md（status 按夹具需要构造为 ready；T0032 四态化：
+// 原 tests 夹具态已废；A5 轮询变更此卡）
 const T0006 = card(
   'T0006',
-  'tests',
+  'ready',
   '看板轮询跟进任务变化',
   '系统开发',
   '目录里任务卡变了，看板要跟得上',

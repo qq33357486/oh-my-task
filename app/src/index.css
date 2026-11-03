@@ -130,6 +130,12 @@ body {
   background: rgba(255, 255, 255, 0.14);
 }
 
+/* T0025：刷新按钮锁最小宽 88px（≥ loading 态实宽约 82px）——图标插入/
+   撤出两态等宽，页眉 space-between 右缘固定下左侧选项卡零位移 */
+.app-header .ant-btn.app-header__refresh {
+  min-width: 88px;
+}
+
 .app-content {
   padding: 24px 28px 32px;
 }
@@ -551,6 +557,14 @@ body {
   text-overflow: ellipsis;
 }
 
+/* T0026：recorded 列「更早」截断提示（居中、12px、灰，与 .flow-panel__more 同款） */
+.kanban__more {
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: center;
+  padding: 2px 0 4px;
+}
+
 /* ===== 降级区（无法归列的残缺卡；黄色提示语义保留，圆角 12px） ===== */
 .kanban__strays {
   margin-top: 16px;
@@ -846,11 +860,13 @@ body {
 }
 
 /* 环上环节节点：圆角深色面板 + 标题栏（ComfyUI 节点形态，绝对定位于
-   世界坐标；内联 left/top/width 即 A8 环形几何判据的读取源） */
+   世界坐标；内联 left/top/width 即 A8 环形几何判据的读取源）。
+   T0027：高度固定 280px，与 FlowView 的 NODE_H=280 JS 常量同源——
+   连线端点按盒高计算（jsdom 不应用 CSS），两侧须同一盒高 */
 .flow-node {
   position: absolute;
   z-index: 2;
-  min-height: 220px;
+  height: 280px;
   background: #292931;
   border: 1px solid #46464f;
   border-radius: 10px;
@@ -991,13 +1007,17 @@ body {
   background: #c084fc;
 }
 
+/* T0027：节点定高 280px 下卡区 flex 收缩滚动——flex: 1 1 auto 占满标题栏
+   以外空间，min-height: 0 允许收缩，滚动交给 overflow-y（替换旧
+   max-height: 240px 方案，固定高下不再需要限高） */
 .flow-node__cards {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px;
   overflow-y: auto;
-  max-height: 240px;
 }
 
 .flow-panel__cards {
@@ -1008,11 +1028,48 @@ body {
   overflow-y: auto;
 }
 
+/* T0030 round1 返修：「更多」提示是卡区滚动容器外的节点底部固定行——
+   flex none 不被压缩，定高 22px 供 .flow-node--more 的卡区收缩量对账 */
 .flow-node__hint {
+  flex: none;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+/* 有更多提示时卡区滚动窗口相应收缩一个提示行高（240-22=218），节点
+   总高持平原满载高度——提示不再坠入滚动区（T0030 round1 A5 返修） */
+.flow-node--more .flow-node__cards {
+  max-height: 218px;
+}
+
+/* T0030：未开始面板「更早」截断提示（居中、12px、灰色，与 .flow-node__hint 同款） */
+.flow-panel__more {
   color: #9ca3af;
   font-size: 12px;
   text-align: center;
   padding: 2px 0 4px;
+}
+
+/* T0030 round1 顺带修复：更早提示钉在未开始面板底部固定行（绝对定位、
+   不占 flex 流），不随 50 张清单被面板 overflow:hidden 裁出视口。面板
+   容器滚动改造归 T0026，本卡只把自有提示移出裁剪区 */
+.flow-panel--todo {
+  position: relative;
+}
+
+.flow-panel--todo .flow-panel__more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #292931;
+  border-top: 1px solid #3a3a44;
+  padding: 5px 8px;
 }
 
 .flow-panel__empty {
@@ -1136,15 +1193,23 @@ body {
   padding: 4px 6px;
 }
 
-/* 页眉视图切换（T0023 分段胶囊：深底浅槽，激活白底反色） */
+/* 页眉视图切换（T0023 分段胶囊：深底浅槽，激活白底反色）。
+   T0025：重置行高——AntD Layout.Header 默认 line-height:64px 被继承，
+   行盒与 28px 定高按钮错位致文字不居中；align-items:center 使胶囊
+   整体垂直居中于页眉，line-height:1 切断继承（cssTokens.test.ts 锁定
+   的 display/gap/background/border-radius/padding 一律不动） */
 .app-header__views {
   display: inline-flex;
+  align-items: center;
   gap: 2px;
+  line-height: 1;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 9px;
   padding: 3px;
 }
 
+/* T0025：28px 定高内文字自行居中（line-height 28px）+ 禁换行（nowrap），
+   height/padding/font-size/color 与激活态不动（同测锁定契约） */
 .app-header__view-btn {
   appearance: none;
   height: 28px;
@@ -1154,6 +1219,8 @@ body {
   background: transparent;
   color: #aab0bf;
   font-size: 13px;
+  line-height: 28px;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }

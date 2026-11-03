@@ -6,8 +6,9 @@
  *    （初始化动作只属于"目录缺 .oht/"分支）。（A1）
  * 2. 唯一入口调起 showDirectoryPicker 必须带 { mode: 'readwrite' }
  *    （初始化分支需要写权限；每次调用的参数记入 pickerCalls 供断言）。
- * 3. 选定目录后按状态分支：含 .oht/ → 直接进看板（7 列、
- *    data-column/data-card-id/data-urgent 契约沿用 T0003 锁定接口）。（A2）
+ * 3. 选定目录后按状态分支：含 .oht/ → 直接进看板（6 列，
+ *    data-column/data-card-id/data-urgent 契约沿用 T0003 锁定接口；
+ *    T0032 需求 6 四态化：tests 列删除，七列改六列）。（A2）
  * 4. 不含 .oht/ → 未初始化提示 + 「初始化此目录」+ 取消，三者可动作；
  *    初始化直接写"已选中的句柄"，不得再次弹 picker；点击后句柄中出现
  *    .oht/AGENTS.md 与 .oht/tasks/T0001.md，页面转看板。（A3）
@@ -23,6 +24,10 @@
  * src/test/mockFs.ts），目录树由真实卡精简夹具构造（src/test/fixtures.ts），
  * 驱动真实 App 组件树。注意：mockFs 的 import 必须在 App 之前
  * （store 载入时即判定 supported）。
+ *
+ * 授权变更（2026-11-04 T0032 需求 6，先例 T0004/A4，改前 sha1：
+ * 89806878164b78ab307c17a83a83c30264e44afd）：tests 态删除四态化，
+ * A2/A3 看板列数断言 7→6，其余契约不变。
  */
 import {
   getPickerCalls,
@@ -114,7 +119,7 @@ describe('T0009 入口单流', () => {
     ).not.toContain('只读权限');
   });
 
-  it('A2 选已有工程：直接进看板（7 列、夹具卡归列、need_human 最左且 data-urgent）', async () => {
+  it('A2 选已有工程：直接进看板（6 列、夹具卡归列、need_human 最左且 data-urgent）', async () => {
     const root = fixtureRoot();
     const view = renderApp();
     await flushAsync();
@@ -123,7 +128,7 @@ describe('T0009 入口单流', () => {
     await flushAsync(); // 等首次扫描
 
     const columns = Array.from(view.container.querySelectorAll('[data-column]'));
-    expect(columns.length, '应渲染固定 7 列（空列也渲染）').toBe(7);
+    expect(columns.length, '应渲染固定 6 列（空列也渲染；T0032 四态化）').toBe(6);
     expect(columns[0].getAttribute('data-column')).toBe('need_human');
     expect(columns[0].getAttribute('data-urgent')).toBe('true');
 
@@ -150,7 +155,9 @@ describe('T0009 入口单流', () => {
     };
     assertCardInColumn('T0008', 'need_human');
     assertCardInColumn('T0005', 'new');
-    assertCardInColumn('T0004', 'done');
+    // T0031 需求 5（人批改写，先例 T0004/A4；改前 sha1：846ac47b89d39c413c6e498ce5b94117fe57432e）：
+    // done 即归档显示——done 卡 T0004 并入 recorded 归档清单列按行渲染。
+    assertRecordedRowInColumn('T0004');
     assertRecordedRowInColumn('T0002');
 
     // _ 前缀模板（id T0000）不得被扫描渲染
@@ -189,8 +196,8 @@ describe('T0009 入口单流', () => {
 
     expect(
       view.container.querySelectorAll('[data-column]').length,
-      '初始化成功后页面应转看板',
-    ).toBe(7);
+      '初始化成功后页面应转看板（T0032 四态化六列）',
+    ).toBe(6);
     const bootstrap = view.container.querySelector('[data-card-id="T0001"]');
     expect(
       bootstrap?.closest('[data-column]')?.getAttribute('data-column'),

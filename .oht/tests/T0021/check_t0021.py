@@ -13,8 +13,14 @@
       不被活跃脚本调用；11 项函数名子断言整体删除，不留空壳）后转绿。
   A3a check-card 无参全仓零超限（exit 0 且"超限 0 处"）
   A3b check-size 零超限（exit 0 且"超限 0 处"）
-  A3c lock_a1.test.py 全绿（exit 0 且"红 0"）
-  A3d lock_a2.test.py 全绿（exit 0 且"红 0"）
+  A3c lock_a1.test.py 桩化退役态（T0031 需求 1/6 人批废锁，改写先例 T0004/A4
+      与本卡自立"被测物退役同轮收编守护断言"教训；改前 sha1 见下）：运行
+      exit 0 且输出含 superseded/退役/桩化/不再执行 桩声明——判活口径沿
+      run_t0010.py/run_t0018.py 桩先例，原"全绿（红 0）"断言随被测物退役。
+      改前 sha1：本文件 e4f4745d6d2eefe824c8cea9de6ce54c8b3bc59b、
+      lock_a1 db45ee4c942266066f0182ea315941e8f76b4e49、
+      lock_a2 5d2c7b90b59a2cf2998a6c32995a9d875eb8b432。
+  A3d lock_a2.test.py 桩化退役态（同 A3c 口径）。
   A3a~d 当前即绿：回归锚（T0015 A2b 先例，锁定现实现行为防退化；T0021/A3 条目
       状态如实记绿，红绿终判在 review 复跑）。禁改：本卡实现员不得放松 A4a、
       A1、A2、A3 等既有断言（T0021 需求禁止项）。
@@ -23,10 +29,12 @@
 守护形态引用——check_t0018.py 自身的守护路径常量（本检查的载体）与
 .oht/tests/T0020/a2_residue.test.py 的桩运行（A2-2，验证退役行为本身，现行绿，
 属 T0020 锁定测试）。二者即卡面"除档案说明外"的守护/退役验证形态；除此之外
-的执行形态引用即应判红（有牙标准见 teeth.py）。
+的执行形态引用即应判红（有牙标准见 teeth.py）。T0031 起锁机制退役，锁快测
+桩运行（本文件 A3c/A3d）属第三处退役验证形态引用，不在 A4p2 判红面。
 用法：python -I .oht/tests/T0021/check_t0021.py   （cwd 任意）
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -71,21 +79,26 @@ def a3b_check_size_zero():
     assert r.returncode == 0, f"check-size 有超限：exit={r.returncode}\n{r.stdout}{r.stderr}"
 
 
-def _lock_suite_green(path, name):
+def _lock_stub_retired(path, name):
+    """T0031 需求 6 改写（人批废锁，先例 T0004/A4 + 本卡教训）：锁快测已桩化
+    退役——运行 exit 0 且输出含 superseded/退役/桩化/不再执行 桩声明
+    （判活口径沿 run_t0010.py/run_t0018.py 桩先例，同 T0031/A4）。"""
     r = run_py(path)
-    assert "红" in r.stdout, f"{name} 未正常执行（无判定输出）：exit={r.returncode}\n{r.stdout}{r.stderr}"
-    assert r.returncode == 0, f"{name} 有红：exit={r.returncode}\n{r.stdout}{r.stderr}"
-    assert "红 0" in r.stdout, f"{name} 退出码 0 但无\"红 0\"汇总：\n{r.stdout}{r.stderr}"
+    out = (r.stdout or "") + (r.stderr or "")
+    assert r.returncode == 0, f"{name} 桩运行非零退出：exit={r.returncode}\n{out}"
+    assert re.search(r"superseded|退役|桩化|不再执行", out, re.I), (
+        f"{name} exit 0 但输出无桩声明（活机制绿伪装？）：\n{out}"
+    )
 
 
 def a3c_lock_a1_green():
-    """A3c：lock_a1.test.py 仍全绿（回归门槛不退化）。"""
-    _lock_suite_green(LOCK_A1, "lock_a1.test.py")
+    """A3c：lock_a1.test.py 桩化退役态（T0031 需求 6 改写，原"全绿"断言随被测物退役）。"""
+    _lock_stub_retired(LOCK_A1, "lock_a1.test.py")
 
 
 def a3d_lock_a2_green():
-    """A3d：lock_a2.test.py 仍全绿（回归门槛不退化）。"""
-    _lock_suite_green(LOCK_A2, "lock_a2.test.py")
+    """A3d：lock_a2.test.py 桩化退役态（T0031 需求 6 改写，原"全绿"断言随被测物退役）。"""
+    _lock_stub_retired(LOCK_A2, "lock_a2.test.py")
 
 
 def main():

@@ -1,5 +1,9 @@
 """T0002 验收测试（A1~A4）。用法：python -I .oht/tests/T0002/test_t0002.py
-断言式；每条输出 红/绿；全绿 exit 0，有红 exit 1。"""
+断言式；每条输出 红/绿；全绿 exit 0，有红 exit 1。
+
+T0031 需求 3 同步改写（2026-11-04 人批废记录员，先例 T0004/A4、T0021 收编教训；
+改前 sha1：d2ae67dcf1b2acbd18d840afbfd6226b4ef6e879）：recorder.md 自 ROLE_FILES
+移除（记录员散开，roles/ 十文件），A2 口径"11 个角色"随之改"10 个角色"。"""
 import subprocess
 import sys
 from pathlib import Path
@@ -7,7 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]  # .oht/tests/T0002/ → 仓库根
 ROLE_FILES = [
     "dispatcher.md", "consultant.md", "checker.md", "implementer.md",
-    "recorder.md", "patrol.md", "curator.md", "consultant-brief.md",
+    "patrol.md", "curator.md", "consultant-brief.md",
     "dispatcher-intake.md", "memory.md", "memory-tools.md",
 ]
 # A4 逐对核对：旧路径 -> 新路径
@@ -50,7 +54,7 @@ def check_a1():
 
 
 def check_a2():
-    """.oht/ 结构完整：入口、协议、11 个角色、2 个脚本、rules、两张模板。"""
+    """.oht/ 结构完整：入口、协议、10 个角色（T0031 删 recorder）、2 个脚本、rules、两张模板。"""
     oht = REPO / ".oht"
     assert oht.is_dir(), ".oht/ 不存在"
     files = [

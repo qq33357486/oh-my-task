@@ -7,7 +7,7 @@
  * T0013——批准的需求变更同步改写锁定断言，非蒙混）。
  *
  * round 1 锁定契约（在 T0003/T0012/T0015 既有 DOM 契约之上改写/新增）：
- * 1. 卡面极简（A1）：六常规列卡与 recorded 清单行一律只显示 title，卡 id
+ * 1. 卡面极简（A1）：常规列卡与 recorded 清单行一律只显示 title，卡 id
  *    以小号中性 Tag 呈现（唯一保留的非标题信息）——卡面可见文本仅含
  *    title 与卡 id；决策块（question/stop_reason）、round 徽标（R1 等）、
  *    type 行、原话摘录、日期一律不上卡面。
@@ -30,6 +30,10 @@
  *
  * A3 全量回归不在本文件：由检查员命令层跑 vitest 全量 + build_check，
  * 按"最红子项整条记红"规则在卡面记状态。
+ *
+ * 授权变更（2026-11-04 T0032 需求 6，先例 T0004/A4，改前 sha1：
+ * cf9ac6dc31f42e80df9f6ecc7c3e4a6bc49135be）：tests 态删除四态化，
+ * A3 列序断言七列改六列（去 tests 列），其余契约不变。
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -296,7 +300,7 @@ describe('T0017 round 1 卡面极简化（标题+编号 Tag，决策杂讯下架
     ).toBeTruthy();
   });
 
-  it('A3 回归：既有锚点（七列 data-column、data-urgent 条件、data-card-id、data-recorded-row 行级锚点、title 主显）仍成立', () => {
+  it('A3 回归：既有锚点（六列 data-column、data-urgent 条件、data-card-id、data-recorded-row 行级锚点、title 主显）仍成立', () => {
     const cards = [
       cardText({
         id: 'T0017H',
@@ -333,17 +337,16 @@ describe('T0017 round 1 卡面极简化（标题+编号 Tag，决策杂讯下架
 
     const view = render(<Kanban cards={cards} />);
 
-    // 七列全渲染且按锁定顺序（T0003 契约）
+    // 六列全渲染且按锁定顺序（T0003 契约；T0032 四态化去 tests 列）
     const cols = Array.from(
       view.container.querySelectorAll('[data-column]'),
     ).map((el) => el.getAttribute('data-column'));
     expect(
       cols,
-      '七列 data-column 应按锁定顺序全渲染（T0003 契约）',
+      '六列 data-column 应按锁定顺序全渲染（T0003 契约，T0032 四态化）',
     ).toEqual([
       'need_human',
       'new',
-      'tests',
       'ready',
       'review',
       'done',

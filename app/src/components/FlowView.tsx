@@ -38,12 +38,15 @@
  *   （三清单面板各恰一）｜edge-label（两回边各恰一）。
  *
  * round 2 技术取舍（环形布局 + 自适应居中，仍不引画布库）：
- * - 环形几何：椭圆环（中心/横纵半径常量），五节点按环序 -90°/-18°/54°/
- *   126°/198° 布点（需求居顶）；六条连线（顺序四段 + 回边两处）均为
- *   环上 72° 弧段的三次贝塞尔近似（d 含 C，满足 A6 曲线契约）——回边
- *   「检查→实现」「记录→需求」即环上反向段与闭合段，自然融入环。
- * - 连线端点取「节点中心朝弧中点方向外推到节点边缘」的点：默认环形
- *   布局下贴合椭圆轨道，拖动节点后端点随节点中心重算（连线跟随 A6）。
+ * - 环形几何：椭圆环（中心/横纵半径常量），五节点按环序布点（需求居顶）；
+ *   六条连线由 flowGeometry.computeLink 纯函数生成（T0027）：端点自盒中心
+ *   沿弦方向与盒边界求交（slab）后外推贴边（gap 6px，悬空根除），法线弧
+ *   带车道偏移使正反向弧分居弦两侧不重叠——顺序四段 sag=0.15、打回弧
+ *   0.22（与顺序弧不同弧度）、闭合段 0.15（d 含 C，满足 A6 曲线契约）。
+ * - 节点盒 = itemPos + NODE_W + NODE_H；NODE_H=280 为 JS 常量并与 CSS
+ *   .flow-node height: 280px 同源——jsdom 不应用 CSS（T0019 教训），连线
+ *   端点计算两侧须取得同一盒高；椭圆轨道 cy = RING_CY + NODE_H/2（跟随
+ *   节点中心带）。
  * - 自适应居中：flow-view 为整页承载层（flex 三栏 + overflow hidden，
  *   布局层保证无横向滚动）；flow-main 为居中层，mount 时按其真实尺寸
  *   fit 环形内容包围盒（缩放取满宽高比、平移取内容中心对齐视口中心
@@ -59,8 +62,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
 import { mapStatusToNode } from '../lib/flowMap';
+import { NODE_CARD_LIMIT, capNodeCards } from '../lib/nodeCards';
+import { ARCHIVE_LIMIT, archiveMoreText } from '../lib/archiveList';
+import { computeLink, type NodeBox } from '../lib/flowGeometry';
 import { MarkdownText } from './MarkdownText';
 import { cardFullText } from './Kanban';
+
+/** 未开始面板完整清单的显示上限（T0030：截最近 50 张 + 更早提示） */
+const TODO_PANEL_LIMIT = 50;
 
 /** 画布五环节（流程序，非状态码） */
 const CANVAS_NODES = ['需求', '测试', '实现', '检查', '记录'] as const;
@@ -69,27 +78,23 @@ type CanvasNode = (typeof CANVAS_NODES)[number];
 type Vec = { x: number; y: number };
 
 const NODE_W = 260;
-/** 节点锚点相对 top 的纵向偏移（节点视觉中带，与 CSS min-height 匹配） */
-const NODE_ANCHOR_DY = 110;
-/** 连线端点自节点中心外推的距离（> NODE_W/2，出边缘可见箭头） */
-const NODE_REACH = 152;
+/** 节点盒高（T0027）：JS 常量与 CSS .flow-node height: 280px 同源——
+ *  jsdom 不应用 CSS（T0019 教训），连线端点计算两侧须取得同一盒高 */
+const NODE_H = 280;
 
-/** 椭圆环几何（世界坐标）：b/a = 0.75，宽屏适配形态 */
+/** 节点盒（世界坐标，左上角 + 宽高）：连线端点求交的几何输入 */
+function nodeBoxOf(p: Vec): NodeBox {
+  return { x: p.x, y: p.y, w: NODE_W, h: NODE_H };
+}
+
+/** 椭圆环几何（世界坐标）：b/a = 0.75，宽屏适配形态；RING_CY 为节点
+ *  top 锚带，轨道绘制时 cy = RING_CY + NODE_H/2 跟随节点中心带 */
 const RING_CX = 1150;
 const RING_CY = 600;
 const RING_RX = 520;
 const RING_RY = 390;
 
-/** 五节点环序角度（度）：需求居顶，顺时针首尾相接 */
-const NODE_ANGLES: Record<CanvasNode, number> = {
-  需求: -90,
-  测试: -18,
-  实现: 54,
-  检查: 126,
-  记录: 198,
-};
-
-/** 默认环形布局（世界坐标）：left = 环点 x - 半宽，top = 环点 y */
+/** 默认环形布局（世界坐标）：盒左上角，left = 环点 x - 半宽，top = 环点 y */
 const DEFAULT_LAYOUT: Record<CanvasNode, Vec> = {
   需求: { x: 1020, y: 210 },
   测试: { x: 1515, y: 480 },
@@ -107,8 +112,10 @@ const WORLD_SVG_H = 1300;
 const GRID_W = 8000;
 const GRID_H = 6000;
 
-/** fit 内容包围盒（环形布局 + 节点盒 + 视觉余量，世界坐标） */
-const FIT_CONTENT = { minX: 455, minY: 140, maxX: 1845, maxY: 1226 };
+/** fit 内容包围盒（环形布局 + 节点盒 + 视觉余量，世界坐标）；maxY 随
+ *  NODE_H=280 同步（检查/实现 top 916 + 280 + 原余量 90 = 1286），保
+ *  fit 居中不截底 */
+const FIT_CONTENT = { minX: 455, minY: 140, maxX: 1845, maxY: 1286 };
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
@@ -134,51 +141,15 @@ function clampPan(p: Vec): Vec {
   return { x: clamp(p.x, -2400, 0), y: clamp(p.y, -1600, 0) };
 }
 
-/** 椭圆环上指定角度（度）的点（世界坐标） */
-function ringPoint(deg: number): Vec {
-  const rad = (deg * Math.PI) / 180;
-  return {
-    x: RING_CX + RING_RX * Math.cos(rad),
-    y: RING_CY + RING_RY * Math.sin(rad),
-  };
-}
-
-function nodeCenter(p: Vec): Vec {
-  return { x: p.x + NODE_W / 2, y: p.y + NODE_ANCHOR_DY };
-}
-
-/** 自节点中心朝目标方向外推到节点边缘的连线锚点 */
-function anchorToward(center: Vec, target: Vec): Vec {
-  const dx = target.x - center.x;
-  const dy = target.y - center.y;
-  const len = Math.hypot(dx, dy) || 1;
-  return { x: center.x + (dx / len) * NODE_REACH, y: center.y + (dy / len) * NODE_REACH };
-}
-
-/** 环上弧段的三次贝塞尔近似：端点 a/b + 弧中点 mid（d 含 C，A6 契约） */
-function arcPath(a: Vec, b: Vec, mid: Vec): string {
-  const c1 = { x: a.x + (mid.x - a.x) * (2 / 3), y: a.y + (mid.y - a.y) * (2 / 3) };
-  const c2 = { x: b.x + (mid.x - b.x) * (2 / 3), y: b.y + (mid.y - b.y) * (2 / 3) };
-  return `M ${a.x} ${a.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${b.x} ${b.y}`;
-}
-
-/** 文字标签位：弧中点沿离心方向外推（不压线） */
-function labelPos(mid: Vec, push: number): Vec {
-  const dx = mid.x - RING_CX;
-  const dy = mid.y - RING_CY;
-  const len = Math.hypot(dx, dy) || 1;
-  return { x: mid.x + (dx / len) * push, y: mid.y + (dy / len) * push };
-}
-
-/** 呈现分流：画布 / 收件箱 / 未开始 / 归档（降级未知状态进收件箱） */
-type Place = 'canvas' | 'inbox' | 'todo' | 'archive';
+/** 呈现分流：画布 / 收件箱 / 归档（降级未知状态进收件箱） */
+type Place = 'canvas' | 'inbox' | 'archive';
 
 function placeOf(card: ParsedCard): Place {
   const node = mapStatusToNode(card.status);
   if (node === '收件箱') return 'inbox';
   if (node === '归档') return 'archive';
-  // 人已确认映射：new 不占画布，进「未开始」面板
-  if (card.status === 'new') return 'todo';
+  // T0030 新契约：五环节节点一律直挂卡（new 挂需求节点）；new 另入
+  // 「未开始」面板作完整清单（在 buckets 分流处同时收集），不再是二选一
   return 'canvas';
 }
 
@@ -383,11 +354,11 @@ export function FlowView({
     for (const card of cards) {
       const place = placeOf(card);
       if (place === 'canvas') {
+        // T0030：new 也直挂需求节点；同时进未开始面板（完整清单，截 50 在渲染层）
         canvas[mapStatusToNode(card.status) as CanvasNode].push(card);
+        if (card.status === 'new') todo.push(card);
       } else if (place === 'inbox') {
         inbox.push(card);
-      } else if (place === 'todo') {
-        todo.push(card);
       } else {
         archive.push(card);
       }
@@ -398,42 +369,57 @@ export function FlowView({
   const tagOf = (card: ParsedCard): string | undefined =>
     topicTags?.[card.type] || undefined;
 
-  // 六条连线全部在环上（round 2 环形语义）：顺序四段 = 环上正向 72° 弧段；
-  // 两回边 = 环上弧段——「检查→实现」为检查到实现的环上反向段（mid 90°，
-  // 环底），「记录→需求」为首尾闭合段（mid 234°）。d 由节点位置实时推导
-  // （拖节点即重算跟随，A6），曲线为环弧的三次贝塞尔近似（d 含 C）。
+  // 未开始面板截断（T0030）：完整清单只渲染最近 50 张，更早折叠为计数提示
+  const todoView = useMemo(
+    () => capNodeCards(buckets.todo, TODO_PANEL_LIMIT),
+    [buckets.todo],
+  );
+
+  // 归档面板截断（T0026）：只渲染最近 50 张（id 数字序倒序、新在前），
+  // 更早折叠为计数提示。截断逻辑复用 capNodeCards（一份逻辑一个主人），
+  // 上限与文案同源 archiveList.ts（与看板 recorded 列同一常量同一文案）
+  const archiveView = useMemo(
+    () => capNodeCards(buckets.archive, ARCHIVE_LIMIT),
+    [buckets.archive],
+  );
+
+  // 六条连线全部由 flowGeometry.computeLink 生成（T0027）：端点贴节点盒
+  // 边缘（slab 求交 + 外推 gap），正反向弧分居弦两侧不重叠。顺序四段
+  // sag=0.15；「检查→实现」为打回弧 sag=0.22（与顺序弧不同弧度，旧实现
+  // 与顺序线弧中点同 90° 逐点重合，根除）；「记录→需求」闭合段 sag=0.15。
+  // d 由节点位置实时推导（拖节点即重算跟随，A6）。
   const ringLinks = useMemo(
     () =>
       CANVAS_NODES.slice(0, -1).map((from, i) => {
         const to = CANVAS_NODES[i + 1];
-        const midDeg = (NODE_ANGLES[from] + NODE_ANGLES[to]) / 2;
-        const mid = ringPoint(midDeg);
-        const a = anchorToward(nodeCenter(itemPos[from]), mid);
-        const b = anchorToward(nodeCenter(itemPos[to]), mid);
-        return { id: `${from}→${to}`, d: arcPath(a, b, mid) };
+        return {
+          id: `${from}→${to}`,
+          d: computeLink(nodeBoxOf(itemPos[from]), nodeBoxOf(itemPos[to]), 0.15).d,
+        };
       }),
     [itemPos],
   );
 
   const ringEdges = useMemo(
-    () => [
-      {
-        id: '检查→实现' as const,
-        label: '打回',
-        midDeg: 90,
-      },
-      {
-        id: '记录→需求' as const,
-        label: '循环',
-        midDeg: 234,
-      },
-    ].map(({ id, label, midDeg }) => {
-      const [from, to] = id.split('→') as [CanvasNode, CanvasNode];
-      const mid = ringPoint(midDeg);
-      const a = anchorToward(nodeCenter(itemPos[from]), mid);
-      const b = anchorToward(nodeCenter(itemPos[to]), mid);
-      return { id, label, d: arcPath(a, b, mid), labelPos: labelPos(mid, 40) };
-    }),
+    () =>
+      [
+        { id: '检查→实现' as const, label: '打回', sag: 0.22 },
+        { id: '记录→需求' as const, label: '循环', sag: 0.15 },
+      ].map(({ id, label, sag }) => {
+        const [from, to] = id.split('→') as [CanvasNode, CanvasNode];
+        const { d, apex, side } = computeLink(
+          nodeBoxOf(itemPos[from]),
+          nodeBoxOf(itemPos[to]),
+          sag,
+        );
+        return {
+          id,
+          label,
+          d,
+          // 标签位：弧顶沿凸侧外法向外推（不压线；打回弧凸向环底外侧）
+          labelPos: { x: apex.x + side.x * 22, y: apex.y + side.y * 22 },
+        };
+      }),
     [itemPos],
   );
 
@@ -467,11 +453,20 @@ export function FlowView({
             {buckets.todo.length === 0 ? (
               <div className="flow-panel__empty">暂无未开始任务</div>
             ) : (
-              buckets.todo.map((card) => (
+              todoView.shown.map((card) => (
                 <FlowCard key={card.id} card={card} tag={tagOf(card)} onOpen={setActive} />
               ))
             )}
           </div>
+          {/* 更早提示（T0030 round1 顺带修复）：钉在面板底部固定行（CSS 绝对
+              定位），不再随 50 张清单坠出面板可视区。面板容器不内部滚动属
+              T0026 改动面，本卡不碰容器滚动行为，只把本卡自有的提示移出
+              裁剪区 */}
+          {todoView.hidden > 0 && (
+            <div className="flow-panel__more" data-flow-todo-more="true">
+              更早 {todoView.hidden} 张未开始未显示（仅显示最近 {TODO_PANEL_LIMIT} 张）
+            </div>
+          )}
         </div>
       </aside>
 
@@ -525,10 +520,11 @@ export function FlowView({
                   </marker>
                 </defs>
 
-                {/* 椭圆轨道线：强化「五环节首尾相接成环」观感 */}
+                {/* 椭圆轨道线：强化「五环节首尾相接成环」观感；cy 跟随
+                    节点中心带（T0027：RING_CY + NODE_H/2 = 740） */}
                 <ellipse
                   cx={RING_CX}
-                  cy={RING_CY}
+                  cy={RING_CY + NODE_H / 2}
                   rx={RING_RX}
                   ry={RING_RY}
                   className="flow-orbit"
@@ -572,12 +568,19 @@ export function FlowView({
               {/* 五环节实体节点：环上布点（内联 style 即 A8 环形几何判据） */}
               {CANVAS_NODES.map((name) => {
                 const cardsHere = buckets.canvas[name];
+                // T0030：五环节节点统一速览窗口——最新 4 张直挂，超出折叠为
+                // 「更多」计数提示（需求节点附「见左侧」指引全量清单）
+                const { shown: cardsShown, hidden: hiddenCount } = capNodeCards(
+                  cardsHere,
+                  NODE_CARD_LIMIT,
+                );
                 const pos = itemPos[name];
                 const activeNode = cardsHere.length > 0;
+                const hasMore = hiddenCount > 0;
                 return (
                   <div
                     key={name}
-                    className={`flow-node${activeNode ? ' flow-node--active' : ''}`}
+                    className={`flow-node${activeNode ? ' flow-node--active' : ''}${hasMore ? ' flow-node--more' : ''}`}
                     data-flow-node={name}
                     style={{ left: pos.x, top: pos.y, width: NODE_W }}
                     onPointerDown={(e) => beginDrag(e, { kind: 'item', id: name })}
@@ -593,16 +596,22 @@ export function FlowView({
                     <span className="flow-port flow-port--in" data-flow-port="in" />
                     <span className="flow-port flow-port--out" data-flow-port="out" />
                     <div className="flow-node__cards">
-                      {cardsHere.map((card) => (
+                      {cardsShown.map((card) => (
                         <FlowCard key={card.id} card={card} tag={tagOf(card)} onOpen={setActive} />
                       ))}
-                      {/* 需求环节的 new 卡按人已确认映射留在未开始面板，此处仅提示计数 */}
-                      {name === '需求' && buckets.todo.length > 0 && (
-                        <div className="flow-node__hint">
-                          未开始 {buckets.todo.length} 张（见左侧面板）
-                        </div>
-                      )}
                     </div>
+                    {/* 更多提示（T0030 round1 A5 返修）：渲染在卡区滚动容器之外的
+                        节点底部固定行——不再被 240px 卡区限高推进滚动溢出区，满载
+                        节点默认视图即可读；有提示时卡区窗口收缩一个提示行高
+                        （.flow-node--more），节点总高持平。纯计数文本不可点（画布
+                        定位是总览，全量清单看板与左右面板有） */}
+                    {hasMore && (
+                      <div className="flow-node__hint" data-node-more="true">
+                        {name === '需求'
+                          ? `更多 ${hiddenCount} 张（见左侧）`
+                          : `更多 ${hiddenCount} 张`}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -619,11 +628,18 @@ export function FlowView({
             {buckets.archive.length === 0 ? (
               <div className="flow-panel__empty">暂无归档任务</div>
             ) : (
-              buckets.archive.map((card) => (
+              archiveView.shown.map((card) => (
                 <FlowCard key={card.id} card={card} tag={tagOf(card)} onOpen={setActive} />
               ))
             )}
           </div>
+          {/* 更早提示（T0026）：超出 50 张折叠为底部计数行；样式复用 T0030
+              已入库的 .flow-panel__more（居中、12px、灰），纯文本不可点 */}
+          {archiveView.hidden > 0 && (
+            <div className="flow-panel__more" data-flow-archive-more="true">
+              {archiveMoreText(archiveView.hidden)}
+            </div>
+          )}
         </div>
       </aside>
 

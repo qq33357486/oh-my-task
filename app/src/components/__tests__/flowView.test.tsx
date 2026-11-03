@@ -16,14 +16,20 @@
  * 2. 画布五环节节点（人话环节名，非状态码）：data-flow-node="需求|测试|
  *    实现|检查|记录"，恰五个、按流程序出现在 DOM；节点元素文本含环节名。
  * 3. 挂卡锚点：data-flow-card-id="<卡 id>"，位于当前状态对应环节的
- *    data-flow-node 内（new→需求、tests→测试、ready→实现、review→检查、
- *    done→记录）。
- * 4. need_human / recorded / new 卡不占画布：其 data-flow-card-id 不得
- *    出现在任何 data-flow-node 内。
+ *    data-flow-node 内（new→需求、ready→实现、review→检查；
+ *    T0031 需求 5 人批改写：done 即终态归档，不再挂画布「记录」环节；
+ *    T0032 需求 6 四态化：tests 态已废，tests 卡按未知状态降级收件箱，
+ *    不再挂画布「测试」环节——节点结构仍为五环节 T0019/A2 契约不变）。
+ * 4. need_human / done / recorded / tests（已废态）卡不占画布：其
+ *    data-flow-card-id 不得出现在任何 data-flow-node 内（done 不占画布系
+ *    T0031 需求 5 人批改写，先例 T0004/A4；tests 不占画布系 T0032 需求 6
+ *    四态化改写）；new 卡挂需求节点（T0030 契约改写，先例 T0004/A4：
+ *    五环节节点直挂卡，未开始面板仍含 new 卡）。
  * 5. 左侧清单分区：收件箱区 data-flow-inbox="true"（含 need_human 卡，
  *    区内直显该卡 question 全文）；未开始区 data-flow-todo="true"（含
  *    status=new 卡）。
- * 6. 右侧清单：归档区 data-flow-archive="true"（含 recorded 卡）。
+ * 6. 右侧清单：归档区 data-flow-archive="true"（含 done 卡与历史 recorded
+ *    卡——T0031 需求 5：done 即归档显示，recorded 历史卡兼容）。
  * 7. 卡面（复用极简范式）：卡元素文本含编号 id 与 title；
  *    round>0 的卡卡面含「第N轮」徽标文本（如「第2轮」），round=0 不得
  *    出现「第0轮」。
@@ -36,6 +42,14 @@
  * 10. 页眉切换（A4，App 级）：页眉含文本恰为「看板」「流程图」的切换
  *    控件；点击往返后两视图互斥可见（目标视图 data 锚点可见，另一视图
  *    的列/根不可见——条件渲染或 CSS 隐藏均满足），两视图内容各自正确。
+ *
+ * =====================================================================
+ * T0032 需求 6 授权变更（2026-11-04，先例 T0004/A4，本轮改前工作区 sha1：
+ * fe352344b3738308e9b0a0f9ee172a01d7d2aa0d；该基线已含 T0030/T0031 两轮
+ * 批准改写层）：tests 态删除四态化——T19T 夹具保持已废 tests 态改断言
+ * 「不占画布、降级收件箱」（守护已废态不复活）；T0006 夹具态 tests→ready；
+ * T0030 截断夹具 6 张 tests→6 张 ready（截断语义改锚实现节点）。
+ * =====================================================================
  *
  * 渲染方式：A3 组件级同 T0012/T0015/T0017 先例——ParsedCard 数组 +
  * topicTags 直驱 <FlowView />，不涉 mockFs；A4 切换为 App 级集成，同
@@ -94,7 +108,7 @@ function makeCard(overrides: Partial<ParsedCard>): ParsedCard {
   };
 }
 
-/** 七状态全覆盖夹具：五环节各一 + 收件箱/未开始/归档各一 */
+/** 状态全覆盖夹具：三环节各一 + 收件箱（need_human 与已废 tests 降级）/未开始/归档各一 */
 function fixtureCards(): ParsedCard[] {
   return [
     makeCard({
@@ -105,7 +119,9 @@ function fixtureCards(): ParsedCard[] {
       stop_reason: '收件箱夹具终止原因',
     }),
     makeCard({ id: 'T19N', status: 'new', title: '未开始的新任务卡' }),
-    makeCard({ id: 'T19T', status: 'tests', title: '测试环节上的示例任务卡' }),
+    // T0032 需求 6：T19T 故意保留已废 tests 态——锁定「已废态不挂画布、
+    // 降级收件箱」的防复活语义（title 同步改，防误导）。
+    makeCard({ id: 'T19T', status: 'tests', title: '已废态降级收件箱的示例任务卡' }),
     makeCard({
       id: 'T19R',
       status: 'ready',
@@ -114,7 +130,7 @@ function fixtureCards(): ParsedCard[] {
       title: '被检查打回第二轮的任务卡',
     }),
     makeCard({ id: 'T19V', status: 'review', title: '停在检查环节的任务卡' }),
-    makeCard({ id: 'T19D', status: 'done', title: '进入记录环节的任务卡' }),
+    makeCard({ id: 'T19D', status: 'done', title: '已完成即归档的任务卡' }),
     makeCard({ id: 'T19A', status: 'recorded', title: '已归档的历史任务卡' }),
   ];
 }
@@ -122,18 +138,20 @@ function fixtureCards(): ParsedCard[] {
 /** type → 标签映射夹具：系统开发有标签，知识库无映射（无标签不显示） */
 const FIXTURE_TAGS: Record<string, string> = { 系统开发: '系开' };
 
-/** 卡 id → 应挂环节（画布五环节部分） */
+/** 卡 id → 应挂环节（画布环节部分；T0031：done 归档不占画布；T0032：tests 已废降级收件箱，移出本表） */
 const NODE_PLACEMENT: Array<[string, string]> = [
-  ['T19T', '测试'],
   ['T19R', '实现'],
   ['T19V', '检查'],
-  ['T19D', '记录'],
 ];
 
 afterEach(cleanup);
 
 describe('T0019/A3 流程图视图整体呈现', () => {
-  it('五环节可见且按流程序；各卡挂对应环节；need_human/new/recorded 不占画布', () => {
+  // T0030 契约改写（本卡授权，先例 T0004/A4、T0018）：标题随契约第 4 条
+  // 同步改写——need_human/recorded 不占画布、new 挂需求节点；
+  // T0031 需求 5 再改写（改前 sha1：b11ac0161c6289c5f077be87207185bd0e693c69）：
+  // done 即归档不占画布，归档区含 done 与历史 recorded 卡。
+  it('五环节可见且按流程序；各卡挂对应环节；need_human/done/recorded/tests 不占画布、new 挂需求节点', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
 
     // 根容器
@@ -163,16 +181,23 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       ).toBe(nodeName);
     }
 
-    // need_human / new / recorded 不占画布（卡面映射：人已拍板留收件箱）
-    for (const offCanvas of ['T19H', 'T19N', 'T19A']) {
+    // T0030 契约改写（本卡授权，先例 T0004/A4、T0018）：need_human/recorded
+    // 不占画布；new 卡改挂需求节点（推翻 T0019「new 不占画布」旧映射）。
+    // T0031 需求 5：done 即归档，T19D 同样不占画布（并入归档区）。
+    // T0032 需求 6：tests 态已废，T19T 不占画布（降级收件箱，防已废态复活）。
+    for (const offCanvas of ['T19H', 'T19D', 'T19A', 'T19T']) {
       expect(
         view.container.querySelectorAll(`[data-flow-node] [data-flow-card-id="${offCanvas}"]`).length,
         `${offCanvas} 不得出现在任何画布环节内`,
       ).toBe(0);
     }
+    expect(
+      view.container.querySelector('[data-flow-node="需求"] [data-flow-card-id="T19N"]'),
+      'new 卡 T19N 应出现在「需求」节点（T0030：需求节点直挂 new 卡，当前实现不挂，应红）',
+    ).not.toBeNull();
   });
 
-  it('左侧分区：收件箱直显 need_human 卡 question；未开始区含 new 卡；右侧归档区含 recorded 卡', () => {
+  it('左侧分区：收件箱直显 need_human 卡 question；未开始区含 new 卡；右侧归档区含 done 与 recorded 卡', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
 
     // 收件箱区：含 need_human 卡并直显 question 全文（断言限定区内容器防假绿）
@@ -181,6 +206,11 @@ describe('T0019/A3 流程图视图整体呈现', () => {
     expect(
       inbox!.querySelector('[data-flow-card-id="T19H"]'),
       '收件箱区应含 need_human 卡 T19H',
+    ).not.toBeNull();
+    // T0032 需求 6：已废 tests 态卡 T19T 降级收件箱（不再挂「测试」环节）
+    expect(
+      inbox!.querySelector('[data-flow-card-id="T19T"]'),
+      '收件箱区应含已废 tests 态卡 T19T（T0032 四态化降级）',
     ).not.toBeNull();
     expect(
       within(inbox as HTMLElement).getByText('流程图收件箱应直显的决策问题'),
@@ -195,12 +225,16 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       '未开始区应含 new 卡 T19N',
     ).not.toBeNull();
 
-    // 归档区：含 recorded 卡
+    // 归档区：含 done 卡（T0031 需求 5：done 即归档显示）与历史 recorded 卡
     const archive = view.container.querySelector('[data-flow-archive="true"]');
     expect(archive, '应有 data-flow-archive="true" 归档区').not.toBeNull();
     expect(
+      archive!.querySelector('[data-flow-card-id="T19D"]'),
+      '归档区应含 done 卡 T19D（done 即归档显示，T0031）',
+    ).not.toBeNull();
+    expect(
       archive!.querySelector('[data-flow-card-id="T19A"]'),
-      '归档区应含 recorded 卡 T19A',
+      '归档区应含 recorded 卡 T19A（历史卡兼容）',
     ).not.toBeNull();
   });
 
@@ -209,7 +243,7 @@ describe('T0019/A3 流程图视图整体呈现', () => {
 
     // 卡面复用极简范式：编号 + 人话标题均可见
     for (const [cardId, title] of [
-      ['T19T', '测试环节上的示例任务卡'],
+      ['T19T', '已废态降级收件箱的示例任务卡'],
       ['T19R', '被检查打回第二轮的任务卡'],
     ] as Array<[string, string]>) {
       const card = view.container.querySelector(`[data-flow-card-id="${cardId}"]`)!;
@@ -308,7 +342,7 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
       fireEvent.click(within(header as HTMLElement).getByText('看板'));
     });
     await flushAsync();
-    const kanbanCol = view.container.querySelector('[data-column="tests"]');
+    const kanbanCol = view.container.querySelector('[data-column="ready"]');
     expect(kanbanCol, '切到看板后各列应出现').not.toBeNull();
     expect(kanbanCol!, '看板列应可见').toBeVisible();
     const flowAfterBack = view.container.querySelector('[data-flow-view="true"]');
@@ -317,7 +351,7 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
     }
     expect(
       kanbanCol!.querySelector('[data-card-id="T0006"]'),
-      '看板内容正确：T0006 应在 tests 列',
+      '看板内容正确：T0006 应在 ready 列（T0032 四态化：原 tests 夹具态已废）',
     ).not.toBeNull();
 
     // 再切流程图（往返可用）
@@ -328,13 +362,13 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
     const flowRoot = view.container.querySelector('[data-flow-view="true"]');
     expect(flowRoot, '往返切换后流程图应再次可见').not.toBeNull();
     expect(flowRoot!, '流程图容器应可见').toBeVisible();
-    // 流程图内容正确：夹具卡 T0006（tests）应挂在「测试」环节
+    // 流程图内容正确：夹具卡 T0006（ready）应挂在「实现」环节（T0032 四态化）
     const flowCard = view.container.querySelector('[data-flow-card-id="T0006"]');
     expect(flowCard, '流程图应渲染夹具卡 T0006').not.toBeNull();
     expect(
       flowCard!.closest('[data-flow-node]')?.getAttribute('data-flow-node'),
-      'T0006（tests）应挂在「测试」环节',
-    ).toBe('测试');
+      'T0006（ready）应挂在「实现」环节',
+    ).toBe('实现');
   });
 });
 
@@ -807,10 +841,10 @@ describe('T0019/A11 文字层级可读性锚点（round 2）', () => {
     for (const [cardId, title] of [
       ['T19H', '需要人拍板的任务卡'],
       ['T19N', '未开始的新任务卡'],
-      ['T19T', '测试环节上的示例任务卡'],
+      ['T19T', '已废态降级收件箱的示例任务卡'],
       ['T19R', '被检查打回第二轮的任务卡'],
       ['T19V', '停在检查环节的任务卡'],
-      ['T19D', '进入记录环节的任务卡'],
+      ['T19D', '已完成即归档的任务卡'],
       ['T19A', '已归档的历史任务卡'],
     ] as Array<[string, string]>) {
       const card = view.container.querySelector(`[data-flow-card-id="${cardId}"]`)!;
@@ -851,5 +885,123 @@ describe('T0019/A11 文字层级可读性锚点（round 2）', () => {
         '连线文字非空',
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+// =====================================================================
+// T0030（A2/A3）：需求节点直挂卡片与更多提示（检查员锁定，红测）。
+//
+// 契约（推翻 T0019「new 不占画布」旧映射：五环节节点一律直挂卡）。
+// 沿用本文件既有 makeCard 夹具与 data-flow-* 锚惯例；锚点域扩展
+// data-node-more / data-flow-todo-more（均为新属性，与既有契约零互斥）：
+// 21. 五环节节点统一 capNodeCards 取最新 4 张直挂（NODE_CARD_LIMIT=4，
+//     按 id 数字部分降序最新在前）；节点头计数徽标 flow-node__count 仍为
+//     该环节全量数，不随直挂截断变化。
+// 22. hidden > 0 时卡片区底部渲染 data-node-more="true" 计数提示（需求
+//     节点文案含「更多 {hidden} 张（见左侧）」，其余节点纯计数，不可点）；
+//     旧提示「未开始 N 张（见左侧面板）」删除。
+// 23. 左侧未开始面板为完整清单：capNodeCards(buckets.todo, 50) 截最近
+//     50 张；hidden > 0 时面板底部 data-flow-todo-more="true" 文本
+//     「更早 {hidden} 张未开始未显示（仅显示最近 50 张）」。
+// =====================================================================
+
+/** T0030/A2 夹具：需求环节 6 张 new、实现环节 6 张 ready、检查环节 2 张 review
+ * （T0032 需求 6 授权改写：原测试环节 6 张 tests 已废，截断语义改锚实现节点） */
+function t0030Cards(): ParsedCard[] {
+  const mk = (id: string, status: string): ParsedCard =>
+    makeCard({ id, status, title: `T0030 夹具卡 ${id}` });
+  return [
+    ...['T0301', 'T0302', 'T0303', 'T0304', 'T0305', 'T0306'].map((id) => mk(id, 'new')),
+    ...['T0311', 'T0312', 'T0313', 'T0314', 'T0315', 'T0316'].map((id) => mk(id, 'ready')),
+    mk('T0321', 'review'),
+    mk('T0322', 'review'),
+  ];
+}
+
+describe('T0030/A2 五环节直挂与「更多」提示', () => {
+  it('需求/实现节点各直挂最新 4 张、检查节点 2 张全挂且无提示；旧「见左侧面板」提示删除；需求徽标计数为全量 6', () => {
+    const view = render(<FlowView cards={t0030Cards()} />);
+
+    // 需求节点：6 张 new 取最新 4 张（数字降序），第一张为最大号 T0306
+    const reqNode = view.container.querySelector('[data-flow-node="需求"]')!;
+    expect(reqNode, '前置：需求节点应渲染（round 0 契约）').not.toBeNull();
+    expect(
+      Array.from(reqNode.querySelectorAll('[data-flow-card-id]')).map((c) =>
+        c.getAttribute('data-flow-card-id'),
+      ),
+      '需求节点应直挂最新 4 张 new 卡（当前实现 new 不占画布，应红）',
+    ).toEqual(['T0306', 'T0305', 'T0304', 'T0303']);
+
+    // 实现节点：6 张 ready 取最新 4 张 + 「更多 2 张」提示（T0032：原 tests 锚实现节点）
+    const implNode = view.container.querySelector('[data-flow-node="实现"]')!;
+    expect(
+      Array.from(implNode.querySelectorAll('[data-flow-card-id]')).map((c) =>
+        c.getAttribute('data-flow-card-id'),
+      ),
+      '实现节点应直挂最新 4 张 ready 卡',
+    ).toEqual(['T0316', 'T0315', 'T0314', 'T0313']);
+    const implMore = implNode.querySelector('[data-node-more="true"]');
+    expect(
+      implMore,
+      '实现节点超出 2 张应渲染 data-node-more 提示（当前实现无，应红）',
+    ).not.toBeNull();
+    expect(implMore!.textContent ?? '', '实现节点更多提示文本应含「更多 2 张」').toContain(
+      '更多 2 张',
+    );
+
+    // 检查节点：2 张 ≤ limit 全直挂（最新在前），无更多提示
+    const reviewNode = view.container.querySelector('[data-flow-node="检查"]')!;
+    expect(
+      Array.from(reviewNode.querySelectorAll('[data-flow-card-id]')).map((c) =>
+        c.getAttribute('data-flow-card-id'),
+      ),
+      '检查节点 2 张 ≤ limit 应全直挂且最新在前',
+    ).toEqual(['T0322', 'T0321']);
+    expect(
+      reviewNode.querySelectorAll('[data-node-more]').length,
+      '检查节点未超限不得出现更多提示',
+    ).toBe(0);
+
+    // 旧提示删除：全视图不含「见左侧面板」（新「见左侧」短文案不受限）
+    expect(
+      view.container.textContent ?? '',
+      '「未开始 N 张（见左侧面板）」旧提示应删除（当前实现仍在，应红）',
+    ).not.toContain('见左侧面板');
+
+    // 节点头徽标仍为全量计数：需求 6 张（直挂截断不改徽标口径）
+    const badge = reqNode.querySelector('.flow-node__count');
+    expect(badge, '需求节点应有计数徽标（现状结构）').not.toBeNull();
+    expect(badge!.textContent ?? '', '需求节点徽标应显示全量 6').toBe('6');
+  });
+});
+
+describe('T0030/A3 未开始面板截 50', () => {
+  it('55 张 new 卡：未开始面板恰显示最近 50 张（第一张为最大号）+「更早 5 张」提示', () => {
+    const cards = Array.from({ length: 55 }, (_, i) =>
+      makeCard({
+        id: `T${String(4101 + i)}`,
+        status: 'new',
+        title: `未开始任务卡 ${i + 1}`,
+      }),
+    );
+    const view = render(<FlowView cards={cards} />);
+
+    const todo = view.container.querySelector('[data-flow-todo="true"]');
+    expect(todo, '前置：未开始面板应存在（既有契约）').not.toBeNull();
+    const todoCards = Array.from(todo!.querySelectorAll('[data-flow-card-id]'));
+    expect(
+      todoCards.length,
+      '未开始面板应恰显示 50 张（当前实现无上限全量渲染，应红）',
+    ).toBe(50);
+    expect(
+      todoCards[0]!.getAttribute('data-flow-card-id'),
+      '未开始面板第一张应为最大号 T4155（最新在前）',
+    ).toBe('T4155');
+    const more = todo!.querySelector('[data-flow-todo-more="true"]');
+    expect(
+      more,
+      '超出 50 张应渲染 data-flow-todo-more 提示（当前实现无，应红）',
+    ).not.toBeNull();
+    expect(more!.textContent ?? '', '更早提示文本应含隐藏计数 5').toContain('5');
   });
 });
