@@ -36,9 +36,9 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
-DEFAULT_LOCK = os.path.join(ROOT, ".oht", "tasks", ".lock")
-DEFAULT_TASKS = os.path.join(ROOT, ".oht", "tasks")
+ROOT = os.path.dirname(HERE)  # .oht/（同 check-size/check-card 口径）
+DEFAULT_LOCK = os.path.join(ROOT, "tasks", ".lock")
+DEFAULT_TASKS = os.path.join(ROOT, "tasks")
 FRESH_SECONDS_DEFAULT = 900  # 需求 3：心跳距今 ≤15 分钟=新鲜
 MS_THRESHOLD = 10 ** 11      # epoch 大于此视为毫秒，折算为秒
 
