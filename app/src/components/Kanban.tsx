@@ -34,6 +34,7 @@ import { useMemo, useState } from 'react';
 import { Badge, Card, Modal, Tag } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
 import { MarkdownText } from './MarkdownText';
+import { STATUS_COLORS } from '../theme';
 
 export const KANBAN_COLUMNS = [
   'need_human',
@@ -47,15 +48,15 @@ export const KANBAN_COLUMNS = [
 
 export type KanbanColumn = (typeof KANBAN_COLUMNS)[number];
 
-/** 列头文案与 AntD 预设状态配色（recorded 归档用中性灰） */
-const COLUMN_META: Record<KanbanColumn, { title: string; badgeColor: string }> = {
-  need_human: { title: '人工介入', badgeColor: 'red' },
-  new: { title: '新任务', badgeColor: 'geekblue' },
-  tests: { title: '测试中', badgeColor: 'gold' },
-  ready: { title: '待实现', badgeColor: 'cyan' },
-  review: { title: '待检查', badgeColor: 'purple' },
-  done: { title: '已完成', badgeColor: 'green' },
-  recorded: { title: '已归档', badgeColor: '#8c8c8c' },
+/** 列头文案（T0023 起计数为中性胶囊，预设配色不再使用） */
+const COLUMN_META: Record<KanbanColumn, { title: string }> = {
+  need_human: { title: '人工介入' },
+  new: { title: '新任务' },
+  tests: { title: '测试中' },
+  ready: { title: '待实现' },
+  review: { title: '待检查' },
+  done: { title: '已完成' },
+  recorded: { title: '已归档' },
 };
 
 /** 取某节第一个非空行，超长截断（卡片摘要用） */
@@ -94,6 +95,20 @@ export function cardFullText(card: ParsedCard): string {
     .map(([name, content]) => `## ${name}\n${content.replace(/\n+$/, '')}`)
     .join('\n\n');
   return `---\n${fm}\n---\n\n${body}\n`;
+}
+
+/** 卡片正文（九节，不含 frontmatter）——T0023 弹层改版后正文区渲染用；
+ * frontmatter 信息由弹层字段区（id/status/type/round 等）与 callout
+ * （question/stop_reason）承载，避免全文与字段区重复呈现同一文本。 */
+function cardBodyText(card: ParsedCard): string {
+  return Object.entries(card.sections)
+    .map(([name, content]) => `## ${name}\n${content.replace(/\n+$/, '')}`)
+    .join('\n\n');
+}
+
+/** 状态色：未知状态回退中性灰（T0023 需求 §6） */
+function statusColorOf(status: string): string {
+  return STATUS_COLORS[status as keyof typeof STATUS_COLORS] ?? '#9ca3af';
 }
 
 /** 常规列卡片：AntD Card 承载视觉，外层元素持 data-card-id 契约与点击 */
@@ -162,7 +177,9 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
               <div className="kanban__column-head">
                 <span>{COLUMN_META[col].title}</span>
                 {inColumn.length > 0 && (
-                  <Badge count={inColumn.length} color={COLUMN_META[col].badgeColor} />
+                  /* T0023：计数改中性胶囊（计数文本仍在原 Badge 元素内，
+                     颜色走 CSS 覆盖，不再用 AntD 预设状态色 prop） */
+                  <Badge count={inColumn.length} className="kanban__column-count" />
                 )}
               </div>
               {col === 'recorded' ? (
@@ -185,13 +202,24 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
                     ))}
                   </div>
                 ) : (
-                  <div className="kanban__cards" />
+                  /* T0023：空列占位（recorded 无归档行时同样显示） */
+                  <div className="kanban__cards">
+                    <div className="kanban__empty" data-empty-column>
+                      暂无任务
+                    </div>
+                  </div>
                 )
               ) : (
                 <div className="kanban__cards">
                   {inColumn.map((card) => (
                     <CardItem key={card.id} card={card} onOpen={setActive} />
                   ))}
+                  {/* T0023：空列占位（有卡的列不出现） */}
+                  {inColumn.length === 0 && (
+                    <div className="kanban__empty" data-empty-column>
+                      暂无任务
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -230,8 +258,58 @@ export function Kanban({ cards }: { cards: ParsedCard[] }) {
         footer={null}
         onCancel={() => setActive(null)}
         width={720}
+        className="kanban-modal"
       >
-        {active && <MarkdownText text={cardFullText(active)} />}
+        {/* T0023 弹层改版：frontmatter 以字段区呈现（id/status 用 Tag，
+            status 底色取状态令牌）；question/stop_reason 非空时各渲染为
+            红色 callout（文本与之前一致）；正文九节仍走 markdown 渲染。 */}
+        {active && (
+          <div className="card-modal">
+            <div className="card-modal__fields">
+              <div className="card-modal__field">
+                <span className="card-modal__label">id</span>
+                <span className="card-modal__value">
+                  <Tag>{active.id}</Tag>
+                </span>
+              </div>
+              <div className="card-modal__field">
+                <span className="card-modal__label">status</span>
+                <span className="card-modal__value">
+                  <Tag
+                    bordered={false}
+                    style={{ backgroundColor: statusColorOf(active.status), color: '#fff' }}
+                  >
+                    {active.status}
+                  </Tag>
+                </span>
+              </div>
+              {(
+                [
+                  ['type', active.type],
+                  ['round', String(active.round)],
+                  ['parent', active.parent],
+                  ['origin', active.origin],
+                  ['lane', active.lane],
+                  ['batch', active.batch],
+                ] as const
+              ).map(([label, value]) => (
+                <div className="card-modal__field" key={label}>
+                  <span className="card-modal__label">{label}</span>
+                  <span className="card-modal__value">{value}</span>
+                </div>
+              ))}
+            </div>
+            {active.question ? (
+              <div className="card-callout card-callout--danger">{active.question}</div>
+            ) : null}
+            {active.stop_reason ? (
+              <div className="card-callout card-callout--danger">{active.stop_reason}</div>
+            ) : null}
+            <div className="card-modal__body">
+              <MarkdownText text={cardBodyText(active)} />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

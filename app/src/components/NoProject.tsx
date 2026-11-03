@@ -51,7 +51,10 @@ export function NoProject() {
   };
 
   return (
-    <div className="no-project">
+    // T0024：入口页统一骨架——外层加 entry-card 类（no-project 语义类保留），
+    // 顶部渐变 logo、底部脚注；Result/两按钮/两 Alert 原样不动。
+    <div className="no-project entry-card">
+      <div className="entry-card__logo" aria-hidden="true">OHT</div>
       <Result
         status="warning"
         title="该目录未初始化循环工程"
@@ -88,6 +91,7 @@ export function NoProject() {
           message={`初始化失败: ${state.message}`}
         />
       )}
+      <div className="entry-card__foot">纯本地运行 · 文件不上传 · 需 Chrome / Edge</div>
     </div>
   );
 }

@@ -5,10 +5,11 @@ import zhCN from 'antd/locale/zh_CN';
 import 'antd/dist/reset.css';
 import './index.css';
 import App from './App';
+import { appTheme } from './theme';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider locale={zhCN} theme={{ token: { borderRadius: 8 } }}>
+    <ConfigProvider locale={zhCN} theme={appTheme}>
       <App />
     </ConfigProvider>
   </React.StrictMode>,

@@ -23,7 +23,10 @@ type AppView = 'kanban' | 'flow';
 
 function UnsupportedPage() {
   return (
-    <div className="page-center">
+    // T0024：入口页统一 entry-card 骨架（logo 在上、Alert 居中、脚注在下；
+    // 原文案与 Alert 文本零改动，Alert 内文本左对齐走 CSS）
+    <div className="entry-card">
+      <div className="entry-card__logo" aria-hidden="true">OHT</div>
       <Alert
         type="warning"
         showIcon
@@ -36,6 +39,7 @@ function UnsupportedPage() {
           </>
         }
       />
+      <div className="entry-card__foot">纯本地运行 · 文件不上传 · 需 Chrome / Edge</div>
     </div>
   );
 }
@@ -44,7 +48,9 @@ function UnsupportedPage() {
 function PickPage() {
   const pick = useAppStore((s) => s.pick);
   return (
-    <div className="page-center">
+    // T0024：entry-card 统一骨架（原文案与按钮文本零改动）
+    <div className="entry-card">
+      <div className="entry-card__logo" aria-hidden="true">OHT</div>
       <Typography.Title level={3}>选择循环工程目录</Typography.Title>
       <Typography.Paragraph type="secondary">
         选择你的项目根目录（将请求读写权限；目录缺 .oht/ 时会给出初始化引导）。
@@ -53,6 +59,7 @@ function PickPage() {
       <Button type="primary" size="large" onClick={() => void pick()}>
         选择目录
       </Button>
+      <div className="entry-card__foot">纯本地运行 · 文件不上传 · 需 Chrome / Edge</div>
     </div>
   );
 }
@@ -61,7 +68,9 @@ function ReauthPage() {
   const reauth = useAppStore((s) => s.reauth);
   const root = useAppStore((s) => s.root);
   return (
-    <div className="page-center">
+    // T0024：entry-card 统一骨架（原文案与按钮文本零改动）
+    <div className="entry-card">
+      <div className="entry-card__logo" aria-hidden="true">OHT</div>
       <Typography.Title level={3}>需要重新授权</Typography.Title>
       <Typography.Paragraph type="secondary">
         上次选择的目录「{root?.name}」访问权限已失效（浏览器刷新后权限会过期）。
@@ -70,6 +79,7 @@ function ReauthPage() {
       <Button type="primary" size="large" onClick={() => void reauth()}>
         重新授权访问
       </Button>
+      <div className="entry-card__foot">纯本地运行 · 文件不上传 · 需 Chrome / Edge</div>
     </div>
   );
 }
@@ -152,10 +162,13 @@ export function App() {
     <Layout className="app-layout">
       <Layout.Header className="app-header">
         <div className="app-header__left">
+          {/* T0023：渐变 logo 锚点（纯装饰，24×24 圆角渐变块） */}
+          <span className="app-header__logo" aria-hidden="true" />
           <Typography.Text strong className="app-header__title">
             循环工程任务看板
           </Typography.Text>
-          {root && <Tag color="blue">{root.name}</Tag>}
+          {/* T0023：目录名 Tag 去 AntD 预设蓝，改中性深底样式类 */}
+          {root && <Tag bordered={false} className="app-header__root">{root.name}</Tag>}
         </div>
         <Space size="middle" align="center">
           {/* T0019 视图切换：看板 ⇄ 流程图（同层并列，无路由库；
@@ -186,7 +199,7 @@ export function App() {
             仅 Chrome/Edge 支持
           </Typography.Text>
           {lastRefreshAt > 0 && (
-            <Typography.Text type="secondary">
+            <Typography.Text type="secondary" className="app-header__time">
               上次刷新 {new Date(lastRefreshAt).toLocaleTimeString('zh-CN')}
             </Typography.Text>
           )}

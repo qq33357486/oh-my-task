@@ -1,7 +1,31 @@
 /* T0003 看板布局样式（need_human 红色高亮、列序布局）。
-   T0012 AntD 视觉升级：状态配色取 AntD 预设色，间距/圆角/阴影按主题
-   token 节奏；need_human 高亮仅在列内有卡时出现（条件类挂载）；
-   recorded 列为紧凑清单行。 */
+   T0012 AntD 视觉升级；T0023 全站视觉统一：设计令牌集中于 :root 变量
+   （颜色/圆角/阴影/字体），页眉深色与画布同色，看板/弹层配色一律走
+   令牌，不硬编码 AntD 预设状态色。 */
+
+/* ===== T0023 设计令牌（单一来源；与 src/theme.ts 同值同源） ===== */
+:root {
+  --oht-bg: #f4f5f9;
+  --oht-surface: #ffffff;
+  --oht-border: #e4e7ee;
+  --oht-text: #1f2430;
+  --oht-text-2: #667085;
+  --oht-text-3: #98a2b3;
+  --oht-primary: #4f46e5;
+  --oht-header-bg: #17171b;
+  --oht-radius: 10px;
+  --oht-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --oht-shadow-md: 0 4px 12px rgba(16, 24, 40, 0.1);
+  --oht-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --oht-st-need_human: #ef4444;
+  --oht-st-new: #6366f1;
+  --oht-st-tests: #f59e0b;
+  --oht-st-ready: #06b6d4;
+  --oht-st-review: #8b5cf6;
+  --oht-st-done: #22c55e;
+  --oht-st-recorded: #9ca3af;
+}
+
 html,
 body,
 #root {
@@ -9,18 +33,34 @@ body,
   height: 100%;
 }
 
-.app-layout {
-  min-height: 100%;
-  background: #fff;
+body {
+  font-family: var(--oht-font);
+  color: var(--oht-text);
 }
 
+.app-layout {
+  min-height: 100%;
+  background: var(--oht-bg);
+}
+
+/* ===== 页眉（深色，与流程图画布同色；底部靛→青渐变细线） ===== */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  position: relative;
   z-index: 1;
+}
+
+.app-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #4f46e5, #06b6d4);
 }
 
 /* 深色页眉上的文字提亮，保证可读 */
@@ -29,27 +69,69 @@ body,
 }
 
 .app-header .ant-typography.ant-typography-secondary {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .app-header__left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
+/* 渐变 logo 锚（纯装饰） */
+.app-header__logo {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #4f46e5, #06b6d4);
+}
+
 .app-header__title {
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+/* 目录名 Tag：深底中性等宽小签 */
+.app-header__root.ant-tag {
+  background: rgba(255, 255, 255, 0.08);
+  color: #c7cbd6;
+  border-radius: 6px;
+  border: none;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
 }
 
 .app-header__hint {
   white-space: nowrap;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.app-header__time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 页眉刷新按钮：深底幽灵形态 */
+.app-header .ant-btn:not(.app-header__view-btn) {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.app-header .ant-btn:not(.app-header__view-btn):hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .app-content {
-  padding: 20px 24px 28px;
+  padding: 24px 28px 32px;
 }
 
 .page-center {
@@ -57,30 +139,177 @@ body,
   margin: 80px auto 0;
 }
 
-/* ===== 看板列 ===== */
+/* ===== T0024 入口页统一骨架（选目录/重授权/未初始化/不支持四态共用） =====
+   白卡居中：520px 上限、16px 圆角、令牌阴影；原文案与按钮契约不动。 */
+.entry-card {
+  max-width: 520px;
+  margin: 72px auto 0;
+  padding: 40px 40px 36px;
+  background: var(--oht-surface);
+  border: 1px solid var(--oht-border);
+  border-radius: 16px;
+  box-shadow: var(--oht-shadow-md);
+  text-align: center;
+}
+
+/* 渐变 OHT 徽标 */
+.entry-card__logo {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #4f46e5, #06b6d4);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 标题与说明段（Typography 覆盖：值列按需求 §3） */
+.entry-card h3.ant-typography {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--oht-text);
+  margin-bottom: 0;
+}
+
+.entry-card p.ant-typography {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--oht-text-2);
+  margin: 8px 0 24px;
+}
+
+/* 主按钮：颜色由 colorPrimary token 带出，只加宽度下限 */
+.entry-card .ant-btn {
+  min-width: 160px;
+}
+
+/* 不支持态 Alert 内文本左对齐（外层卡为居中文本，Alert 例外） */
+.entry-card .ant-alert {
+  text-align: left;
+}
+
+/* 脚注 */
+.entry-card__foot {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--oht-text-3);
+}
+
+/* 窄屏收边 */
+@media (max-width: 600px) {
+  .entry-card {
+    margin: 24px 16px 0;
+    padding: 28px 20px;
+  }
+}
+
+/* ===== T0024 页面级收尾：选中高亮与键盘焦点环 ===== */
+::selection {
+  background: rgba(79, 70, 229, 0.2);
+}
+
+:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.app-header__view-btn:focus-visible {
+  outline-color: #7dd3fc;
+}
+
+/* ===== 看板列（浅灰面板 + 状态圆点 + 中性计数胶囊） ===== */
 .kanban__columns {
   display: flex;
   gap: 16px;
   align-items: flex-start;
   overflow-x: auto;
-  padding-bottom: 12px;
+  padding: 4px 2px 12px;
 }
 
 .kanban__column {
   flex: 1 1 0;
-  min-width: 176px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 10px;
-  padding: 10px;
+  min-width: 200px;
+  background: #eceef4;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-/* need_human 条件高亮：仅列内有卡时挂载（kanban__column--urgent） */
-.kanban__column--urgent {
-  background: #fff1f0;
-  border-color: #ffccc7;
-  box-shadow: inset 0 0 0 1px #ffa39e;
+/* 列头状态圆点（8×8，按 data-column 走状态令牌，七列各一条） */
+.kanban__column[data-column="need_human"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-need_human);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="new"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-new);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="tests"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-tests);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="ready"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-ready);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="review"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-review);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="done"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-done);
+  flex: none;
+  display: inline-block;
+}
+
+.kanban__column[data-column="recorded"] .kanban__column-head::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--oht-st-recorded);
+  flex: none;
+  display: inline-block;
 }
 
 .kanban__column-head {
@@ -89,12 +318,54 @@ body,
   justify-content: space-between;
   gap: 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--oht-text);
   padding: 2px 2px 10px;
 }
 
+/* 列头计数胶囊（AntD Badge 结构覆盖；计数文本仍在原元素） */
+.kanban__column-count .ant-badge-count {
+  background: rgba(16, 24, 40, 0.07) !important;
+  color: var(--oht-text-2) !important;
+  font-size: 12px;
+  font-weight: 400;
+  min-width: 20px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+/* need_human 条件高亮：仅列内有卡时挂载（kanban__column--urgent） */
+.kanban__column--urgent {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
 .kanban__column--urgent .kanban__column-head {
-  color: #cf1322;
+  color: #dc2626;
+}
+
+/* need_human 列圆点呼吸（prefers-reduced-motion 时停） */
+.kanban__column--urgent .kanban__column-head::before {
+  animation: oht-pulse 2s infinite;
+}
+
+@keyframes oht-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kanban__column--urgent .kanban__column-head::before {
+    animation: none;
+  }
 }
 
 .kanban__cards {
@@ -103,34 +374,60 @@ body,
   gap: 8px;
 }
 
-/* ===== 卡片：AntD Card 承载视觉，外层元素持契约属性与点击 ===== */
-.kanban__cards .kanban-card .ant-card {
-  border-inline-start: 3px solid #d9d9d9;
+/* 空列占位（T0023）：虚线框提示，有卡的列不渲染 */
+.kanban__empty {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #cfd4e0;
+  border-radius: 8px;
+  color: var(--oht-text-3);
+  font-size: 12px;
 }
 
-/* AntD 预设状态配色（与列头 Badge 同源） */
+/* ===== 卡片：AntD Card 承载视觉，外层元素持契约属性与点击 ===== */
+.kanban-card {
+  cursor: pointer;
+}
+
+.kanban__cards .kanban-card .ant-card {
+  background: var(--oht-surface);
+  border: 1px solid var(--oht-border);
+  border-inline-start: 3px solid var(--oht-st-recorded);
+  border-radius: var(--oht-radius);
+  box-shadow: var(--oht-shadow-sm);
+}
+
+/* 状态色走令牌（T0023：不再硬编码 AntD 预设色） */
 .kanban-card--need_human .ant-card {
-  border-inline-start-color: #ff4d4f;
+  border-inline-start-color: var(--oht-st-need_human);
 }
 
 .kanban-card--new .ant-card {
-  border-inline-start-color: #2f54eb;
+  border-inline-start-color: var(--oht-st-new);
 }
 
 .kanban-card--tests .ant-card {
-  border-inline-start-color: #faad14;
+  border-inline-start-color: var(--oht-st-tests);
 }
 
 .kanban-card--ready .ant-card {
-  border-inline-start-color: #13c2c2;
+  border-inline-start-color: var(--oht-st-ready);
 }
 
 .kanban-card--review .ant-card {
-  border-inline-start-color: #722ed1;
+  border-inline-start-color: var(--oht-st-review);
 }
 
 .kanban-card--done .ant-card {
-  border-inline-start-color: #52c41a;
+  border-inline-start-color: var(--oht-st-done);
+}
+
+.kanban-card:hover .ant-card {
+  transform: translateY(-1px);
+  box-shadow: var(--oht-shadow-md);
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
 .kanban-card__head {
@@ -178,11 +475,16 @@ body,
   text-overflow: ellipsis;
 }
 
-/* T0017 round 1：卡面编号 Tag（AntD Tag 默认中性灰、12px 小号即达标，
-   仅收掉冗余外边距、禁止压缩） */
+/* T0017 round 1：卡面编号 Tag（T0023 起中性小签定妆：等宽 11px、
+   浅灰底、令牌文字色、无边框；仅收掉冗余外边距、禁止压缩） */
 .kanban-card__num.ant-tag {
   flex: none;
   margin-inline-end: 0;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 11px;
+  color: var(--oht-text-2);
+  background: #f2f4f7;
+  border: none;
 }
 
 /* T0017 round 1：title 为空的旧卡以编号文本主显（不空白） */
@@ -213,9 +515,9 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px 6px;
   border-radius: 6px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--oht-border);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -225,30 +527,35 @@ body,
 }
 
 .kanban__row:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(79, 70, 229, 0.06);
 }
 
-/* T0017 round 1：归档行 id 改以编号 Tag 呈现（与常规卡同款中性小号） */
+/* T0017 round 1：归档行 id 改以编号 Tag 呈现（T0023 中性小签同卡面） */
 .kanban__row-num.ant-tag {
   flex: none;
   margin-inline-end: 0;
+  font-family: Consolas, Menlo, monospace;
+  font-size: 11px;
+  color: var(--oht-text-2);
+  background: #f2f4f7;
+  border: none;
 }
 
 /* T0015：归档行主显人话标题（行内 id 以编号 Tag 按 T0017 round 1 呈现） */
 .kanban__row-title {
   flex: 1 1 auto;
   min-width: 0;
-  color: #262626;
+  color: var(--oht-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ===== 降级区（无法归列的残缺卡） ===== */
+/* ===== 降级区（无法归列的残缺卡；黄色提示语义保留，圆角 12px） ===== */
 .kanban__strays {
   margin-top: 16px;
   border: 1px dashed #ffd591;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px;
   background: #fffbe6;
 }
@@ -279,7 +586,11 @@ body,
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* ===== 轻量 markdown 渲染 ===== */
+/* ===== 轻量 markdown 渲染（T0023：行高 1.7，代码块浅灰底令牌化） ===== */
+.md-text {
+  line-height: 1.7;
+}
+
 .md-text h2,
 .md-text h3,
 .md-text h4 {
@@ -287,15 +598,15 @@ body,
 }
 
 .md-text pre {
-  background: #f6f6f6;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  background: #f4f5f9;
+  border: 1px solid var(--oht-border);
+  border-radius: 8px;
   padding: 8px 10px;
   overflow-x: auto;
 }
 
 .md-text code {
-  background: #f6f6f6;
+  background: #f2f4f7;
   border-radius: 4px;
   padding: 0 4px;
 }
@@ -315,6 +626,56 @@ body,
   margin: 6px 0;
 }
 
+/* ===== T0023 全文弹层（字段区 + 红色决策 callout + 正文） ===== */
+.kanban-modal .ant-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.card-modal__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.card-modal__field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card-modal__label {
+  flex: none;
+  width: 80px;
+  color: var(--oht-text-2);
+  font-size: 12px;
+}
+
+.card-modal__value {
+  font-size: 13px;
+  min-width: 0;
+  word-break: break-all;
+}
+
+/* question / stop_reason 决策提示框（红色警示语义） */
+.card-callout {
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.card-callout--danger {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+  color: #7f1d1d;
+}
+
+.card-modal .card-callout--danger {
+  margin-bottom: 12px;
+}
+
 /* ===== T0019 流程图视图（FlowView）—— round 2 环形布局三栏页 =====
    round 2 定案：左=两层清单（收件箱+未开始）、右=单层清单（归档）、
    中=环形画布；整页自适应无横向滚动（布局层保证），4K 下画布居中。 */
@@ -330,7 +691,9 @@ body,
   min-height: 520px;
   overflow: hidden;
   background: #17171b;
-  border-radius: 8px;
+  border: 1px solid #2c2c34;
+  border-radius: 12px;
+  font-family: var(--oht-font);
   user-select: none;
 }
 
@@ -529,6 +892,14 @@ body,
   cursor: grab;
 }
 
+/* T0024：侧栏清单面板头改小号字距标签感（环节节点头部保持原形态不动） */
+.flow-panel__head {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
 /* 环节标题栏各自点缀色（ComfyUI 节点彩色标题栏语义） */
 .flow-node[data-flow-node='需求'] .flow-node__head {
   color: #7dd3fc;
@@ -648,6 +1019,17 @@ body,
   color: #6b7280;
   font-size: 12px;
   padding: 6px 2px;
+  text-align: center;
+}
+
+/* T0024：所有可滚动容器统一细滚动条（Firefox + Chromium 双侧） */
+.kanban__columns,
+.kanban-modal .ant-modal-body,
+.md-text pre,
+.flow-node__cards,
+.flow-panel__cards {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a44 transparent;
 }
 
 /* 深色滚动条（面板/节点内容超长时） */
@@ -658,8 +1040,13 @@ body,
 
 .flow-node__cards::-webkit-scrollbar-thumb,
 .flow-panel__cards::-webkit-scrollbar-thumb {
-  background: #46464f;
+  background: #3a3a44;
   border-radius: 4px;
+}
+
+.flow-node__cards::-webkit-scrollbar-thumb:hover,
+.flow-panel__cards::-webkit-scrollbar-thumb:hover {
+  background: #4b4b57;
 }
 
 .flow-node__cards::-webkit-scrollbar-track,
@@ -671,25 +1058,26 @@ body,
 .flow-card {
   background: #33333c;
   border: 1px solid #46464f;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 6px 8px;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .flow-card:hover {
   border-color: #22d3ee;
-  background: #3a3a45;
+  background: rgba(255, 255, 255, 0.06);
 }
 
+/* T0024：need_human 红色强调统一走 #ef4444 系（底 12% 透明红） */
 .flow-card--urgent {
-  border-color: #f87171;
-  background: #3c2a2c;
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .flow-card--urgent:hover {
   border-color: #ef4444;
-  background: #45302f;
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .flow-card__head {
@@ -700,7 +1088,7 @@ body,
 }
 
 .flow-card__num {
-  color: #d1d5db;
+  color: #9ca3af;
   font-size: 13px;
   font-family: Consolas, Menlo, monospace;
 }
@@ -748,43 +1136,34 @@ body,
   padding: 4px 6px;
 }
 
-/* 页眉视图切换（看板 ⇄ 流程图，原生 button 自绘仿 AntD 形态） */
+/* 页眉视图切换（T0023 分段胶囊：深底浅槽，激活白底反色） */
 .app-header__views {
-  display: flex;
+  display: inline-flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  padding: 3px;
 }
 
 .app-header__view-btn {
   appearance: none;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  color: rgba(0, 0, 0, 0.88);
+  height: 28px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #aab0bf;
+  font-size: 13px;
   cursor: pointer;
-  font-size: 14px;
-  line-height: 22px;
-  padding: 4px 14px;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-
-.app-header__view-btn:first-child {
-  border-radius: 6px 0 0 6px;
-}
-
-.app-header__view-btn:last-child {
-  border-radius: 0 6px 6px 0;
-  margin-left: -1px;
+  transition: background 0.15s, color 0.15s;
 }
 
 .app-header__view-btn:hover {
-  color: #1677ff;
-  border-color: #1677ff;
-  position: relative;
-  z-index: 1;
+  color: #fff;
 }
 
 .app-header__view-btn--active {
-  border-color: #1677ff;
-  color: #1677ff;
-  background: #e6f4ff;
-  position: relative;
-  z-index: 1;
+  background: #fff;
+  color: #17171b;
+  font-weight: 600;
 }
