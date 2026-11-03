@@ -1,6 +1,5 @@
 """T0007 验收测试（A1~A2）。用法：python -I .oht/tests/T0007/check_t0007.py（cwd 任意）
 断言式；每条输出 红/绿；全绿 exit 0，有红 exit 1。"""
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,14 +23,15 @@ def check_a1():
 
 
 def check_a2():
-    """ci_check 预期未被误改：check_t0006.py 中 ci_check 相关断言仍要求输出含 GREEN
-    （前提：T0014 人批准 RED→GREEN——T0004 已落地工作流；守护语义保留，防改回 RED）。"""
+    """ci_check 预期未被误改：check_t0006.py 中含 ci_check 的行自身须有带引号 "GREEN"
+    （行级锁定，窗口到行尾为止——弃用跨行大窗口，防邻行 build_check 的 "GREEN" 污染；
+    要求带引号，排除 docstring 中裸 GREEN 的干扰）。
+    前提：T0014 人批准 RED→GREEN——T0004 已落地工作流；守护语义保留，防改回 RED。"""
     text = (REPO / TARGET).read_text(encoding="utf-8")
-    hits = [m.start() for m in re.finditer(r"ci_check", text)]
-    assert hits, f"{TARGET} 未提及 ci_check"
-    ok = any(('"GREEN"' in text[max(0, i - 100): i + 300])
-             or ("'GREEN'" in text[max(0, i - 100): i + 300]) for i in hits)
-    assert ok, "ci_check 相关断言不再要求输出含 GREEN（疑似被改回 RED）"
+    ci_lines = [ln for ln in text.splitlines() if "ci_check" in ln]
+    assert ci_lines, f"{TARGET} 未提及 ci_check"
+    ok = any(('"GREEN"' in ln) or ("'GREEN'" in ln) for ln in ci_lines)
+    assert ok, "含 ci_check 的行均无带引号 \"GREEN\"（ci_check 断言疑似被改回 RED）"
 
 
 CHECKS = [("A1", check_a1), ("A2", check_a2)]
