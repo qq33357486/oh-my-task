@@ -12,7 +12,7 @@
 #      先例曾把判定挪到夹具销毁后导致悬空误判，此处禁止该形态）。
 #   3) 框架区只读：除 A2 直跑真实仓库 pack.py（对仓库只读）外，A1/A4~A8 的
 #      源仓/被测仓一律是"镜像仓"——用 build_mirror 从真实仓库拷贝卡片定义的
-#      框架全集（AGENTS.md、PROTOCOL.md、VERSION、roles/*.md、scripts/*.py、
+#      框架全集（AGENTS.md、PROTOCOL.md、VERSION、roles/*.md、scripts/*、
 #      两份 _template）到临时目录，行为等价（清单内嵌在 pack.py 里，pack 扫的是
 #      其所在仓库根），避免向真实 .oht/roles/ 塞探针文件留下残骸。A1 查列的
 #      "在 .oht/roles/ 放未登记临时 md，删掉重跑"在镜像仓同布局执行。
@@ -70,7 +70,7 @@ build_mirror() {
   cp "$ROOT/.oht/PROTOCOL.md" "$d/.oht/PROTOCOL.md" || return 1
   [ -f "$ROOT/.oht/VERSION" ] && cp "$ROOT/.oht/VERSION" "$d/.oht/VERSION"
   for f in "$ROOT"/.oht/roles/*.md; do b="$(basename "$f")"; cp "$f" "$d/.oht/roles/$b" || return 1; done
-  for f in "$ROOT"/.oht/scripts/*.py; do b="$(basename "$f")"; cp "$f" "$d/.oht/scripts/$b" || return 1; done
+  for f in "$ROOT"/.oht/scripts/*; do b="$(basename "$f")"; cp "$f" "$d/.oht/scripts/$b" || return 1; done
   cp "$ROOT/.oht/tasks/_template.md" "$d/.oht/tasks/_template.md" || return 1
   cp "$ROOT/.oht/knowledge/topics/_template.md" "$d/.oht/knowledge/topics/_template.md" || return 1
   return 0

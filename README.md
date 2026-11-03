@@ -4,7 +4,7 @@
 
 ```
 .oht/        循环工程框架（单目录）
-  AGENTS.md  调度员入口（根 AGENTS.md 仅一行引用指向它）
+  AGENTS.md  身份分流入口（咨询员/调度员；根 AGENTS.md 仅一行引用指向它）
   roles/     员工提示词（一个文件一个角色）
   tasks/     任务单，一个任务一个文件（状态约定见 .oht/PROTOCOL.md）
   knowledge/ 经验库
@@ -27,7 +27,7 @@
 方式一：克隆本仓库，一条命令装到新项目根（`--from` 缺省就是脚本所在仓库）：
 
 ```bash
-git clone <本仓库地址> && cd oh-my-task
+git clone https://github.com/qq33357486/oh-my-task.git && cd oh-my-task
 python -I .oht/scripts/install.py --to <新项目根目录>
 ```
 
@@ -38,7 +38,7 @@ python -I .oht/scripts/pack.py --out <产物目录>
 python -I <产物目录>/.oht/scripts/install.py --to <新项目根目录>
 ```
 
-装完得到：`.oht/` 框架全集 + 业务骨架目录（tasks/、knowledge/log/、knowledge/topics/、local/roles/）+ 根 `AGENTS.md`（缺失时生成：版本标记 + 一行引用）。
+装完得到：`.oht/` 框架全集 + 业务骨架目录（tasks/、knowledge/log/、knowledge/topics/、local/roles/，均含 .gitkeep）+ 空 `knowledge/rules.md` 骨架（已有则不动）+ 根 `AGENTS.md`（缺失时生成：版本标记 + 一行引用）。
 
 ### 升级已有项目
 

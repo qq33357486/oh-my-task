@@ -8,7 +8,8 @@
 - 防降级：读目标 .oht/VERSION，目标版本高于源 → 非零退出报「禁止降级」，目标一字不动；此检查先于一切写动作。
 - 框架文件全量写入；目标已有且内容不同 → 先删同名旧 .bak 再备份为 <原名>.bak 后覆盖。
 - 业务不动：tasks/T*.md、knowledge/log、topics 非模板、local/、tests/、项目代码绝不写删；
-  只补缺失骨架（tasks/、knowledge/log/、knowledge/topics/ 含 .gitkeep、local/roles/）。
+  只补缺失骨架（tasks/、knowledge/log/、knowledge/topics/、local/roles/ 含 .gitkeep；
+  knowledge/rules.md 缺失时生成空骨架，已有则不动——rules.md 属业务文件，升级绝不覆盖）。
 - 目标根 AGENTS.md：缺失则生成（版本标记+引用行）；首行是版本标记（框架自管）则只更新该行版本；
   用户自己的（首行无标记）原样保留，不进 manifest。
 - 生成 .oht/.manifest（框架文件 sha256 清单）；--check 逐文件比对哈希，被改/被删 → 非零退出并指出文件。
@@ -125,6 +126,23 @@ def fail(msg):
     return 1
 
 
+# knowledge/rules.md 空骨架（内嵌而非模板文件：rules.md 属业务文件不入框架清单，
+# 骨架仅装机铺底，让 consultant 首次「读 rules.md」不落空；已有文件绝不覆盖）
+RULES_SKELETON = """# 常驻规则（内存层：最终版，保持很短）
+
+> 装机生成的空骨架：本项目积累的常驻规则写在这里。总量 ≤1500 字，由 scripts/check-size.py 检查。
+
+## 流程
+（一行流程指针，详见 PROTOCOL.md）
+
+## 规则
+（强制/禁止条目，每条 ≤40 字、可独立阅读；准入：每条须追溯到一次真实错误或人的纠正）
+
+## 经验
+（流程相关的少量经验；业务细节放 topics/ 与 log/）
+"""
+
+
 def check(target):
     mpath = os.path.join(target, ".oht", ".manifest")
     if not os.path.isfile(mpath):
@@ -189,10 +207,15 @@ def install(target, src):
     # 业务骨架缺则补（只建目录与 .gitkeep 占位，绝不碰业务文件）
     for d in (".oht/tasks", ".oht/knowledge/log", ".oht/knowledge/topics", ".oht/local/roles"):
         os.makedirs(os.path.join(target, *d.split("/")), exist_ok=True)
-    for g in (".oht/tasks/.gitkeep", ".oht/knowledge/log/.gitkeep", ".oht/knowledge/topics/.gitkeep"):
+    for g in (".oht/tasks/.gitkeep", ".oht/knowledge/log/.gitkeep",
+              ".oht/knowledge/topics/.gitkeep", ".oht/local/roles/.gitkeep"):
         gp = os.path.join(target, *g.split("/"))
         if not os.path.exists(gp):
             write_bytes(gp, b"")
+    rules_path = os.path.join(target, ".oht", "knowledge", "rules.md")
+    if not os.path.exists(rules_path):
+        write_bytes(rules_path, RULES_SKELETON.encode("utf-8"))
+        notes.append("已生成空骨架 .oht/knowledge/rules.md（业务文件，已有则不动、升级不覆盖）")
 
     man = {"version": src_ver, "files": {k: hashes[k] for k in sorted(hashes)}}
     write_bytes(os.path.join(target, ".oht", ".manifest"),
