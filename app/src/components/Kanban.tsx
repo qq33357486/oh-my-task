@@ -19,11 +19,16 @@
  * - 卡面主视觉只显示 title（T0015，2026-11-03 人批准：frontmatter 人话
  *   单行标题）；id 文本与"原话"首行（日期载体）不上卡面，id 仅保留为
  *   data-card-id 属性。
- * - need_human 卡例外（T0016，2026-11-03）：卡面主显 question 全文
- *   （data-question 属性承载，人的决策点人话直读），stop_reason 为次要
- *   弱化行（data-stop-reason 属性承载）；仅 question 非空的 need_human
- *   卡生效，旧卡回退 title 主显。其余列卡片不变（title 主显，不带这两个
- *   属性）。点击仍开全文弹层（弹层契约不变）。
+ * - 所有卡片（T0015 立，T0017 收紧，2026-11-03）：卡面首行恒为 title
+ *   主显（round 徽标与 title 同行右对齐，DOM 序 title 在前；仅 title 为
+ *   空的旧卡才单独渲染徽标行）。
+ * - need_human 卡（T0016 立，T0017 改，2026-11-03）：title 恒首行，标题
+ *   之下渲染决策块容器 data-decision-block="true"（视觉次级分层：浅底
+ *   色块+左边线，弱于标题），块内 data-question 属性承载 question 全文
+ *   （人的决策点人话直读）、data-stop-reason 属性承载 stop_reason 全文
+ *   （次要弱化行）；仅 question 非空的 need_human 卡生效，question 为空
+ *   的旧 need_human 卡只显示 title（无决策块）。其余列卡片不变（title
+ *   主显，不带这些属性）。点击仍开全文弹层（弹层契约不变）。
  * - recorded 每张卡渲染为带 data-recorded-row="true" 的清单行，行元素
  *   自身带 data-card-id="<卡 id>" 行级锚点（多卡场景按 id 各唯一定位
  *   到行），行内含卡 id 文本与 title 主文本（T0015 起取代"原话"节首行），
@@ -90,11 +95,23 @@ function cardFullText(card: ParsedCard): string {
 function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) => void }) {
   // T0015：卡面主视觉只显示 title（人话单行）；id/原话首行（日期载体）不
   // 上卡面，id 仅保留为外层 data-card-id 属性。
-  // T0016：need_human 卡（question 非空）改主显 question 全文——人只看
-  // 卡面即知"要我决策什么"；stop_reason 为次要弱化行。旧 need_human 卡
-  // 无 question 时回退 title 主显；其余列不变。
+  // T0017：所有卡 title 恒为首行——round 徽标移入 title 同行右对齐（DOM
+  // 序 title 在前；仅 title 为空的旧卡保留独立徽标行）。
+  // T0016→T0017：need_human 卡（question 非空）question 全文不再顶掉
+  // 标题，移入标题之下"决策块"（data-decision-block 容器，视觉次级分
+  // 层），stop_reason 为块内次要弱化行；人只看卡面先知"这是哪件事"，再
+  // 知"要我决策什么"。question 为空的旧 need_human 卡只显示 title（无决
+  // 策块）；其余列不变。
   const isNeedHuman = card.status === 'need_human';
   const showQuestion = isNeedHuman && !!card.question;
+  const roundTag =
+    card.round > 0 ? (
+      <Tooltip title={`第 ${card.round} 轮返工`}>
+        <Tag color="orange" style={{ marginInlineEnd: 0 }}>
+          R{card.round}
+        </Tag>
+      </Tooltip>
+    ) : null;
   return (
     <div
       className={`kanban-card kanban-card--${card.status}${
@@ -104,17 +121,16 @@ function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) 
       onClick={() => onOpen(card)}
     >
       <Card size="small" hoverable className="kanban-card__box">
-        {card.round > 0 && (
-          <div className="kanban-card__head">
-            <Tooltip title={`第 ${card.round} 轮返工`}>
-              <Tag color="orange" style={{ marginInlineEnd: 0 }}>
-                R{card.round}
-              </Tag>
-            </Tooltip>
+        {card.title ? (
+          <div className="kanban-card__title-row">
+            <div className="kanban-card__title">{card.title}</div>
+            {roundTag}
           </div>
+        ) : (
+          roundTag && <div className="kanban-card__head">{roundTag}</div>
         )}
-        {showQuestion ? (
-          <>
+        {showQuestion && (
+          <div className="kanban-card__decision" data-decision-block="true">
             <div className="kanban-card__question" data-question={card.question}>
               {card.question}
             </div>
@@ -123,9 +139,7 @@ function CardItem({ card, onOpen }: { card: ParsedCard; onOpen: (c: ParsedCard) 
                 {card.stop_reason}
               </div>
             )}
-          </>
-        ) : (
-          card.title && <div className="kanban-card__title">{card.title}</div>
+          </div>
         )}
         {card.type && <div className="kanban-card__type">{card.type}</div>}
       </Card>
