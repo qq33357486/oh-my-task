@@ -9,12 +9,13 @@
 python -I .oht/tests/T0010/run_t0010.py
 ```
 
-- 每次运行新建临时沙盒、注入夹具、唤醒、断言、清理，可重复。
-- 调试：设 `OHT_T0010_KEEP=1` 保留沙盒目录。
-- **当前必红**：`TODO-WAKE` 未实现——`wake_dispatcher()` 抛
-  `NotImplementedError`，后续断言全部阻塞，exit 1 并打印红因。
-  实现员只需补这一个函数（文件其余部分为锁定契约，不得改），
-  返回值契约 `WakeReport {lock_seen, report_text, exit_code}` 见脚本 docstring。
+- 每次运行新建临时沙盒、注入夹具、唤醒、断言、清理，可重复。单轮约 7-8 分钟
+  （真实 zcode CLI 子代理在沙盒里跑一轮调度循环）。
+- 调试：设 `OHT_T0010_KEEP=1` 保留沙盒目录；`OHT_T0010_WAKE_TIMEOUT` 覆盖唤醒超时
+  （默认 2700s，超时记 exit 124）。
+- **当前为绿**（review 复跑确认）：`wake_dispatcher` 已实现——zcode CLI 非交互调用
+  （`-p <唤醒提示词> --cwd <沙盒>`），harness 期间采样 `.lock`，11 项断言逐项判定。
+  文件其余部分仍是锁定契约（11 项断言、夹具语义、WakeReport），改动须走检查员。
 
 ## 预置卡组（presets/，全部过 check-card 单卡校验；card_broken 豁免）
 
@@ -48,10 +49,22 @@ parseCard/scanTasks 的 python 最小复刻（逐条对齐 app/src 契约，
 骨架阶段：按 TEMPLATE_FILES 清单从本仓库 `.oht/` 母本逐文件拷贝 +
 业务区空壳 + 宿主 AGENTS.md 引用行。实现员可改为调用 app 初始化产物。
 
-## 唤醒机制候选方案（TODO-WAKE，实现员定）
+## 唤醒机制（已实现：候选① zcode CLI 非交互调用）
 
-1. zcode CLI 非交互调用：cwd=沙盒，提示词指向 `.oht/AGENTS.md` 入口，
-   harness 期间采样 `.lock` 存在性 → 首选，最贴近真实引擎；
-2. 其他子代理执行自动化提示词的方案（工作区指向沙盒）；
-3. 若确认都不可行：按流程把 T0010 转 need_human 说明。
-注意：沙盒与母本仓库隔离，无 .lock 竞争；唤醒须循环到无可派为止。
+`wake_dispatcher`（run_t0010.py，属锁定契约外的实现区）：
+- 子进程 `zcode -p <自包含唤醒提示词> --cwd <沙盒> --no-color`，提示词只含
+  相对路径，循环到无可派为止；`report_text` = 进程 stdout（调度员最终报告）。
+- 锁采样：harness 每 0.5s 采样沙盒 `.oht/tasks/.lock`（锁由沙盒内调度员
+  按 dispatcher.md 自建自删，harness 不代劳）→ `lock_seen`。
+- 隔离（防污染用户环境与本仓库）：
+  - 派生一次性 `ZCODE_STORAGE_DIR`（临时目录，拷贝 `~/.zcode/v2` 认证/配置态，
+    只把内置子代理模型改绑到注册表内可用 provider——桌面端 account:* 绑定
+    在非交互注册表里不存在），用后即删；用户原配置只读不写；
+  - 子进程环境剥离全部 `ZCODE_*` 后仅设本 harness 所需两项，注册表不随
+    宿主会话漂移，保 A1 可重复；
+  - 子进程 cwd=沙盒，只允许改沙盒内 `.oht/`；harness 对母本仓库只读。
+- 兜底：`OHT_T0010_ZCODE_BIN`/`OHT_T0010_ZCODE_BUILTIN_CONFIG`/
+  `OHT_T0010_SUBAGENT_MODEL` 可覆盖 CLI、provider 配置与子代理模型；
+  找不到 CLI 则报错提示按协议转 need_human。
+
+注意：沙盒与母本仓库隔离，无 .lock 竞争。
