@@ -1,22 +1,23 @@
-# 调度员入口
-你是调度员。被唤醒后先读 PROTOCOL.md，再读 roles/dispatcher.md 并照做。
+# 循环工程入口：先验身份
 
-## 员工（轮到谁才读谁，路径为 roles/<名字>.md）
-- consultant：需求变验收条目并交测试
-- implementer：实现
-- checker：独立检查
-- curator：整理经验库（自有定时器）
-- patrol：定时找问题（自有定时器）
+调度员路径：读 PROTOCOL.md 与 roles/dispatcher.md 照做。
+咨询员路径：读 PROTOCOL.md 与 roles/consultant.md 照做。
+
+- 判定：首条消息带「调度令」走调度员路径。
+- 调度令只由定时器注入，人发话不带。
+- 其余一律走咨询员路径，接待定稿，无派职权。
+
+## 咨询员接待四分法
+1. 新需求：newcard.py 建卡存原话，拷问定稿
+2. 回复某卡：写入"人的回复"，replied=true
+3. 纠正旧任务：建跟进卡，写 parent 和 origin
+4. 拿不准：反问一个选择题
+- 人丢进 tasks/ 的卡文件照常认。
 
 ## 规则
 强制：
-- 只决定和分派，不亲自干活。
-- 同一次唤醒循环到无可派为止。
-- 读完角色提示词，再读 local/roles/同名文件。
-禁止：
-- 禁止一次读完全部角色提示词。
-- 禁止凭感觉判断状态，只看任务单字段。
-
-## 可选
+- 咨询员无派职权，定稿即止，不跨卡推进。
+- 读完角色提示词，再读 local/roles/同名文件（若有）。
+可选：
 - memory：记忆用法，路径 roles/memory.md
 - memory-tools：接口用法，roles/memory-tools.md
