@@ -67,15 +67,16 @@ function fwRoot(name: string, version: string): FileSystemDirectoryHandle {
   });
 }
 
+/**
+ * 打开指定项目：预写默认句柄（分 key 同步），render 后 init() 因权限
+ * granted（mock 恒 granted）直达流程图——与真实浏览器「已授权恢复」
+ * 路径一致，不再绕 pick。
+ */
 async function openProject(root: FileSystemDirectoryHandle): Promise<HTMLElement> {
+  await saveHandle('projectRoot', root);
+  await saveHandle(`root@${root.name}`, root);
   const view = render(<App />);
   await flushAsync();
-  const entry = view.getAllByRole('button', { name: /选择目录/ })[0];
-  queuePicker(root);
-  await act(async () => {
-    fireEvent.click(entry);
-    await flushAsync();
-  });
   const header = view.container.querySelector('.app-header');
   expect(header, '页眉应存在').not.toBeNull();
   return header as HTMLElement;

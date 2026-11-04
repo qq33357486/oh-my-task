@@ -69,7 +69,8 @@ function ReauthPage() {
       <Typography.Title level={3}>需要重新授权</Typography.Title>
       <Typography.Paragraph type="secondary">
         上次选择的目录「{root?.name}」访问权限已失效（浏览器刷新后权限会过期）。
-        点击下方按钮重新授予访问权限，或另选其他目录。
+        点击下方按钮重新授予访问权限，或另选其他目录。授权时若浏览器询问，
+        选择「每次访问时允许」即可不再重复授权。
       </Typography.Paragraph>
       <Space size="middle">
         <Button type="primary" size="large" onClick={() => void reauth()}>

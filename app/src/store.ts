@@ -71,9 +71,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const handle = await projectContext.restore();
       if (!handle) return;
-      // 恢复句柄但停在重授权页（entryCard② 锁定的门语义）：浏览器刷新后
-      // 句柄权限过期，重新授权属用户手势，须显式点击后才 refresh 进入；
-      // 同时重置本会话扫描态，模拟「新开一次页面」。
+      // 先查权限：浏览器仍持有授权（如权限气泡勾选过「每次访问时允许」，
+      // 或同标签页刷新保留授权）时直接 refresh 进入，不再强制停门；
+      // 仅在权限确已失效时才停重授权页（entryCard② 门语义：重新授权
+      // 属用户手势，须显式点击）。
+      if (await projectContext.hasPermission(handle)) {
+        set({ root: handle });
+        await get().refresh();
+        return;
+      }
       set({
         root: handle,
         hasOht: null,
