@@ -5,7 +5,7 @@
  * <FlowView cards={ParsedCard[]} topicTags?: Record<string, string> />
  *
  * 设计第一性原理：这页回答人的四个问题，按重要性自上而下排布——
- *   1. 有没有事在等我拍板？  → 「待你定」置顶，空时收成一条平静的细条
+ *   1. 有没有事在等我拍板？  → 「待人决策」置顶，空时收成一条平静的细条
  *   2. 循环现在转到哪、谁在忙？ → 三段式循环（需求→实现→检查），卡片直挂其中
  *   3. 谁在干活、各管什么？    → 底部「团队」条（四角色，参考信息，最低优先）
  *   4. 最近完成了什么？        → 右侧「最近完成」时间线
@@ -19,9 +19,9 @@
  *   data-flow-node-head="true" 标题栏，环节名带 data-flow-text="node-name"；
  * - data-flow-card-id：按 stage 挂对应环节（需求/实现/检查三环节直挂；
  *   执行完毕但未推进的卡以「待调度」身份压在本环节栏，data-flow-await）；
- *   need_human/未知 stage 卡不占循环（未知降级进待你定）；（检查,执行完毕）
+ *   need_human/未知 stage 卡不占循环（未知降级进待人决策）；（检查,执行完毕）
  *   且条目全绿=终态进归档，有红（等重派）留检查栏压队；
- * - data-flow-inbox="true" 待你定（need_human 卡直显 question/stop_reason）；
+ * - data-flow-inbox="true" 待人决策（need_human 卡直显 question/stop_reason）；
  *   data-flow-todo="true" 为「需求」环节的卡片区（需求阶段完整清单，截最近
  *   50 张 + data-flow-todo-more 提示）；data-flow-archive="true" 最近完成
  *   （终态+历史 done/recorded，截最近 50 张 + data-flow-archive-more）；
@@ -34,7 +34,7 @@
  * - data-flow-role 恰四个（咨询员/调度/巡查员/整理员）；data-flow-feed 恰两条
  *   （咨询员→需求、巡查员→需求）；巡查员为空壳（含「巡查」占位文案，不渲染卡）；
  * - data-flow-text 文字层级锚：node-name｜card-num｜card-title｜panel-head
- *   （待你定、最近完成各恰一）｜edge-label。
+ *   （待人决策、最近完成各恰一）｜edge-label。
  */
 import { useMemo, useState } from 'react';
 import { Modal } from 'antd';
@@ -184,12 +184,12 @@ export function FlowView({
   return (
     <div className="flow-view" data-flow-view="true">
       <div className="flow-main">
-        {/* 概览：三个数一眼看清全局（待你定 / 循环中 / 已完成） */}
+        {/* 概览：三个数一眼看清全局（待人决策 / 循环中 / 已完成） */}
         <div className="flow-summary">
           <h2 className="flow-summary__title">循环总览</h2>
           <div className="flow-summary__chips">
             <span className={`flow-chip${buckets.inbox.length > 0 ? ' flow-chip--urgent' : ''}`}>
-              待你定 <b>{buckets.inbox.length}</b>
+              待人决策 <b>{buckets.inbox.length}</b>
             </span>
             <span className="flow-chip">
               循环中 <b>{inLoop}</b>
@@ -200,18 +200,18 @@ export function FlowView({
           </div>
         </div>
 
-        {/* ① 待你定：最重要的入口。有事时是醒目的红调区，没事时收成细条 */}
+        {/* ① 待人决策：最重要的入口。有事时是醒目的红调区，没事时收成细条 */}
         <section
           className={`flow-inbox${buckets.inbox.length === 0 ? ' flow-inbox--clear' : ''}`}
           data-flow-inbox="true"
         >
           <div className="flow-section-head" data-flow-text="panel-head">
-            待你定
+            待人决策
           </div>
           {buckets.inbox.length === 0 ? (
             <div className="flow-inbox__clear">
               <span className="flow-inbox__tick" aria-hidden="true">✓</span>
-              暂无待拍板事项，循环自行运转中
+              暂无需决策事项，循环自行运转中
             </div>
           ) : (
             <div className="flow-inbox__grid">

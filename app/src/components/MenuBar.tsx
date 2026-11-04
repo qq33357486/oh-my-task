@@ -22,7 +22,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Button, Dropdown, Modal, Space } from 'antd';
+import { Badge, Button, Dropdown, Modal, Space } from 'antd';
 import type { MenuProps } from 'antd';
 import { useAppStore } from '../store';
 import { projectContext } from '../fs/projectContext';
@@ -199,20 +199,22 @@ export function MenuBar() {
       </Dropdown>
 
       {showBadge && (
-        <span
-          className="app-header__update-badge"
-          data-update-badge=""
-          role="button"
-          tabIndex={0}
-          aria-label={badgeAriaLabel}
-          title={badgeAriaLabel}
-          onClick={() => syncSet(setUpdateOpen)(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') syncSet(setUpdateOpen)(true);
-          }}
-        >
-          更新
-        </span>
+        // T0038 照抄 DJUI 徽章模式（TopBar.tsx:842-851）：Badge dot 包
+        // Button type="text"——形状/焦点/键盘交给 antd 组件，替换旧自制
+        // span（其胶囊底在页眉挤压下渲染错误）；警示语义=红点+橙字。
+        <Badge dot offset={[-3, 2]}>
+          <Button
+            type="text"
+            size="small"
+            className="app-header__update-badge"
+            data-update-badge=""
+            aria-label={badgeAriaLabel}
+            title={badgeAriaLabel}
+            onClick={() => syncSet(setUpdateOpen)(true)}
+          >
+            更新
+          </Button>
+        </Badge>
       )}
 
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
@@ -235,10 +237,18 @@ export function MenuBar() {
         onCancel={() => setUpdateOpen(false)}
       >
         {frameworkState === 'newerThanBundle' ? (
-          <p>
-            目标工程框架版本（{installedLabel}）新于本页内置版本（{FRAMEWORK_VERSION}）。
-            为防降级不提供在线更新：请刷新网页获取新版前端后再检查。
-          </p>
+          <>
+            {/* T0038 照抄 DJUI 反向状态出路（TopBar.tsx:445-450 同款指引）：
+                禁降级，唯一出路=强刷前端；补部署诚实行（本应用前端独立部署，
+                刷新无效时即线上未部署新版）。 */}
+            <p>
+              目标工程框架版本（{installedLabel}）新于本页内置版本（{FRAMEWORK_VERSION}）。
+              为防降级不提供在线更新：请强制刷新网页（Ctrl+F5）加载新版前端后再检查。
+            </p>
+            <p style={{ color: '#888', fontSize: 12 }}>
+              若刷新后仍出现本提示，说明线上前端尚未部署新版，需要维护者更新部署。
+            </p>
+          </>
         ) : (
           <>
             <p>

@@ -103,7 +103,7 @@
 // ---------------------------------------------------------------------
 // 重设计说明（人 2026-11-04 授权：流程图「不是小修小改」，按第一性原理重做）：
 // 环形画布（平移/缩放/拖拽/端口/贝塞尔连线/环形几何/自适应居中）整体退役，
-// 换为「指挥台」布局：待你定 → 三段式循环（回路 CSS 网格绘制）→ 团队条，
+// 换为「指挥台」布局：待人决策 → 三段式循环（回路 CSS 网格绘制）→ 团队条，
 // 右侧最近完成。以下仍有效的数据契约原样保留（卡挂载、收件箱 question、归档、
 // 卡面、标签、视图切换）；A6/A7/A8/A10 画布契约退役，A11 与 T0030 改写为
 // 指挥台口径。几何类测试文件（flowRingAnchors 等）随之删除。
@@ -557,14 +557,14 @@ describe('指挥台结构（取代 T0019 A6/A7/A8/A10 的画布契约）', () =>
 });
 
 describe('T0019/A11 文字层级可读性锚点（指挥台口径）', () => {
-  it('五类文字层级锚可定位：节点名/卡编号/卡标题/板块标题（待你定、最近完成）/回路文字', () => {
+  it('五类文字层级锚可定位：节点名/卡编号/卡标题/板块标题（待人决策、最近完成）/回路文字', () => {
     const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
     const texts = (kind: string) =>
       Array.from(view.container.querySelectorAll(`[data-flow-text="${kind}"]`)).map(
         (e) => e.textContent ?? '',
       );
     expect(texts('node-name')).toEqual(['需求', '实现', '检查']);
-    expect(texts('panel-head')).toEqual(['待你定', '最近完成']);
+    expect(texts('panel-head')).toEqual(['待人决策', '最近完成']);
     expect(texts('edge-label')).toEqual(['打回', '循环']);
     const cardCount = view.container.querySelectorAll('[data-flow-card-id]').length;
     expect(texts('card-num').length, '每张渲染卡各恰一编号').toBe(cardCount);
@@ -642,7 +642,7 @@ describe('T0030/A3 需求环节清单截 50', () => {
   });
 });
 
-describe('待你定的两种形态', () => {
+describe('待人决策的两种形态', () => {
   it('有事：直显 question 与终止原因；无事：显示平静占位并带 clear 形态类', () => {
     const busy = render(<FlowView cards={fixtureCards()} />);
     const inbox = busy.container.querySelector('[data-flow-inbox="true"]')!;
@@ -654,6 +654,6 @@ describe('待你定的两种形态', () => {
     const calm = render(<FlowView cards={[]} />);
     const clear = calm.container.querySelector('[data-flow-inbox="true"]')!;
     expect(clear.className).toContain('flow-inbox--clear');
-    expect(clear.textContent).toContain('暂无待拍板事项');
+    expect(clear.textContent).toContain('暂无需决策事项');
   });
 });

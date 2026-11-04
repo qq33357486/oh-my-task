@@ -7,7 +7,7 @@
 5. 测试随卡交付，跑一遍自证红，红证据写入进度
 6. 按 consultant-brief.md 写复述卡
 7. 无待定：置执行完毕；有则 need_human=true
-- 待你定仅产品级方向分叉才转 need_human，其余自治定稿。
+- 待人决策仅产品级方向分叉才转 need_human，其余自治定稿。
 - 拷问：有 grill-me 技能就用它。
 - 没有该技能，就自行一次一问，给选项。
 - 能自己判断的不问人。
@@ -30,4 +30,4 @@
 - 定稿后后台唤醒调度员，命令见 dispatcher.md
 - 有 memos：先按 memory.md 搜相似需求。
 - 类型无对应 topics：新建草稿 topics/<type>.md。
-- 待你定有多题：编号写进 question。
+- 待人决策有多题：编号写进 question。

@@ -142,7 +142,7 @@ describe('T0036/A1 使用指南弹窗', () => {
       'Loop Engineering（循环工程）',
     );
     expect(text, '定位一节点明这是工作平台').toContain('工作平台');
-    expect(text, '原理一节含待你定拍板回路').toContain('待你定');
+    expect(text, '原理一节含待人决策拍板回路').toContain('待人决策');
     expect(text, '可复制调度令话术逐字在场').toContain(DISPATCH_PROMPT);
     expect(text, '定时任务频率建议').toContain('10~30 分钟');
     expect(text, '提需求走其他会话+咨询员').toContain('咨询员');

@@ -75,7 +75,7 @@ export function GuideContent() {
           员工按状态流转：需求 → 实现 → 检查，不通过打回重做，通过即归档，如此循环。
         </Typography.Paragraph>
         <Typography.Paragraph>
-          网页上出现「待你定」的问题时，回到你的会话回答
+          网页上出现「待人决策」的问题时，回到你的会话回答
           AI（拍板回路），循环即可继续。
         </Typography.Paragraph>
       </Section>

@@ -20,7 +20,7 @@
 - 调度员每次唤醒扫描所有 progress=执行完毕 且 need_human=false 的卡，逐卡决策：推进或留队（顺序/泳道/批次约束时留队，以执行完毕身份压在本阶段栏，下轮再决策）。
 - 执行中的卡工人死亡（会话生灭）无人写完毕：判滞制兜底（见 roles/dispatcher.md），卡面（阶段,执行中）+台账无账即嫌疑。
 - need_human 为旁路暂停态：true 时 stage/progress 冻结，四字段填全；人回复后调度员按 resume_to 恢复（置 need_human=false，stage/progress=resume_to 值）。
-- 复述卡"待你定"仅方向分叉才转 need_human，其余自治定稿。
+- 复述卡"待人决策"仅方向分叉才转 need_human，其余自治定稿。
 - 需求卡由咨询员会话接待定稿（入口四分法），调度员不派咨询员；扫到（需求,执行完毕）后调度员接管派发。
 - 检查不通过：调度员重派（实现,执行中），round+1。round 超 3 转 need_human（3 是草案）。
 - 全是 human 条目、没有 auto 条目：需求照走全链，检查照走全链。

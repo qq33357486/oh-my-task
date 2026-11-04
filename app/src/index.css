@@ -134,35 +134,13 @@ body {
   background: rgba(255, 255, 255, 0.14);
 }
 
-/* 更新徽章：橙点脉冲（走 --oht-st-tests 令牌），醒目不打扰 */
+/* 更新徽章（T0038 照抄 DJUI：Badge dot 包 Button type="text"）：
+   形状/焦点交给 antd 组件，这里只管警示色（橙字对齐 DJUI #ff8c42 警示语言）；
+   底色沿用页眉 .ant-btn 幽灵态，与刷新按钮视觉统一 */
 .app-header__update-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 1px 10px;
-  border-radius: 999px;
-  background: var(--oht-st-tests);
-  color: #fff;
-  font-size: 12px;
+  color: #ff8c42;
   font-weight: 600;
-  cursor: pointer;
-  user-select: none;
   white-space: nowrap;
-}
-
-.app-header__update-badge::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fff;
-  animation: oht-pulse 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-header__update-badge::before {
-    animation: none;
-  }
 }
 
 
