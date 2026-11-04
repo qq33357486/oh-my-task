@@ -151,7 +151,7 @@ export function MenuBar() {
       const result = await upgradeFramework(root);
       if (result.ok) {
         setUpgradeNote(
-          `升级完成：新增 ${result.counts.add}、更新 ${result.counts.update}、未变 ${result.counts.same}（差异文件留 .bak）`,
+          `升级完成：新增 ${result.counts.add}、更新 ${result.counts.update}、未变 ${result.counts.same}（差异文件留 .oht/.upgrade-bak/）`,
         );
         // 升级后全量复检：徽章随 frameworkState 变 upToDate 而消失
         await checkUpdate();
@@ -256,7 +256,7 @@ export function MenuBar() {
             </p>
             {frameworkState === 'modified' && (
               <p>
-                框架文件与安装清单（.oht/.manifest）不符，可能被手改；全部更新可恢复为内置版本，差异文件留 .bak。
+                框架文件与安装清单（.oht/.manifest）不符，可能被手改；全部更新可恢复为内置版本，差异文件留 .oht/.upgrade-bak/。
               </p>
             )}
             {frameworkState === 'upToDate' && <p>目标工程框架已是内置版本，无需更新。</p>}

@@ -67,7 +67,7 @@ export async function readFileOrNull(
   }
 }
 
-/** 逐级建目录后写文件（已有同名 .bak 等旧文件直接覆盖） */
+/** 逐级建目录后写文件（已有同名备份等旧文件直接覆盖） */
 export async function writePath(
   root: FileSystemDirectoryHandle,
   path: string,

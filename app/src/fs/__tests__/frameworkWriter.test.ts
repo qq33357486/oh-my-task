@@ -9,8 +9,10 @@
  * - upgradeFramework(root)：目标工程框架在线升级——
  *   · 防降级：目标 VERSION 新于内置 → ok=false、reason 含「降级」、
  *     目标零改动（writeLog 空、目录树逐字节不变）；
- *   · 全量写内置 FRAMEWORK_FILES；内容相同 → same 不落盘、无 .bak；
- *     内容不同 → 旧内容先备份 <路径>.bak（覆盖旧 bak）再写入；
+ *   · 全量写内置 FRAMEWORK_FILES；内容相同 → same 不落盘、无备份；
+ *     内容不同 → 旧内容先备份 .oht/.upgrade-bak/<原路径>（T0043 改道：
+ *     Chromium FSA 敏感扩展 blocklist 禁写 .bak——"Name is not allowed"，
+ *     OPFS 沙箱不拦故单测环境测不出，真机升级必炸）再写入；
  *   · 业务不动：tasks/T*.md（除模板）、knowledge/log、local、tests 零写删；
  *     骨架缺则补（.gitkeep ×4、rules.md 缺则写 RULES_SKELETON，已有不动）；
  *   · 宿主 AGENTS.md：首行是版本标记 → 只更新该行版本，其余逐字不动；
@@ -49,7 +51,7 @@ function makeOutdatedTree(): DirTree {
     '.oht': {
       VERSION: '0.1.1\n',
       'AGENTS.md': '旧版入口\n',
-      // PROTOCOL.md 已与内置一致 → 应判 same，不留 .bak
+      // PROTOCOL.md 已与内置一致 → 应判 same，不留备份
       'PROTOCOL.md': bundleContent('.oht/PROTOCOL.md'),
       tasks: { 'T0001.md': '---\nid: T0001\n---\n业务卡，升级不得碰\n' },
       knowledge: { log: { 'x.md': '业务日志\n' } },
@@ -59,7 +61,7 @@ function makeOutdatedTree(): DirTree {
 }
 
 describe('T0035/A7 upgradeFramework 升级语义', () => {
-  it('旧目标升级：版本/文件更新、留 .bak、same 不留、业务不动、manifest 正确', async () => {
+  it('旧目标升级：版本/文件更新、留备份、same 不留、业务不动、manifest 正确', async () => {
     const writeLog: string[] = [];
     const tree = makeOutdatedTree();
     const root = memDir('old-proj', tree, { writeLog });
@@ -76,10 +78,13 @@ describe('T0035/A7 upgradeFramework 升级语义', () => {
     // 版本与文件更新到内置内容
     expect(oht['VERSION']).toBe(bundleContent('.oht/VERSION'));
     expect(oht['AGENTS.md']).toBe(bundleContent('.oht/AGENTS.md'));
-    // 被覆盖文件留 .bak = 旧内容
-    expect(oht['AGENTS.md.bak']).toBe('旧版入口\n');
-    // same 文件不留 .bak
-    expect(oht['PROTOCOL.md.bak'], '内容相同不得产生备份').toBeUndefined();
+    // 被覆盖文件留备份 = 旧内容（T0043：.oht/.upgrade-bak/ 镜像树，非 .bak）
+    const bakDir = oht['.upgrade-bak'] as Record<string, string | object>;
+    const bakOht = bakDir['.oht'] as Record<string, string>;
+    expect(bakOht['AGENTS.md']).toBe('旧版入口\n');
+    expect(String(bakDir['AGENTS.md']), '宿主标记行差异也留备份').toContain('# 宿主项目');
+    // same 文件不留备份
+    expect(bakOht['PROTOCOL.md'], '内容相同不得产生备份').toBeUndefined();
 
     // 业务文件逐字不动
     const tasks = oht['tasks'] as Record<string, string>;

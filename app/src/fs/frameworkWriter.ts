@@ -1,7 +1,9 @@
 /**
- * 升级写入器（T0035/A7、A9）：目标工程框架在线升级与检测读取，
- * 语义与 .oht/scripts/install.py 同源（防降级、.bak、业务不动、骨架补缺、
- * 标记行更新、.manifest sha256）。
+ * 升级写入器（T0035/A7、A9；T0043 备份改道）：目标工程框架在线升级与
+ * 检测读取，语义与 .oht/scripts/install.py 同源（防降级、差异留备份、
+ * 业务不动、骨架补缺、标记行更新、.manifest sha256）——唯一分叉：差异
+ * 备份路径（网页版 .oht/.upgrade-bak/ 镜像树 vs install.py 的 .bak，
+ * 原因见 backupPath 注释）。
  *
  * - readFrameworkState(root, { verifyManifest })：读 .oht/VERSION 为
  *   installedVersion（无 .oht 或无 VERSION → null）；verifyManifest=true
@@ -9,10 +11,10 @@
  *   缺 .manifest 则跳过（不误报）。
  * - upgradeFramework(root)：防降级先于一切写（目标新于内置 → ok=false、
  *   reason 含「降级」、零落盘零建目录）；全量写 FRAMEWORK_FILES（相同
- *   same 不落盘不留 .bak；不同先备份 <路径>.bak 再覆盖）；业务零写删，
- *   只补骨架（.gitkeep×4 与 rules.md 缺则补、已有不动）；宿主 AGENTS.md
- *   首行是版本标记 → 只更新该行版本（差异留 .bak），无标记（用户自己的）
- *   原样保留且不入 manifest；收尾写 .oht/.manifest。
+ *   same 不落盘不留备份；不同先备份 .oht/.upgrade-bak/<原路径> 再覆盖）；
+ * 业务零写删，只补骨架（.gitkeep×4 与 rules.md 缺则补、已有不动）；
+ * 宿主 AGENTS.md 首行是版本标记 → 只更新该行版本（差异留备份），无标记
+ *   （用户自己的）原样保留且不入 manifest；收尾写 .oht/.manifest。
  * - sha256 用 lib/sha256 纯 TS 同步实现，测试以 node:crypto 独立复核。
  */
 import { compareSemver } from '../lib/frameworkUpdate';
@@ -102,6 +104,19 @@ const SKELETON_GITKEEP_PATHS: readonly string[] = [
 ];
 
 const ZERO_COUNTS: UpgradeCounts = { add: 0, update: 0, same: 0 };
+
+/**
+ * 升级差异备份路径（T0043）：.oht/.upgrade-bak/ 下镜像原路径树，
+ * 保持原文件扩展。不再用 <路径>.bak——Chromium 对真实目录句柄的
+ * FSA 写入按敏感扩展 blocklist 拦截（.bak/.cfg/.dll/.ini 等报
+ * "Name is not allowed"，OPFS 沙箱不拦故测试环境测不出；实证：
+ * 初始化（不写 .bak）成功、升级（首碰 .bak）必炸）。镜像路径
+ * 全部为已实证可写的扩展（.md/.py/无扩展）。install.py（CLI，
+ * 无此浏览器限制）保持 .bak 不变，两环境各取其宜，留证语义等价。
+ */
+function backupPath(path: string): string {
+  return `.oht/.upgrade-bak/${path}`;
+}
 
 /** 检测读取：轻量（默认）只读 VERSION；verifyManifest 时对账 .manifest */
 export async function readFrameworkState(
@@ -217,8 +232,8 @@ export async function upgradeFramework(
         await writePath(root, 'AGENTS.md', planned);
         counts.add += 1;
       } else {
-        // 标记行更新也属「内容不同」：差异留 .bak（覆盖旧 bak）
-        await writePath(root, 'AGENTS.md.bak', existing);
+        // 标记行更新也属「内容不同」：差异留备份（覆盖旧备份）
+        await writePath(root, backupPath('AGENTS.md'), existing);
         await writePath(root, 'AGENTS.md', planned);
         counts.update += 1;
       }
@@ -237,7 +252,7 @@ export async function upgradeFramework(
       counts.add += 1;
     } else {
       counts.update += 1;
-      await writePath(root, `${file.path}.bak`, existing);
+      await writePath(root, backupPath(file.path), existing);
       await writePath(root, file.path, file.content);
     }
     hashes[file.path] = file.sha256;
