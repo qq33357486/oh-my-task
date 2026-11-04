@@ -76,8 +76,8 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.5', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.5');
+  it('框架版本 0.1.6', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.6');
   });
 });
 

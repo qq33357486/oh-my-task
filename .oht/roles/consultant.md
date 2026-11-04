@@ -27,7 +27,7 @@
 - 跟进卡先读 parent 原任务全文。
 - 人的纠正与原因写入“候选教训”。
 - need_human 置位四字段填全；resume_to 记离开组合
-- 定稿后后台唤醒调度员，命令见 dispatcher.md
+- 定稿即停：禁开子代理禁代跑角色，即时唤醒由人另起会话
 - 有 memos：先按 memory.md 搜相似需求。
 - 类型无对应 topics：新建草稿 topics/<type>.md。
 - 待人决策有多题：编号写进 question。
