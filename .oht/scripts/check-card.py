@@ -13,9 +13,10 @@ if _arg and os.path.isfile(_arg):  # 传入单张卡片：只校验该卡
 else:
     ROOT = _arg or os.path.dirname(HERE)  # 默认 .oht/（脚本所在目录的上一级）
     ONLY = None
-STATUS = {"new", "ready", "review", "done", "recorded", "need_human"}
-# recorded=历史终态（T0031 五态化后状态机止于 done，不再新产生；保留枚举只为兼容历史卡）
-# tests 已废（T0032 四态化 new→ready→review→done：写测试自证红归咨询员，红=ready 交付初始态）
+STAGE = {"需求", "实现", "检查"}
+PROGRESS = {"未执行", "执行中", "执行完毕"}
+# 二维状态机（T0037）：stage×progress 取代旧一维 status（new/ready/review/done 已废）。
+# 终态=（检查,执行完毕）；need_human 为旁路布尔字段，不再是状态值。
 SECTIONS = ["原话", "需求", "复述卡", "验收条目", "系统文档改动", "进度", "失败原因", "候选教训", "人的回复"]
 NEED4 = ["stopped_at", "resume_to", "stop_reason", "question"]
 BRIEF_MAX = 200
@@ -47,10 +48,17 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         k, _, v = line.partition(":")
         h[k.strip()] = v.split("#")[0].strip().strip('"')
     body = t[m.end():]
-    st = h.get("status", "")
-    cards.append((name, st, h.get("system", "")))
-    if st not in STATUS:
-        err(name, f"status 无效：{st}")
+    stg = h.get("stage", "")
+    prg = h.get("progress", "")
+    nh = h.get("need_human", "false").strip().lower() == "true"
+    final = stg == "检查" and prg == "执行完毕"
+    cards.append((name, stg, prg, nh, h.get("system", "")))
+    if stg not in STAGE:
+        err(name, f"stage 无效：{stg}（须为 {'/'.join(sorted(STAGE))}）")
+    if prg not in PROGRESS:
+        err(name, f"progress 无效：{prg}（须为 {'/'.join(sorted(PROGRESS))}）")
+    if h.get("need_human", "false").strip().lower() not in ("true", "false"):
+        err(name, "need_human 只能是 true 或 false")
     if h.get("id") != name[:-3]:
         err(name, "id 与文件名不一致")
     title = h.get("title", "")
@@ -58,10 +66,10 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         err(name, "缺 title（frontmatter 必填：人话单行 ≤24 字，给人看的摘要）")
     elif len(title) > TITLE_MAX:
         err(name, f"title {len(title)} 字 > {TITLE_MAX}")
-    if st == "need_human":
+    if nh:
         for k in NEED4:
             if not h.get(k):
-                err(name, f"need_human 缺 {k}")
+                err(name, f"need_human=true 缺 {k}")
     if h.get("origin") not in ("", "split", "followup"):
         err(name, "origin 只能是 split 或 followup")
     if h.get("origin") and not h.get("parent"):
@@ -77,8 +85,11 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
     if bool(h.get("system")) != bool(sec["系统文档改动"].strip()):
         err(name, "system 与“系统文档改动”须同时填写")
     items = re.split(r"^### (A\d+)", sec["验收条目"], flags=re.M)[1:]
-    if st not in ("new",) and not (st == "recorded" and h.get("origin") == "") and not items:
-        if not (st == "need_human" and h.get("stopped_at") in ("consultant", "咨询员")):
+    # 验收条目存在性：仅建卡初态（需求,未执行/执行中）可无条目；
+    # need_human 停在需求阶段（咨询员拷问中卡住）同样放行
+    fresh = stg == "需求" and prg in ("未执行", "执行中")
+    if not fresh and not items:
+        if not (nh and stg == "需求" and prg != "执行完毕"):
             err(name, "缺验收条目")
     for i in range(0, len(items), 2):
         aid, blk = items[i], items[i + 1]
@@ -99,21 +110,23 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
             err(name, f"{aid} auto 状态无效：{s}")
         if ty == "human" and s not in ("人看", "绿"):
             err(name, f"{aid} human 状态无效：{s}")
-        if ty == "auto" and st in ("ready", "review") and s == "未写":
-            err(name, f"{aid} {st} 时 auto 不得未写（须红或绿，如实记录）")
-        if st in ("done", "recorded") and s != "绿":
-            err(name, f"{aid} {st} 时应为绿，实为 {s}")
+        # 条目交付后（定稿完毕/已进实现或检查）auto 不得未写；初态（需求,未执行/执行中）可
+        delivered = not fresh
+        if ty == "auto" and delivered and s == "未写":
+            err(name, f"{aid} ({stg},{prg}) 时 auto 不得未写（须红或绿，如实记录）")
+        if final and s != "绿":
+            err(name, f"{aid} 终态（检查,执行完毕）时应为绿，实为 {s}")
 if ONLY is None and n_cards == 0:
     print("未扫描到任何卡片，请确认 ROOT 路径")
     sys.exit(1)
 TOP = os.path.join(ROOT, "knowledge/topics")
-for name, st, sysn in cards:
-    if sysn and st != "new":
+for name, stg, prg, nh, sysn in cards:
+    if sysn and not (stg == "需求" and prg in ("未执行", "执行中")):
         doc = os.path.join(TOP, sysn + ".md")
         if not os.path.exists(doc):
             err(name, f"系统文档 {sysn}.md 不存在")
-        elif st == "recorded" and "状态：草稿" in open(doc, encoding="utf-8").read():
-            err(name, f"已 recorded，但 {sysn}.md 仍是草稿")
+        elif stg == "检查" and prg == "执行完毕" and "状态：草稿" in open(doc, encoding="utf-8").read():
+            err(name, f"已终态（检查,执行完毕），但 {sysn}.md 仍是草稿")
 for f in sorted(glob.glob(os.path.join(TOP, "*.md"))):
     n = os.path.basename(f)
     if n.startswith("_"):

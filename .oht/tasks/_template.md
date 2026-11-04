@@ -2,7 +2,9 @@
 id: T0000
 title: ""            # 必填：人话单行 ≤24 字，无日期、卡号、括号注记——给人看的摘要
 type: ""
-status: new
+stage: 需求          # 需求 | 实现 | 检查（跨阶段变动只有调度员可写）
+progress: 未执行     # 未执行 | 执行中 | 执行完毕（本阶段工人可写）
+need_human: false    # true 时为旁路暂停态，stage/progress 冻结
 round: 0
 parent: ""
 origin: ""

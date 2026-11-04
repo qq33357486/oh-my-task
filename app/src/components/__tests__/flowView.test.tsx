@@ -91,6 +91,15 @@
  * =====================================================================
  */
 
+// =====================================================================
+// T0037 授权变更（2026-11-04，人直接指派「直接改，一次性改好，包含现有卡片
+// 所属位置与状态」；先例 T0004/A4）：一维 status 夹具/断言全面二维化——
+// 卡片状态 = stage×progress + need_human 旁路。夹具翻译：new→(需求,未执行)、
+// ready→(实现,执行中)、review→(检查,执行中)、need_human→needHuman:true、
+// done→(检查,执行完毕) 终态归档、recorded→stage:'recorded' 历史识别值防御、
+// tests→stage:'tests' 未知 stage 降级收件箱（防复活守护语义平移）。
+// 新增 T19W（实现,执行完毕）锁定「待调度」压队徽标 data-flow-await。
+// =====================================================================
 // ---------------------------------------------------------------------
 // 重设计说明（人 2026-11-04 授权：流程图「不是小修小改」，按第一性原理重做）：
 // 环形画布（平移/缩放/拖拽/端口/贝塞尔连线/环形几何/自适应居中）整体退役，
@@ -116,7 +125,9 @@ function makeCard(overrides: Partial<ParsedCard>): ParsedCard {
     id: 'T0000',
     title: '',
     type: '系统开发',
-    status: 'new',
+    stage: '需求',
+    progress: '执行中',
+    needHuman: false,
     round: 0,
     parent: '',
     origin: '',
@@ -133,34 +144,43 @@ function fixtureCards(): ParsedCard[] {
   return [
     makeCard({
       id: 'T19H',
-      status: 'need_human',
+      needHuman: true,
       title: '需要人拍板的任务卡',
       question: '流程图收件箱应直显的决策问题',
       stop_reason: '收件箱夹具终止原因',
     }),
-    makeCard({ id: 'T19N', status: 'new', title: '未开始的新任务卡' }),
-    // T0032 需求 6：T19T 故意保留已废 tests 态——锁定「已废态不挂画布、
-    // 降级收件箱」的防复活语义（title 同步改，防误导）。
-    makeCard({ id: 'T19T', status: 'tests', title: '已废态降级收件箱的示例任务卡' }),
+    makeCard({ id: 'T19N', progress: '未执行', title: '未开始的新任务卡' }),
+    // T0032 需求 6：T19T 故意保留已废态（T0037 起以未知 stage 表达）——锁定
+    // 「未知 stage 不挂画布、降级收件箱」的防复活语义（title 同步改，防误导）。
+    makeCard({ id: 'T19T', stage: 'tests', title: '已废态降级收件箱的示例任务卡' }),
     makeCard({
       id: 'T19R',
-      status: 'ready',
+      stage: '实现',
       round: 2,
       type: '知识库',
       title: '被检查打回第二轮的任务卡',
     }),
-    makeCard({ id: 'T19V', status: 'review', title: '停在检查环节的任务卡' }),
-    makeCard({ id: 'T19D', status: 'done', title: '已完成即归档的任务卡' }),
-    makeCard({ id: 'T19A', status: 'recorded', title: '已归档的历史任务卡' }),
+    // T0037：T19W 执行完毕压队——锁定「待调度」徽标与实现环节挂载
+    makeCard({
+      id: 'T19W',
+      stage: '实现',
+      progress: '执行完毕',
+      title: '执行完毕待调度推进的任务卡',
+    }),
+    makeCard({ id: 'T19V', stage: '检查', title: '停在检查环节的任务卡' }),
+    makeCard({ id: 'T19D', stage: '检查', progress: '执行完毕', title: '已完成即归档的任务卡' }),
+    // T19A 保留历史识别值 stage:'recorded'——锁定旧终态防御映射归档
+    makeCard({ id: 'T19A', stage: 'recorded', title: '已归档的历史任务卡' }),
   ];
 }
 
 /** type → 标签映射夹具：系统开发有标签，知识库无映射（无标签不显示） */
 const FIXTURE_TAGS: Record<string, string> = { 系统开发: '系开' };
 
-/** 卡 id → 应挂环节（画布环节部分；T0031：done 归档不占画布；T0032：tests 已废降级收件箱，移出本表） */
+/** 卡 id → 应挂环节（画布环节部分；T0037：stage 挂同名环节，完毕压队仍在栏） */
 const NODE_PLACEMENT: Array<[string, string]> = [
   ['T19R', '实现'],
+  ['T19W', '实现'],
   ['T19V', '检查'],
 ];
 
@@ -224,7 +244,7 @@ describe('T0019/A3 流程图视图整体呈现', () => {
     }
     expect(
       view.container.querySelector('[data-flow-node="需求"] [data-flow-card-id="T19N"]'),
-      'new 卡 T19N 应出现在「需求」节点（T0030：需求节点直挂 new 卡，当前实现不挂，应红）',
+      '需求阶段卡 T19N 应出现在「需求」节点（T0030：需求节点直挂卡，当前实现不挂，应红）',
     ).not.toBeNull();
   });
 
@@ -248,12 +268,12 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       '收件箱区应直显 need_human 卡的 question 全文（T0016 模式）',
     ).toBeTruthy();
 
-    // 未开始区：含 new 卡
+    // 需求清单区：含需求阶段卡
     const todo = view.container.querySelector('[data-flow-todo="true"]');
-    expect(todo, '应有 data-flow-todo="true" 未开始区').not.toBeNull();
+    expect(todo, '应有 data-flow-todo="true" 需求清单区').not.toBeNull();
     expect(
       todo!.querySelector('[data-flow-card-id="T19N"]'),
-      '未开始区应含 new 卡 T19N',
+      '需求清单区应含需求阶段卡 T19N',
     ).not.toBeNull();
 
     // 归档区：含 done 卡（T0031 需求 5：done 即归档显示）与历史 recorded 卡
@@ -261,11 +281,11 @@ describe('T0019/A3 流程图视图整体呈现', () => {
     expect(archive, '应有 data-flow-archive="true" 归档区').not.toBeNull();
     expect(
       archive!.querySelector('[data-flow-card-id="T19D"]'),
-      '归档区应含 done 卡 T19D（done 即归档显示，T0031）',
+      '归档区应含终态卡 T19D（检查,执行完毕 即归档）',
     ).not.toBeNull();
     expect(
       archive!.querySelector('[data-flow-card-id="T19A"]'),
-      '归档区应含 recorded 卡 T19A（历史卡兼容）',
+      '归档区应含历史识别值卡 T19A（stage:recorded 防御兼容）',
     ).not.toBeNull();
   });
 
@@ -317,6 +337,66 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       '无标签卡面不得出现别卡的标签文字',
     ).not.toContain('系开');
   });
+
+  // T0037：待调度徽标——执行完毕但未被调度员推进的卡压在本阶段栏，
+  // 卡面带 data-flow-await「待调度」徽标；执行中/终态归档不得带。
+  it('待调度徽标：实现完毕压队卡带 data-flow-await；执行中卡与终态归档卡不带', () => {
+    const view = render(<FlowView cards={fixtureCards()} topicTags={FIXTURE_TAGS} />);
+
+    // T19W（实现,执行完毕）：挂在实现环节且卡面恰一个待调度徽标
+    const awaitingCard = view.container.querySelector('[data-flow-card-id="T19W"]')!;
+    expect(
+      awaitingCard.closest('[data-flow-node]')?.getAttribute('data-flow-node'),
+      '执行完毕卡应压在实现环节栏（调度员推进前不跳栏）',
+    ).toBe('实现');
+    expect(
+      awaitingCard.querySelectorAll('[data-flow-await="true"]').length,
+      '执行完毕压队卡应恰一个待调度徽标',
+    ).toBe(1);
+    expect(awaitingCard.textContent ?? '').toContain('待调度');
+
+    // T19R（实现,执行中）：不带徽标
+    const running = view.container.querySelector('[data-flow-card-id="T19R"]')!;
+    expect(
+      running.querySelectorAll('[data-flow-await="true"]').length,
+      '执行中卡不得带待调度徽标',
+    ).toBe(0);
+
+    // T19D（检查,执行完毕终态）：归档行不带徽标
+    const done = view.container.querySelector('[data-flow-card-id="T19D"]')!;
+    expect(
+      done.querySelectorAll('[data-flow-await="true"]').length,
+      '终态归档卡不得带待调度徽标',
+    ).toBe(0);
+  });
+
+  // T0037：检查完毕有红（等重派）→ 留检查栏压队带待调度徽标，不进归档
+  it('检查完毕有红卡留检查栏压队待调度，不进归档区', () => {
+    const redDone = makeCard({
+      id: 'T19X',
+      stage: '检查',
+      progress: '执行完毕',
+      title: '检查有红待重派的任务卡',
+      sections: {
+        原话: 'x',
+        验收条目: ['### A1 某条目', '- 类型：auto', '- 查：x', '- 预期：y', '- 状态：红'].join('\n'),
+      },
+    });
+    const view = render(<FlowView cards={[redDone]} />);
+    expect(
+      view.container.querySelector('[data-flow-node="检查"] [data-flow-card-id="T19X"]'),
+      '检查完毕有红卡应留在检查环节栏（等调度员重派）',
+    ).not.toBeNull();
+    expect(
+      view.container.querySelector('[data-flow-archive="true"] [data-flow-card-id="T19X"]'),
+      '检查完毕有红卡不得进归档区',
+    ).toBeNull();
+    const xCard = view.container.querySelector('[data-flow-card-id="T19X"]')!;
+    expect(
+      xCard.querySelectorAll('[data-flow-await="true"]').length,
+      '等重派卡应带待调度徽标',
+    ).toBe(1);
+  });
 });
 
 describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
@@ -353,12 +433,12 @@ describe('T0019/A4 回边与视图切换（round 2 口径改写）', () => {
     // 无看板列（看板已删除）
     expect(view.container.querySelectorAll('[data-column]').length, '不得渲染看板列').toBe(0);
 
-    // 流程图内容正确：夹具卡 T0006（ready）应挂在「实现」环节
+    // 流程图内容正确：夹具卡 T0006（实现,执行中）应挂在「实现」环节
     const flowCard = view.container.querySelector('[data-flow-card-id="T0006"]');
     expect(flowCard, '流程图应渲染夹具卡 T0006').not.toBeNull();
     expect(
       flowCard!.closest('[data-flow-node]')?.getAttribute('data-flow-node'),
-      'T0006（ready）应挂实现环节',
+      'T0006（实现,执行中）应挂实现环节',
     ).toBe('实现');
   });
 });
@@ -498,15 +578,15 @@ describe('T0019/A11 文字层级可读性锚点（指挥台口径）', () => {
 // 超出为计数提示；环节计数徽标恒为全量。
 // =====================================================================
 
-/** 需求 6 张 new、实现 6 张 ready、检查 2 张 review */
+/** 需求 6 张（未执行）、实现 6 张（执行中）、检查 2 张（执行中）——T0037 二维 */
 function t0030Cards(): ParsedCard[] {
-  const mk = (id: string, status: string): ParsedCard =>
-    makeCard({ id, status, title: `T0030 夹具卡 ${id}` });
+  const mk = (id: string, stage: string, progress: string): ParsedCard =>
+    makeCard({ id, stage, progress, title: `T0030 夹具卡 ${id}` });
   return [
-    ...['T0301', 'T0302', 'T0303', 'T0304', 'T0305', 'T0306'].map((id) => mk(id, 'new')),
-    ...['T0311', 'T0312', 'T0313', 'T0314', 'T0315', 'T0316'].map((id) => mk(id, 'ready')),
-    mk('T0321', 'review'),
-    mk('T0322', 'review'),
+    ...['T0301', 'T0302', 'T0303', 'T0304', 'T0305', 'T0306'].map((id) => mk(id, '需求', '未执行')),
+    ...['T0311', 'T0312', 'T0313', 'T0314', 'T0315', 'T0316'].map((id) => mk(id, '实现', '执行中')),
+    mk('T0321', '检查', '执行中'),
+    mk('T0322', '检查', '执行中'),
   ];
 }
 
@@ -547,7 +627,7 @@ describe('T0030/A2 环节直挂与「更多」提示', () => {
 describe('T0030/A3 需求环节清单截 50', () => {
   it('55 张 new 卡：恰显示最近 50 张（第一张为最大号）+「更早 5 张」提示', () => {
     const cards = Array.from({ length: 55 }, (_, i) =>
-      makeCard({ id: `T${String(4101 + i)}`, status: 'new', title: `未开始任务卡 ${i + 1}` }),
+      makeCard({ id: `T${String(4101 + i)}`, progress: '未执行', title: `未开始任务卡 ${i + 1}` }),
     );
     const view = render(<FlowView cards={cards} />);
 

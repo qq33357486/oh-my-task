@@ -26,7 +26,9 @@ function makeCard(overrides: Partial<ParsedCard>): ParsedCard {
     id: 'T0000',
     title: '',
     type: '系统开发',
-    status: 'new',
+    stage: '需求',
+    progress: '执行中',
+    needHuman: false,
     round: 0,
     parent: '',
     origin: '',
@@ -38,12 +40,12 @@ function makeCard(overrides: Partial<ParsedCard>): ParsedCard {
   };
 }
 
-/** 升序 120 张 recorded 卡（T0001…T0120）：模拟 scanTasks 现状输入序 */
+/** 升序 120 张历史终态卡（T0001…T0120）：模拟 scanTasks 现状输入序（T0037：旧一维终态识别值防御归档） */
 function archivedCards(count = 120): ParsedCard[] {
   return Array.from({ length: count }, (_, i) =>
     makeCard({
       id: `T${String(i + 1).padStart(4, '0')}`,
-      status: 'recorded',
+      stage: 'recorded',
       title: `归档历史卡 ${i + 1}`,
     }),
   );

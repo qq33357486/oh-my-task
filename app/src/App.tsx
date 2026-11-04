@@ -6,6 +6,8 @@
  * 提供「初始化此目录」/取消。
  * T0035：页眉新增 MenuBar（文件/帮助菜单、最近项目、更新徽章与弹窗），
  * 标题更名「循环工程指挥台」。
+ * T0036：落地页加一句定位说明（Loop Engineering（循环工程）工作平台）；
+ * 使用指南弹窗在 MenuBar（帮助菜单项 + 初始化成功自动弹一次）。
  * 流程图的知识标签映射由 topics 文档经 parseTopicTag 算出（App 层装配），
  * 文档缺失时降级为无标签。
  */
@@ -47,6 +49,11 @@ function PickPage() {
     <div className="entry-card">
       <div className="entry-card__logo" aria-hidden="true">OHT</div>
       <Typography.Title level={3}>选择循环工程目录</Typography.Title>
+      {/* T0036/A3：落地页定位一句——「这是什么」，不涉及界面讲解 */}
+      <Typography.Paragraph>
+        这里是 Loop Engineering（循环工程）的工作平台：人提需求，AI
+        员工按循环流程推进任务。
+      </Typography.Paragraph>
       <Typography.Paragraph type="secondary">
         选择你的项目根目录（将请求读写权限；目录缺 .oht/ 时会给出初始化引导）。
         选择会记住，下次打开自动恢复。

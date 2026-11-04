@@ -2,38 +2,50 @@
 
 任务是一张卡片（`tasks/<id>.md`）。人和 AI 异步地往同一张卡片上写，不需要同步对话。停下只是暂停，状态和原因都在卡片里。卡片模板见 `tasks/_template.md`，由 `scripts/check-card.py` 检查。
 
-## 一张卡的一生
-| status | 谁处理 | 做什么 | 下一状态 |
-|---|---|---|---|
-| new | consultant | 对齐需求与验收：拷问、写需求与验收条目、写测试自证红、写复述卡 | ready |
-| ready | implementer | 实现，让测试变绿 | review |
-| review | checker | 复跑全部测试，逐条判定 | done 或 ready |
-| done | — | 终态，即归档（差异已由实现员收尾合并、检查员核对） | — |
-| need_human | 人（异步） | 回复后回到 resume_to | resume_to |
+## 状态机：阶段×进度（T0037 二维化）
 
-- 复述卡“待你定”仅方向分叉才转 need_human，其余自治定稿。
-- new 卡由咨询员会话接待定稿（入口四分法），调度员不派咨询员；定稿 ready 后调度员接管派发。
-- review 不通过：ready，round+1。round 超 3 转 need_human（3 是草案）。
-- 全是 human 条目、没有 auto 条目：new 定稿即 ready，review 照走全链。
-- 大需求拆分：咨询员建子卡（origin=split，parent=原卡），原卡直接置 done。
-- 事后纠正：新建跟进卡（origin=followup，parent=原卡），status=new。
+卡片状态 = `stage`（阶段）× `progress`（阶段内进度）两个字段：卡面即状态真相，无需台账即可知道每张卡干到哪。
+
+| stage | progress | 谁处理 | 做什么 | 去向 |
+|---|---|---|---|---|
+| 需求 | 未执行 | — | 建卡初态，等咨询员接待 | 接待置执行中 |
+| 需求 | 执行中 | consultant | 对齐需求与验收：拷问、写需求与验收条目、写测试自证红、写复述卡 | 置执行完毕 |
+| 需求 | 执行完毕 | 调度员决策 | 已"准备好"，压在需求栏待调度 | 推进（实现,执行中）或留队 |
+| 实现 | 执行中 | implementer | 实现，让测试变绿 | 置执行完毕 |
+| 实现 | 执行完毕 | 调度员决策 | 干完了，压在实现栏待调度 | 推进（检查,执行中）或留队 |
+| 检查 | 执行中 | checker | 复跑全部测试，逐条判定 | 置执行完毕；不通过重派（实现,执行中）round+1 |
+| 检查 | 执行完毕 | — | 终态，即归档（差异已合并、检查员核对） | — |
+
+- 调度员独占跨阶段推进（stage 变动只能调度员写）；工人只写本阶段 progress。
+- 调度员每次唤醒扫描所有 progress=执行完毕 且 need_human=false 的卡，逐卡决策：推进或留队（顺序/泳道/批次约束时留队，以执行完毕身份压在本阶段栏，下轮再决策）。
+- 执行中的卡工人死亡（会话生灭）无人写完毕：判滞制兜底（见 roles/dispatcher.md），卡面（阶段,执行中）+台账无账即嫌疑。
+- need_human 为旁路暂停态：true 时 stage/progress 冻结，四字段填全；人回复后调度员按 resume_to 恢复（置 need_human=false，stage/progress=resume_to 值）。
+- 复述卡"待你定"仅方向分叉才转 need_human，其余自治定稿。
+- 需求卡由咨询员会话接待定稿（入口四分法），调度员不派咨询员；扫到（需求,执行完毕）后调度员接管派发。
+- 检查不通过：调度员重派（实现,执行中），round+1。round 超 3 转 need_human（3 是草案）。
+- 全是 human 条目、没有 auto 条目：需求照走全链，检查照走全链。
+- 大需求拆分：咨询员建子卡（origin=split，parent=原卡），原卡直接置（检查,执行完毕）。
+- 事后纠正：新建跟进卡（origin=followup，parent=原卡），（需求,未执行）。
+- 历史识别值：done/recorded 是旧一维状态机的终态（T0037 前存量），等同（检查,执行完毕），新卡不再使用。
 
 ## 谁写什么
 | 字段或节 | 主人 |
 |---|---|
-| id、parent、origin、原话、初始 status=new | 调度员 |
+| id、parent、origin、原话、初始（需求,未执行） | 调度员（或咨询员会话建卡） |
 | type、knowledge、lane、touches | 咨询员 |
 | batch、round（实现失败以外的重试） | 调度员 |
 | round（检查不通过 +1） | 检查员 |
+| stage 跨阶段变动、重派时 progress 重置 | 调度员（独占） |
+| 本阶段 progress（执行中→执行完毕） | 该阶段工人 |
 | 需求、复述卡、验收条目（除状态）、.oht/tests/<id>/ | 咨询员 |
 | system、系统文档改动、新系统文档草稿 | 咨询员 |
 | 系统文档的合并（收尾） | 实现员 |
-| 验收条目“状态”：红=咨询员交付写入，绿=检查员 review 复跑判 | 咨询员、检查员 |
+| 验收条目"状态"：红=咨询员交付写入，绿=检查员复跑判 | 咨询员、检查员 |
 | 进度 | 实现员（追加） |
 | 失败原因 | 检查员（追加） |
 | 候选教训 | 各角色（追加） |
 | 人的回复、replied | 人（页面或咨询员会话代写） |
-| need_human 四字段 | 设置它的角色 |
+| need_human 置位与四字段 | 设置它的角色 |
 
 编号：调度员取 tasks/ 里最大编号加 1，格式 T0001。
 
@@ -42,7 +54,9 @@
 ---
 id: T0001
 type: <任务类型，对应 knowledge/topics/<type>.md>
-status: <见上表>
+stage: 需求           # 需求 | 实现 | 检查
+progress: 未执行      # 未执行 | 执行中 | 执行完毕
+need_human: false     # true 时为旁路暂停态，stage/progress 冻结
 round: 0              # 实现-检查往返次数
 parent: ""            # 拆分子卡或跟进卡指向原卡
 origin: ""            # split 或 followup；普通卡留空
@@ -51,10 +65,10 @@ system: ""            # 本卡改哪个系统，对应 knowledge/topics/<system>
 lane: ""              # 泳道：系统开发取 parent，小修取主知识库名
 touches: []           # 会改的模块；跨泳道重叠则后者等待
 batch: ""             # 同批次的编号，由调度员填
-stopped_at: ""        # status=need_human 时必填：停在哪个角色/步骤
-resume_to: ""         # status=need_human 时必填：人回复后回到哪个 status
-stop_reason: ""       # status=need_human 时必填：终止原因
-question: ""          # status=need_human 时必填：一个具体的选择题
+stopped_at: ""        # need_human=true 时必填：停在哪个角色/步骤
+resume_to: ""         # need_human=true 时必填：恢复到哪个「stage,progress」
+stop_reason: ""       # need_human=true 时必填：终止原因
+question: ""          # need_human=true 时必填：一个具体的选择题
 replied: false        # 人回复后置 true
 ---
 ```
@@ -77,15 +91,15 @@ replied: false        # 人回复后置 true
 - 测试写好即锁定：实现员只能新增，不得改或删。
 - 写不成测试的（手感、效果图）标 human，进复述卡的人验收区。
 - human 条目：截图留证，need_human 交人验收，反馈记教训。
-- 判定结论与截图留证路径（.oht/local/）写入条目状态备注，绿即 done。
-- 状态要求：auto 全部有判定（红/绿）且如实记录；未实现不得标绿，done 起全绿。
+- 判定结论与截图留证路径（.oht/local/）写入条目状态备注，绿即（检查,执行完毕）。
+- 状态要求：auto 全部有判定（红/绿）且如实记录；未实现不得标绿，终态起全绿。
 
 ## 系统文档
 - 每个系统一份：knowledge/topics/<system>.md，模板见 topics/_template.md。
 - 它是现状快照，属内存层，始终是最终版。
 - 新系统：咨询员起草，标“草稿”；首卡收尾时实现员改“定稿”。
 - 已有系统：咨询员只在卡里写差异，不直接改文档。
-- 卡转 done 前，实现员把差异小幅合并进文档；检查员 review 核对。
+- 卡转（检查,执行完毕）前，实现员把差异小幅合并进文档；检查员复核核对。
 - 人不直接改文档；要改就提新需求，走新卡。
 - 每条约束标对应测试；没有测试的归“意图”。
 - 文档与测试、代码矛盾时，以测试和代码为准。
@@ -103,7 +117,7 @@ replied: false        # 人回复后置 true
 
 ## 泳道与批次
 - 泳道：按 lane 分组。泳道之间并行，泳道内合并成批。
-- 批次：同泳道所有 ready 的卡，交给一个实现员一次做完。
+- 批次：同泳道所有（需求,执行完毕）的卡，由调度员合成一批交给一个实现员，派发即置（实现,执行中）。
 - 验收、检查、提交仍逐卡；一张失败只退回那一张。
 - 批次内需求冲突：冲突的卡转 need_human，其余继续。
 - 新来的卡不打断进行中的批次，等下一批。
@@ -115,7 +129,7 @@ replied: false        # 人回复后置 true
 - 人只看两件事：需求变化、最终结果对照需求验收；技术取舍（契约/测试/实现）由系统自主决定并记录取舍理由。
 - need_human 白名单仅三类：产品级方向分叉、round>3 反复失败。
 - 缺外部资源（权限/密钥/账号）为第三类；白名单外一律自治推进。
-1. **任务卡住**：人按编号回复（如“T0003 选 B，因为……”），写入“人的回复”，replied=true。调度员下次醒来把 status 改为 resume_to，replied=false，从断点继续。
+1. **任务卡住**：人按编号回复（如“T0003 选 B，因为……”），写入“人的回复”，replied=true。调度员下次醒来置 need_human=false，stage/progress 改为 resume_to 值，replied=false，从断点继续。
 2. **任务已结束事后发现不对**：不重开旧卡，建跟进卡，“原话”写纠正和一句原因。
 
 ## 并发与通知

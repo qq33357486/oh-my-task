@@ -8,13 +8,19 @@
  * - 最近项目点击非当前项：projectContext.switchTo 覆盖默认句柄后整页
  *   reload（DJUI 验证过的干净姿势；jsdom 下 reload 为 no-op，集成测试
  *   断言落在默认句柄已切换上）。
- * - 帮助菜单：检查工程更新（store.checkUpdate 手动全量复检）、关于
- *   （弹窗显示应用版本=package.json version 与内置框架版本）。
+ * - 帮助菜单：使用指南（T0036，GuideModal 五节）、检查工程更新
+ *   （store.checkUpdate 手动全量复检）、关于（弹窗显示应用版本=package.json
+ *   version 与内置框架版本）。
+ * - 使用指南自动弹（T0036/A2）：初始化成功（hasOht false→true，即 NoProject
+ *   「初始化此目录」转主界面）且从未看过时自动弹一次并落「已看过」标记
+ *   （GUIDE_SEEN_KEY 持久，刷新/重进/再初始化不重复弹）；帮助菜单手动点开
+ *   不受标记限制。放在 MenuBar 是因为指南菜单项与弹窗都在这里，自动弹与
+ *   手动开共用同一个弹窗实例。
  * - 更新徽章 `[data-update-badge]`：frameworkState ∈ {outdated, modified,
  *   newerThanBundle} 时出现在页眉；点击弹更新弹窗（版本变迁 + 「全部更新」，
  *   执行 upgradeFramework 后复检，徽章随 upToDate 消失）。
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Button, Dropdown, Modal, Space } from 'antd';
 import type { MenuProps } from 'antd';
@@ -24,6 +30,7 @@ import { upgradeFramework } from '../fs/frameworkWriter';
 import { loadRecent, pushRecent, saveRecent } from '../lib/recentProjects';
 import type { FrameworkUpdateState } from '../lib/frameworkUpdate';
 import { FRAMEWORK_VERSION } from '../template';
+import { GuideModal, isGuideSeen, markGuideSeen } from './GuideModal';
 import pkg from '../../package.json';
 
 /** 出现徽章的五态子集（notInstalled/upToDate 不打扰） */
@@ -42,15 +49,30 @@ export function MenuBar() {
   const frameworkInstalledVersion = useAppStore(
     (s) => s.frameworkInstalledVersion,
   );
+  const hasOht = useAppStore((s) => s.hasOht);
 
   const [aboutOpen, setAboutOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeNote, setUpgradeNote] = useState('');
   // 菜单开合受控 + flushSync 同步渲染：整页状态在事件分发内即可见，
   // 不依赖 React 的调度时机（测试与真实点击行为一致）
   const [fileOpen, setFileOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // T0036/A2：初始化成功（hasOht false→true）且未看过 → 自动弹一次并落
+  // 「已看过」标记。只认 false→true：恢复/重进/重选已初始化目录都是
+  // null→true，不算「初始化成功」，不弹（标记兜底防重复打扰）。
+  const prevHasOht = useRef<boolean | null>(hasOht);
+  useEffect(() => {
+    const prev = prevHasOht.current;
+    prevHasOht.current = hasOht;
+    if (hasOht === true && prev === false && !isGuideSeen()) {
+      markGuideSeen();
+      setGuideOpen(true);
+    }
+  }, [hasOht]);
 
   const syncSet = <T,>(setter: (v: T) => void) => (v: T) => {
     flushSync(() => setter(v));
@@ -101,12 +123,16 @@ export function MenuBar() {
   };
 
   const helpItems: MenuProps['items'] = [
+    { key: 'guide', label: '使用指南' },
     { key: 'check-update', label: '检查工程更新' },
     { key: 'about', label: '关于' },
   ];
 
   const onHelpMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (key === 'check-update') {
+    if (key === 'guide') {
+      // 手动开不受「已看过」标记限制（T0036/A2）
+      syncSet(setGuideOpen)(true);
+    } else if (key === 'check-update') {
       void checkUpdate();
     } else if (key === 'about') {
       syncSet(setAboutOpen)(true);
@@ -188,6 +214,8 @@ export function MenuBar() {
           更新
         </span>
       )}
+
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
 
       <Modal
         title="关于"

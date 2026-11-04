@@ -1,7 +1,8 @@
 /**
  * T0009 集成测试夹具：任务卡取自 .oht/tasks/T0001~T0008 真实卡的精简版
- * （保留 frontmatter 形态与"需求"节的可断言片段；status 按验收条目 A2 的
- * 需要构造：need_human 一张，其余 new/done/recorded/ready 等）。
+ * （保留 frontmatter 形态与"需求"节的可断言片段；状态按验收条目 A2 的
+ * 需要构造（T0037 二维 stage×progress+need_human）：need_human 一张，其余
+ * 需求/实现/检查与终态、历史识别值等）。
  * 另含一张残缺卡（无 frontmatter）供 A6 降级显示，与 _template.md
  * （_ 前缀，扫描必须跳过）。
  */
@@ -13,19 +14,23 @@ import { memDir, type DirTree } from './mockFs';
  * need_human 形态一致；默认空串保持既有卡行为不变）。 */
 function card(
   id: string,
-  status: string,
+  stage: string,
+  progress: string,
   title: string,
   type: string,
   whish: string,
   requirement: string,
   question = '',
   stopReason = '',
+  needHuman = false,
 ): string {
   return `---
 id: ${id}
 title: ${title}
 type: ${type}
-status: ${status}
+stage: ${stage}
+progress: ${progress}
+need_human: ${needHuman ? 'true' : 'false'}
 round: 0
 parent: T0001
 origin: split
@@ -56,6 +61,7 @@ ${requirement}
 const T0002 = card(
   'T0002',
   'recorded',
+  '执行完毕',
   '循环工程收进单目录形态',
   '系统开发',
   '循环工程全部目录收进单一目录，不影响宿主项目根目录',
@@ -65,7 +71,8 @@ const T0002 = card(
 // 精简自 .oht/tasks/T0004.md（status 按夹具需要构造为 done）
 const T0004 = card(
   'T0004',
-  'done',
+  '检查',
+  '执行完毕',
   '一键初始化循环工程',
   '系统开发',
   '把循环工程装进任意目录，一键初始化',
@@ -75,18 +82,20 @@ const T0004 = card(
 // 精简自 .oht/tasks/T0005.md（status 按夹具需要构造为 new）
 const T0005 = card(
   'T0005',
-  'new',
+  '需求',
+  '未执行',
   '页面骨架与三态内容',
   '系统开发',
   '网页要有一个像样的页面骨架',
   '页面骨架：页眉（目录名、刷新）+ 三态内容（选目录/未初始化/看板）。',
 );
 
-// 精简自 .oht/tasks/T0006.md（status 按夹具需要构造为 ready；T0032 四态化：
-// 原 tests 夹具态已废；A5 轮询变更此卡）
+// 精简自 .oht/tasks/T0006.md（状态按夹具需要构造为（实现,执行中）；T0032
+// 四态化原 tests 夹具态已废、T0037 二维化 ready→（实现,执行中）；A5 轮询变更此卡）
 const T0006 = card(
   'T0006',
-  'ready',
+  '实现',
+  '执行中',
   '看板轮询跟进任务变化',
   '系统开发',
   '目录里任务卡变了，看板要跟得上',
@@ -97,13 +106,15 @@ const T0006 = card(
 // stop_reason——真实 need_human 卡两字段本就非空，夹具随形态对齐）
 const T0008 = card(
   'T0008',
-  'need_human',
+  '需求',
+  '执行中',
   '后台角色定时器驱动',
   '系统开发',
   '后台角色要有定时器',
   '巡检员与整理员等后台角色由 Agent 侧定时器驱动，项目目录里不放配置文件。',
   '后台定时器放哪：A Agent 侧定时器驱动（推荐）／B 页面内置定时器',
   '定时器落点需人拍板',
+  true,
 );
 
 // _ 前缀模板（真实 .oht/tasks/_template.md 的精简形态；id 若渲染即 T0000）
@@ -111,7 +122,9 @@ const TEMPLATE = `---
 id: T0000
 title: ""
 type: 模板
-status: new
+stage: 需求
+progress: 未执行
+need_human: false
 round: 0
 parent: ""
 origin: ""
@@ -171,7 +184,8 @@ export function initializedRoot(writeLog?: string[]): {
       tasks: {
         'T0001.md': card(
           'T0001',
-          'recorded',
+          '检查',
+          '执行完毕',
           '循环工程引导卡',
           '引导',
           '引导卡',

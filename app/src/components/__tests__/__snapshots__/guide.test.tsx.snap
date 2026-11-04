@@ -1,0 +1,135 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`T0036/A1 使用指南弹窗 > 渲染快照：指南五节内容锁定 1`] = `
+<DocumentFragment>
+  <div
+    class="guide-section"
+    data-guide-section="定位"
+  >
+    <h5
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+      style="margin-bottom: 4px;"
+    >
+      定位
+    </h5>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      这里是 Loop Engineering（循环工程）的工作平台：人提需求，AI 员工按流程循环推进任务，文件全程留在本地、不上传。
+    </div>
+  </div>
+  <div
+    class="guide-section"
+    data-guide-section="工作原理"
+  >
+    <h5
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+      style="margin-bottom: 4px;"
+    >
+      工作原理
+    </h5>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      人提出需求（写成任务卡）→ AI 员工按状态流转：需求 → 实现 → 检查，不通过打回重做，通过即归档，如此循环。
+    </div>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      网页上出现「待你定」的问题时，回到你的会话回答 AI（拍板回路），循环即可继续。
+    </div>
+  </div>
+  <div
+    class="guide-section"
+    data-guide-section="建定时器"
+  >
+    <h5
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+      style="margin-bottom: 4px;"
+    >
+      建定时器（关键一步）
+    </h5>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      初始化完成后，请在你的 Agent 工具里创建一个定时任务作为调度员，循环才会自动转起来（建议频率：每 10~30 分钟 一次）。
+    </div>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      定时任务必须跑在单一专用会话里：干活的智能体都是该会话的子代理，不会有多会话并发冲突。
+    </div>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      定时任务提示词（复制即用）：
+      <br />
+      <span
+        class="ant-typography css-dev-only-do-not-override-mncuj7"
+      >
+        <code>
+          调度令：读 .oht/AGENTS.md 并照做
+        </code>
+        <button
+          aria-describedby="test-id"
+          aria-label="复制提示词"
+          class="ant-typography-copy"
+          type="button"
+        >
+          <span
+            aria-label="copy"
+            class="anticon anticon-copy"
+            role="img"
+          >
+            <svg
+              aria-hidden="true"
+              data-icon="copy"
+              fill="currentColor"
+              focusable="false"
+              height="1em"
+              viewBox="64 64 896 896"
+              width="1em"
+            >
+              <path
+                d="M832 64H296c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h496v688c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V96c0-17.7-14.3-32-32-32zM704 192H192c-17.7 0-32 14.3-32 32v530.7c0 8.5 3.4 16.6 9.4 22.6l173.3 173.3c2.2 2.2 4.7 4 7.4 5.5v1.9h4.2c3.5 1.3 7.2 2 11 2H704c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32zM350 856.2L263.9 770H350v86.2zM664 888H414V746c0-22.1-17.9-40-40-40H232V264h432v624z"
+              />
+            </svg>
+          </span>
+        </button>
+      </span>
+    </div>
+  </div>
+  <div
+    class="guide-section"
+    data-guide-section="提需求"
+  >
+    <h5
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+      style="margin-bottom: 4px;"
+    >
+      提需求
+    </h5>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      另开其他会话，对人话说出需求即可：入口会自动分流给咨询员接待，对齐后创建需求卡片。
+    </div>
+  </div>
+  <div
+    class="guide-section"
+    data-guide-section="边界"
+  >
+    <h5
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+      style="margin-bottom: 4px;"
+    >
+      边界
+    </h5>
+    <div
+      class="ant-typography css-dev-only-do-not-override-mncuj7"
+    >
+      目前只有「人发起需求」一个途径，暂无自动监控问题的能力（巡查员未配置）；需要这类扩展请自行开发。
+    </div>
+  </div>
+</DocumentFragment>
+`;

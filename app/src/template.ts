@@ -47,9 +47,9 @@ export const HOST_REFERENCE_LINE =
   '循环工程入口：先读 .oht/AGENTS.md 并按其调度（任务卡在 .oht/tasks/）。';
 
 /**
- * 引导卡（T0004 需求 4）：status=new、type=引导，教使用者三件事。
+ * 引导卡（T0004 需求 4）：建卡初态（需求,未执行）、type=引导，教使用者三件事。
  * 内容按卡格式写（frontmatter + 九节），保证目标项目跑 check-card.py 可过
- * （T0015 起 frontmatter 须含合规 title）。
+ * （T0015 起 frontmatter 须含合规 title；T0037 起状态为二维 stage×progress）。
  */
 export const BOOTSTRAP_CARD: TemplateFile = {
   path: '.oht/tasks/T0001.md',
@@ -57,7 +57,9 @@ export const BOOTSTRAP_CARD: TemplateFile = {
 id: T0001
 title: 循环工程引导卡
 type: 引导
-status: new
+stage: 需求
+progress: 未执行
+need_human: false
 round: 0
 parent: ""
 origin: ""
@@ -79,7 +81,7 @@ replied: false
 ## 需求
 本卡教使用者三件事，各花一分钟：
 1. 发第一个需求：直接对 Agent（ZCode）说人话，不用任何格式。例如"给看板加一个深色模式"。调度员会把这句话变成任务卡。
-2. 看懂卡流转：一行生命周期 new→ready→review→done（T0032 四态化，写测试自证红属需求阶段）。只有 need_human 状态需要你：回复写在卡里"人的回复"节。
+2. 看懂卡流转：每张卡在需求→实现→检查三个阶段流转，每阶段有未执行/执行中/执行完毕三种进度；"执行完毕"的卡由调度员推入下一阶段，检查执行完毕即完成归档。只有需要你拍板的卡（待你定）需要你：回复写在卡里"人的回复"节。
 3. 开定时角色：对 ZCode 说"给巡检员建每 2 小时的定时任务"。定时器由 Agent 侧配置，项目目录里不需要任何配置文件。
 
 ## 复述卡

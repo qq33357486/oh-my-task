@@ -1252,6 +1252,16 @@ body {
   line-height: 16px;
 }
 
+.flow-card__await {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  font-size: 11px;
+  line-height: 16px;
+}
+
 .flow-card--urgent {
   border-color: #fecaca;
   border-left: 3px solid var(--oht-st-need_human);

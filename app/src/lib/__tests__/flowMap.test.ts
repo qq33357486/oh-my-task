@@ -1,46 +1,69 @@
 /**
- * T0019/A1 状态→环节映射纯函数红测试（检查员锁定，实现员不得改本测试）。
+ * T0019/A1 状态→呈现位置映射纯函数红测试（检查员锁定，实现员不得改本测试）。
  *
  * 【锁定接口】实现员新建 app/src/lib/flowMap.ts，只能实现本签名，不得修改：
- *   export type FlowNode = '需求' | '实现' | '检查' | '记录' | '归档' | '收件箱';
- *   export function mapStatusToNode(status: string): FlowNode;
+ *   export type FlowNode = '需求' | '实现' | '检查' | '归档' | '收件箱';
+ *   export function mapToNode(card: { stage; progress; needHuman }): FlowNode;
+ *   export function hasRedAcceptance(sections: Record<string, string>): boolean;
  *
- * 契约（T0019/A1 立；T0031 需求 5 人批改写——五态化 done 即终态归档，改前
- * sha1：50e42ab50d1f2277cb19b80fce1d1198fecfefcf；T0032 需求 6 再批改写——
- * tests 态删除四态机，改前 sha1：06fb4c70dc9364965b84e13a5af64237a63adc1a；
- * T0033 再批改写——FlowNode 去「测试」成员（改前 sha1：
- * 956198dc1208370f1ba99bf944752155b44a4e83），tests 态删除后画布「测试」
- * 节点恒空摆设，人已批准四环节化，环节集合不含「测试」；均循 T0004/A4
- * 先例：历史锁定测试按批准变更改写须录指纹）：
- * - new→需求、ready→实现、review→检查（画布三环节挂卡）；
- * - done→归档（done 即归档显示）、recorded→归档（历史卡兼容，同落归档清单）、
- *   need_human→收件箱（左侧清单，不占画布）；
- * - tests 态已废（T0032 四态化：写测试自证红属需求阶段）：不再映射「测试」
- *   环节，按未知状态安全降级收件箱（防旧卡/误写复活已废态）；
- * - 未知/空状态安全降级到收件箱，不抛异常。
+ * 契约（T0019/A1 立；T0031/T0032/T0033 三轮批准改写见 git 历史；T0037 再改写
+ * （2026-11-04 人直接指派「直接改，一次性改好」）：一维 status 映射退役，
+ * 二维 stage×progress + need_human 旁路，循 T0004/A4 先例录指纹）：
+ * - needHuman=true → 收件箱（旁路暂停态，优先级最高）；
+ * - stage 需求/实现/检查 → 同名环节（progress 不影响挂位，压队呈现归 FlowView）；
+ * - （检查,执行完毕）→ 归档终态；
+ * - done/recorded 为历史识别值，防御性映射归档；
+ * - 未知/空 stage 安全降级到收件箱，不抛异常；
+ * - hasRedAcceptance：验收条目节含「- 状态：红」行即 true，无节/无条目 false。
  */
 import { describe, expect, it } from 'vitest';
-import { mapStatusToNode } from '../flowMap';
+import { mapToNode, hasRedAcceptance } from '../flowMap';
 
-describe('T0019/A1 mapStatusToNode：状态→环节纯函数', () => {
-  it('六状态逐一映射：三环节人话名 + done/recorded 归档 + 收件箱（T0032 四态化）', () => {
-    expect(mapStatusToNode('new'), 'new 应映射到「需求」环节').toBe('需求');
-    expect(mapStatusToNode('ready'), 'ready 应映射到「实现」环节').toBe('实现');
-    expect(mapStatusToNode('review'), 'review 应映射到「检查」环节').toBe('检查');
-    expect(mapStatusToNode('done'), 'done 应映射到「归档」（done 即归档显示）').toBe('归档');
-    expect(mapStatusToNode('recorded'), 'recorded 应映射到「归档」（历史卡兼容）').toBe('归档');
-    expect(mapStatusToNode('need_human'), 'need_human 应映射到「收件箱」（左侧清单）').toBe('收件箱');
+const info = (stage: string, progress: string, needHuman = false) => ({
+  stage,
+  progress,
+  needHuman,
+});
+
+describe('T0019/A1 mapToNode：二维状态→呈现位置纯函数（T0037 改写）', () => {
+  it('need_human 旁路优先：任意 stage/progress 均收件箱', () => {
+    expect(mapToNode(info('需求', '执行中', true)), 'need_human 卡应收件箱').toBe('收件箱');
+    expect(mapToNode(info('检查', '执行完毕', true)), 'need_human 终态卡也应收件箱（冻结呈现）').toBe('收件箱');
   });
 
-  it('tests 态已废不再映射「测试」环节，与未知/空状态同降级收件箱，不抛异常', () => {
+  it('stage 挂同名环节：progress 未执行/执行中/执行完毕均不改变挂位', () => {
+    expect(mapToNode(info('需求', '未执行')), '需求阶段挂「需求」').toBe('需求');
+    expect(mapToNode(info('需求', '执行完毕')), '需求完毕压队仍挂「需求」（呈现层加待调度徽标）').toBe('需求');
+    expect(mapToNode(info('实现', '执行中')), '实现阶段挂「实现」').toBe('实现');
+    expect(mapToNode(info('实现', '执行完毕')), '实现完毕压队仍挂「实现」').toBe('实现');
+    expect(mapToNode(info('检查', '执行中')), '检查阶段挂「检查」').toBe('检查');
+  });
+
+  it('终态（检查,执行完毕）归档；历史识别值 done/recorded 防御归档', () => {
+    expect(mapToNode(info('检查', '执行完毕')), '检查完毕即归档终态').toBe('归档');
+    expect(mapToNode(info('done', '')), '历史 done 防御归档').toBe('归档');
+    expect(mapToNode(info('recorded', '')), '历史 recorded 防御归档').toBe('归档');
+  });
+
+  it('未知/空 stage 安全降级收件箱，不抛异常（防已废态复活）', () => {
+    expect(mapToNode(info('tests', '未执行')), '已废 tests 不得复活，降级收件箱').toBe('收件箱');
+    expect(mapToNode(info('', '')), '空 stage 降级收件箱').toBe('收件箱');
+    expect(mapToNode(info('weird', '执行中')), '未知 stage 降级收件箱').toBe('收件箱');
+    expect(() => mapToNode(info('tests', '')), '不得抛异常').not.toThrow();
+    expect(() => mapToNode(info('', '')), '不得抛异常').not.toThrow();
+  });
+});
+
+describe('T0037 hasRedAcceptance：验收条目有红判定', () => {
+  it('含「- 状态：红」行即 true；全绿/无节/无条目 false', () => {
+    const entry = (state: string) => ['### A1 某条目', `- 状态：${state}`].join('\n');
+    expect(hasRedAcceptance({ 验收条目: entry('红') }), '有红应 true（等重派）').toBe(true);
+    expect(hasRedAcceptance({ 验收条目: entry('绿') }), '全绿应 false').toBe(false);
+    expect(hasRedAcceptance({}), '无验收条目节应 false').toBe(false);
+    expect(hasRedAcceptance({ 验收条目: '（无条目）' }), '有条目节无状态行应 false').toBe(false);
     expect(
-      mapStatusToNode('tests'),
-      'tests 态已废（T0032 四态化），不得再映射「测试」环节，应降级收件箱',
-    ).toBe('收件箱');
-    expect(mapStatusToNode(''), '空状态应降级到收件箱').toBe('收件箱');
-    expect(mapStatusToNode('weird_status'), '未知状态应降级到收件箱').toBe('收件箱');
-    expect(() => mapStatusToNode('tests'), '已废状态不得抛异常').not.toThrow();
-    expect(() => mapStatusToNode(''), '空状态不得抛异常').not.toThrow();
-    expect(() => mapStatusToNode('weird_status'), '未知状态不得抛异常').not.toThrow();
+      hasRedAcceptance({ 原话: '- 状态：红', 验收条目: entry('绿') }),
+      '只扫验收条目节，别节红行不误判',
+    ).toBe(false);
   });
 });

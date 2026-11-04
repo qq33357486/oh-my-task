@@ -1,16 +1,20 @@
 /**
- * 【锁定接口】实现员只能实现本签名，不得修改（T0003/A1）。
+ * 【锁定接口】实现员只能实现本签名，不得修改（T0003/A1 立；T0037 改写：
+ * 一维 status 字段退役，改二维 stage×progress + need_human 布尔旁路，
+ * 改前 sha256 见 git 历史 0c72eaa 版 parseCard.ts）。
  *
  * parseCard(text: string): ParsedCard
  *
  * 契约：
  * - 输入为一张任务卡的完整文本（frontmatter + 正文九节）。
- * - frontmatter 关键字段：id、type、status、round、parent、origin、lane、batch、
+ * - frontmatter 关键字段：id、type、stage、progress、need_human、round、
+ *   parent、origin、lane、batch、
  *   title（T0015 新增：人话单行标题，看板主显用；旧卡缺该字段时为 ''）、
  *   question 与 stop_reason（T0016 新增：need_human 卡的人话决策问题与
  *   终止原因，看板卡面直显用；frontmatter 缺该字段时为 undefined，
  *   与既有必填字段的 '' 缺省不同——本两类字段按需可选）。
- *   round 解析为 number，其余为 string。
+ *   round 解析为 number；need_human 解析为 boolean（缺省 false，值须
+ *   true/false 否则 false）；其余为 string。
  * - sections：键 = 正文九节标题（不含 "## "）：
  *   原话、需求、复述卡、验收条目、系统文档改动、进度、失败原因、候选教训、人的回复；
  *   值 = 该节标题行之后到下一节标题之前的原文（含换行，不去空白）。
@@ -23,7 +27,12 @@ export interface ParsedCard {
   /** 人话单行标题（T0015：看板卡面主显；旧卡缺失时为 ''） */
   title: string;
   type: string;
-  status: string;
+  /** 阶段：需求 | 实现 | 检查（T0037 二维状态机） */
+  stage: string;
+  /** 阶段内进度：未执行 | 执行中 | 执行完毕 */
+  progress: string;
+  /** 旁路暂停态：true 时卡在收件箱，stage/progress 冻结 */
+  needHuman: boolean;
   round: number;
   parent: string;
   origin: string;
@@ -45,7 +54,9 @@ function failedCard(error: string): ParsedCard {
     id: '',
     title: '',
     type: '',
-    status: '',
+    stage: '',
+    progress: '',
+    needHuman: false,
     round: 0,
     parent: '',
     origin: '',
@@ -137,7 +148,9 @@ export function parseCard(text: string): ParsedCard {
       id: fm.id,
       title: fm.title ?? '',
       type: fm.type ?? '',
-      status: fm.status ?? '',
+      stage: fm.stage ?? '',
+      progress: fm.progress ?? '',
+      needHuman: (fm.need_human ?? '').trim().toLowerCase() === 'true',
       round: Number.isFinite(roundNum) ? roundNum : 0,
       parent: fm.parent ?? '',
       origin: fm.origin ?? '',

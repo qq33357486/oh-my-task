@@ -17,14 +17,17 @@
  * - data-flow-view="true" 根容器恰一；
  * - data-flow-node 恰三环节（需求/实现/检查）按流程序，每节点恰一
  *   data-flow-node-head="true" 标题栏，环节名带 data-flow-text="node-name"；
- * - data-flow-card-id：new/ready/review 卡挂对应环节；need_human/done/
- *   recorded 及未知状态卡不占循环（未知状态降级进待你定）；
+ * - data-flow-card-id：按 stage 挂对应环节（需求/实现/检查三环节直挂；
+ *   执行完毕但未推进的卡以「待调度」身份压在本环节栏，data-flow-await）；
+ *   need_human/未知 stage 卡不占循环（未知降级进待你定）；（检查,执行完毕）
+ *   且条目全绿=终态进归档，有红（等重派）留检查栏压队；
  * - data-flow-inbox="true" 待你定（need_human 卡直显 question/stop_reason）；
- *   data-flow-todo="true" 为「需求」环节的卡片区（new 卡完整清单，截最近
+ *   data-flow-todo="true" 为「需求」环节的卡片区（需求阶段完整清单，截最近
  *   50 张 + data-flow-todo-more 提示）；data-flow-archive="true" 最近完成
- *   （done/recorded，截最近 50 张 + data-flow-archive-more）；
+ *   （终态+历史 done/recorded，截最近 50 张 + data-flow-archive-more）；
  * - 实现/检查环节直挂最新 4 张，超出为 data-node-more="true" 计数提示；
  * - 卡面：编号 + 人话标题主显；round>0 显示「第N轮」；知识标签 data-flow-tag；
+ *   待调度徽标 data-flow-await；
  * - data-flow-link="需求→实现" / "实现→检查" 恰两条顺序连接；
  *   data-flow-edge="检查→实现"（打回）/"检查→需求"（循环）恰两条回路，各带
  *   data-flow-text="edge-label"；
@@ -36,12 +39,12 @@
 import { useMemo, useState } from 'react';
 import { Modal } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
-import { mapStatusToNode } from '../lib/flowMap';
+import { mapToNode, hasRedAcceptance } from '../lib/flowMap';
 import { NODE_CARD_LIMIT, capNodeCards } from '../lib/nodeCards';
 import { ARCHIVE_LIMIT, archiveMoreText } from '../lib/archiveList';
 import { MarkdownText } from './MarkdownText';
 
-/** 需求环节卡片区（未开始清单）的显示上限：截最近 50 张 + 更早提示 */
+/** 需求环节卡片区（需求阶段完整清单）的显示上限：截最近 50 张 + 更早提示 */
 const TODO_PANEL_LIMIT = 50;
 
 /** 循环环节（流程序）。契约：恰三环节，「测试」「记录」不得复活 */
@@ -60,12 +63,14 @@ const TEAM = [
   { name: '整理员', img: '/roles/curator.webp', duty: '合并去重，收割教训' },
 ] as const;
 
-/** 卡片全文重建（原在 Kanban.tsx，看板删除后移入 FlowView） */
+/** 卡片全文重建（原在 Kanban.tsx，看板删除后移入 FlowView；T0037 二维字段） */
 function cardFullText(card: ParsedCard): string {
   const fm = [
     `id: ${card.id}`, `title: ${card.title}`, `type: ${card.type}`,
-    `status: ${card.status}`, `round: ${card.round}`, `parent: ${card.parent}`,
-    `origin: ${card.origin}`, `lane: ${card.lane}`, `batch: ${card.batch}`,
+    `stage: ${card.stage}`, `progress: ${card.progress}`,
+    `need_human: ${card.needHuman}`, `round: ${card.round}`,
+    `parent: ${card.parent}`, `origin: ${card.origin}`,
+    `lane: ${card.lane}`, `batch: ${card.batch}`,
     `stop_reason: ${card.stop_reason ?? ''}`, `question: ${card.question ?? ''}`,
   ].join('\n');
   const body = Object.entries(card.sections)
@@ -74,14 +79,15 @@ function cardFullText(card: ParsedCard): string {
   return `---\n${fm}\n---\n\n${body}\n`;
 }
 
-/** 呈现分流：循环 / 待你定 / 最近完成（降级未知状态进待你定） */
-type Place = 'loop' | 'inbox' | 'archive';
-
-function placeOf(card: ParsedCard): Place {
-  const node = mapStatusToNode(card.status);
-  if (node === '收件箱') return 'inbox';
-  if (node === '归档') return 'archive';
-  return 'loop';
+/**
+ * 待调度判定（T0037）：执行完毕但还没被调度员推进的卡——
+ * 需求/实现阶段的执行完毕压本栏等推进；检查阶段的执行完毕若有红
+ * （等重派）也算。全绿检查卡是终态直接归档，不算待调度。
+ */
+function isAwaitingDispatch(card: ParsedCard): boolean {
+  if (card.progress !== '执行完毕') return false;
+  if (card.stage !== '检查') return true;
+  return hasRedAcceptance(card.sections);
 }
 
 /** 流程卡面：编号 + 人话标题主显；round 徽标与知识标签按需；
@@ -97,6 +103,7 @@ function FlowCard({
   onOpen: (c: ParsedCard) => void;
   variant?: 'default' | 'urgent' | 'row';
 }) {
+  const awaiting = variant !== 'urgent' && isAwaitingDispatch(card);
   return (
     <div
       className={`flow-card flow-card--${variant}`}
@@ -115,6 +122,12 @@ function FlowCard({
             {tag}
           </span>
         ) : null}
+        {/* 待调度徽标（T0037）：执行完毕压队等调度员推进/重派 */}
+        {awaiting && (
+          <span className="flow-card__await" data-flow-await="true">
+            待调度
+          </span>
+        )}
       </div>
       <div className="flow-card__title" data-flow-text="card-title">
         {card.title || card.id}
@@ -143,10 +156,13 @@ export function FlowView({
     const inbox: ParsedCard[] = [];
     const archive: ParsedCard[] = [];
     for (const card of cards) {
-      const place = placeOf(card);
-      if (place === 'loop') loop[mapStatusToNode(card.status) as StageName].push(card);
-      else if (place === 'inbox') inbox.push(card);
-      else archive.push(card);
+      // 挂位：need_human→收件箱；终态（检查,执行完毕）→归档，但有红
+      // （等重派）留检查栏压队；其余按 stage 挂三环节
+      let node = mapToNode(card);
+      if (node === '归档' && isAwaitingDispatch(card)) node = '检查';
+      if (node === '归档') archive.push(card);
+      else if (node === '收件箱') inbox.push(card);
+      else loop[node as StageName].push(card);
     }
     return { loop, inbox, archive };
   }, [cards]);
@@ -260,7 +276,7 @@ export function FlowView({
                       {hidden > 0 &&
                         (isNeed ? (
                           <div className="flow-stage__more" data-flow-todo-more="true">
-                            更早 {hidden} 张未开始未显示（仅显示最近 {TODO_PANEL_LIMIT} 张）
+                            更早 {hidden} 张需求未显示（仅显示最近 {TODO_PANEL_LIMIT} 张）
                           </div>
                         ) : (
                           <div className="flow-stage__more" data-node-more="true">

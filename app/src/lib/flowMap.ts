@@ -1,41 +1,55 @@
 /**
- * 【锁定接口】实现员只能实现本签名，不得修改（T0019/A1；T0033 改写：
- * FlowNode 去「测试」成员，改前 sha1 eb27668c6519a234babbd77a24208b4994ed28dd）。
+ * 【锁定接口】实现员只能实现本签名，不得修改（T0019/A1 立；T0033 改写：
+ * FlowNode 去「测试」成员，改前 sha1 eb27668c6519a234babbd77a24208b4994ed28dd；
+ * T0037 再改写：一维 status 映射退役，改二维 stage×progress + need_human，
+ * mapStatusToNode 更名 mapToNode，新增 hasRedAcceptance）。
  *
- * 状态→环节映射（纯函数）：把任务卡的状态码映射为循环工程人话环节名。
- * 环节用循环工程四个环节的人话名（需求/实现/检查/记录，T0033 四环节化：
- * tests 态删除后「测试」环节恒空，画布节点与环节集合均不含「测试」），
- * 不是状态码；另有两个清单位：归档（右侧清单）、收件箱（左侧清单，
- * 人拍板与降级位）。
+ * 二维状态→呈现位置映射（纯函数）：把任务卡的 stage×progress 映射为循环
+ * 工程人话位置。环节用循环工程三环节人话名（需求/实现/检查，T0033 四环节
+ * 化后「记录」节点恒空置不进本映射）+ 两个清单位：归档（右侧清单）、收件箱
+ * （左侧清单，人拍板与降级位）。
  *
- * 契约（T0019/A1 立，T0031 需求 5 改写 done 即终态，T0032 需求 6 再改写：
- * tests 态删除四态机 new→ready→review→done，T0033 改写环节集合四环节化，
- * 2026-11-03/04 人定案）：
- * - new→需求、ready→实现、review→检查（画布三环节挂卡）；
- * - done→归档（done 即归档显示，画布「记录」节点空置）、recorded→归档
- *   （历史 recorded 卡兼容，同落归档清单）、need_human→收件箱（不占画布）；
- * - tests 态已废（写测试前移咨询员，红=咨询员交付态）：状态码 tests 不再
- *   映射任何环节，按未知状态安全降级收件箱（画布已无「测试」节点可挂，
- *   T0033）；
- * - 未知/空状态安全降级到收件箱，不抛异常。
- *
- * 注意呈现层分工（T0030 改写，原 T0019/A3「new 不占画布」表述已过时）：
- * 本函数只回答「该状态属于哪个环节」；画布四环节节点一律直挂卡（new 挂
- * 需求节点，超出速览窗口由 FlowView 折叠为「更多」计数提示），未开始面板
- * 另收 new 卡作完整清单——呈现分流在 FlowView，不在本函数掺入呈现规则。
+ * 契约（T0037 二维化，2026-11-04 人定案）：
+ * - need_human=true → 收件箱（旁路暂停态，优先级最高）；
+ * - stage 需求/实现/检查 → 同名环节（画布三环节挂卡）；
+ * - （检查,执行完毕）→ 归档终态；但验收条目有红（等调度员重派）时留在
+ *   检查环节压队，由 hasRedAcceptance 判定；
+ * - done/recorded 为历史识别值（旧一维终态），防御性映射归档；
+ * - 未知/空 stage 安全降级到收件箱，不抛异常。
  */
-export type FlowNode = '需求' | '实现' | '检查' | '记录' | '归档' | '收件箱';
+export type FlowNode = '需求' | '实现' | '检查' | '归档' | '收件箱';
 
-const STATUS_TO_NODE: Record<string, FlowNode> = {
-  new: '需求',
-  ready: '实现',
-  review: '检查',
-  done: '归档',
-  recorded: '归档',
-  need_human: '收件箱',
+const STAGE_TO_NODE: Record<string, FlowNode> = {
+  需求: '需求',
+  实现: '实现',
+  检查: '检查',
 };
 
-export function mapStatusToNode(status: string): FlowNode {
-  // 未知/空状态统一降级收件箱（清单位，不占画布），不抛异常
-  return STATUS_TO_NODE[status] ?? '收件箱';
+/** 历史识别值：旧一维状态机终态（T0037 前存量），等同（检查,执行完毕） */
+const LEGACY_ARCHIVE = new Set(['done', 'recorded']);
+
+/** mapToNode 的最小入参（ParsedCard 的投影，纯字段不含 sections） */
+export interface CardStageInfo {
+  stage: string;
+  progress: string;
+  needHuman: boolean;
+}
+
+export function mapToNode(card: CardStageInfo): FlowNode {
+  if (card.needHuman) return '收件箱';
+  if (LEGACY_ARCHIVE.has(card.stage)) return '归档';
+  const node = STAGE_TO_NODE[card.stage];
+  // 终态（检查,执行完毕）归档；有红（等重派）由调用方以 hasRedAcceptance
+  // 判定后按检查环节压队呈现（本函数只做纯字段映射，不读 sections）
+  if (card.stage === '检查' && card.progress === '执行完毕') return '归档';
+  return node ?? '收件箱';
+}
+
+/**
+ * 验收条目是否有红（等重派判定）：扫「验收条目」节的 `- 状态：红` 行。
+ * 纯函数；无该节/无条目返回 false。
+ */
+export function hasRedAcceptance(sections: Record<string, string>): boolean {
+  const body = sections['验收条目'] ?? '';
+  return /^- 状态：红\s*$/m.test(body);
 }
