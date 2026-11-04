@@ -136,8 +136,10 @@ body {
 
 /* 更新徽章（T0038 照抄 DJUI：Badge dot 包 Button type="text"）：
    形状/焦点交给 antd 组件，这里只管警示色（橙字对齐 DJUI #ff8c42 警示语言）；
-   底色沿用页眉 .ant-btn 幽灵态，与刷新按钮视觉统一 */
-.app-header__update-badge {
+   底色沿用页眉 .ant-btn 幽灵态，与刷新按钮视觉统一。
+   T0038 round1 返修：单类名 0-1-0 被 antd css-in-js .css-xxx.ant-btn（0-2-0）
+   压制成白字，提权为页眉三连类 0-3-0 无条件胜出（prod 实证留 .oht/local/） */
+.app-header .ant-btn.app-header__update-badge {
   color: #ff8c42;
   font-weight: 600;
   white-space: nowrap;
@@ -716,7 +718,7 @@ body {
 }
 
 /* ===== 流程图视图（指挥台）=====
-   第一性原理布局：待你定置顶 → 三段式循环（回路用 CSS 网格画在下方）→
+   第一性原理布局：待人决策置顶 → 三段式循环（回路用 CSS 网格画在下方）→
    团队条；右侧最近完成。全页浅色，与看板同一套令牌；无画布/缩放/拖拽，
    页面自然高度，文字恒按真实字号渲染。 */
 .flow-view {
@@ -790,7 +792,7 @@ body {
   color: var(--oht-text);
 }
 
-/* ① 待你定：有事时是醒目的红调区；没事时收成一条平静的细条 */
+/* ① 待人决策：有事时是醒目的红调区；没事时收成一条平静的细条 */
 .flow-inbox {
   background: linear-gradient(180deg, #fff5f5, #ffffff 70%);
   border: 1px solid #fecaca;

@@ -274,3 +274,28 @@ describe('T0035/A8 更新徽章与全部更新', () => {
     ).not.toBeNull();
   });
 });
+
+/**
+ * T0038/A1 反向态弹窗（newerThanBundle，检查员返工建议：补自动化断言）。
+ * 目标 .oht/VERSION 新于内置 → 禁降级：弹窗只给 Ctrl+F5 强刷指引与
+ * 部署诚实行，不出现「全部更新」入口。
+ */
+describe('T0038/A1 反向态弹窗（newerThanBundle）', () => {
+  it('目标新于内置：弹窗含禁降级说明、Ctrl+F5 指引与部署诚实行，无「全部更新」', async () => {
+    const header = await openProject(fwRoot('proj', '9.9.9'));
+    await act(async () => {
+      fireEvent.click(header.querySelector('[data-update-badge]') as HTMLElement);
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeTruthy();
+      });
+    });
+    const text = screen.getByRole('dialog').textContent ?? '';
+    expect(text, '禁降级语义在场（不提供在线更新）').toContain('不提供在线更新');
+    expect(text, 'Ctrl+F5 强刷指引在场').toContain('Ctrl+F5');
+    expect(text, '部署诚实行在场（线上未部署新版）').toContain('尚未部署');
+    expect(
+      screen.queryByRole('button', { name: /全部更新/ }),
+      '禁降级：反向态不得出现「全部更新」入口',
+    ).toBeNull();
+  });
+});
