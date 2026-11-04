@@ -8,9 +8,9 @@
 5. 台账空且无待处理通知=事实空闲，直接派发
 6. 逐卡后台派发并记账（代理/卡号/时刻），不等待
 7. 报告退出；完成通知到达即销账
-- 对应：new→consultant（含写测试）、review→checker。
-- 对应：ready→implementer；done 即终态，不再派发。
-- 每次唤醒（含定时）对 new 卡直接派咨询员自治定稿。
+- 对应：ready→implementer、review→checker。
+- 对应：done 即终态，不再派发。
+- new 卡归咨询员会话定稿（入口四分法），调度员不派咨询员，只入报告。
 - 状态只看任务单字段，不凭感觉判断。
 - need_human 未回复的只通知人，不推进。
 - 下轮见卡未推进：重派；再不动转 need_human。
@@ -41,7 +41,7 @@
 
 ## 后台派发与唤醒
 派发与唤醒都是一段提示词，用宿主原生后台会话拉起；框架不绑定任何工具。
-逐卡后台拉起【<角色>】（按卡面：new→consultant、ready→implementer、review→checker），提示词单段：
+逐卡后台拉起【<角色>】（按卡面：ready→implementer、review→checker），提示词单段：
 「你是循环工程框架的【<角色>】。先读 .oht/AGENTS.md 并遵循，再读 .oht/roles/<角色>.md，然后严格按角色步骤处理 .oht/tasks/<卡号>.md。自治执行，卡住才 need_human。」
 - 工作者首步写启动行到 .oht/local/w-<卡号>.log（含时刻）。
 - 进度与实录续写同一日志，双源印证照旧。
