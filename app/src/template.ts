@@ -42,9 +42,19 @@ export const SHELL_GITKEEP_PATHS: readonly string[] = [
   '.oht/local/.gitkeep',
 ];
 
-/** 宿主 AGENTS.md 的引用行（新建=整行内容；已存在=末尾追加这一行） */
-export const HOST_REFERENCE_LINE =
-  '循环工程入口：先读 .oht/AGENTS.md 并按其调度（任务卡在 .oht/tasks/）。';
+/** 宿主 AGENTS.md 的入口块（T0040：照母本模式——版本标记行 + 入口引导，
+ *  开头插入；与 upgradeFramework 的 MARKER_RE 识别边界衔接：初始化产物
+ *  首行即版本标记，升级链路接管后只更新该行）。 */
+export function hostEntryBlock(): string {
+  return [
+    `<!-- OHT-VERSION: ${FRAMEWORK_VERSION} -->`,
+    '# 循环工程入口',
+    '循环工程框架在 .oht/：入口见 .oht/AGENTS.md，先读它并遵循。',
+  ].join('\n');
+}
+
+/** 防重复插入的判定子串（T0040 人拍板：含引用即跳过，无论措辞） */
+export const HOST_REFERENCE_MARK = '.oht/AGENTS.md';
 
 /**
  * 引导卡（T0004 需求 4；T0039 改序）：建卡初态（需求,未执行）、type=引导，教开循环/发需求/看流转。

@@ -8,13 +8,17 @@
  * - 收集后顺序落盘：成功路径按 runInit 报告的 written 顺序逐个落盘
  *   （writeLog 顺序 === written 顺序），框架模板在前、宿主 AGENTS.md
  *   收尾，引导卡 .oht/tasks/T0001.md 在列。
- * - 宿主 AGENTS.md 已存在：原内容逐字保留在前，末尾追加一行含
- *   ".oht/AGENTS.md" 的引用。
+ * - 宿主 AGENTS.md 已存在：入口块（版本标记行+入口引导）插到最前，
+ *   原内容逐字保留在后（T0040 语义，原 T0004 末尾追加语义废止）。
+ *
+ * 授权变更（2026-11-05 T0040 人直连会话需求，卡 .oht/tasks/T0040.md
+ * 为授权依据；防重复标准人拍板「含引用即跳过」。先例：T0035 授权变更
+ * 见 initProject.test.ts 头注）：插入语义断言随 runInit 契约同步。
  */
 import { memDir, readTree } from '../../test/mockFs';
 import { initializedRoot } from '../../test/fixtures';
 import { runInitOnDirectory } from '../initFs';
-import { HOST_REFERENCE_LINE } from '../../template';
+import { hostEntryBlock } from '../../template';
 import { describe, expect, it } from 'vitest';
 
 describe('T0009/A7 runInitOnDirectory', () => {
@@ -41,7 +45,7 @@ describe('T0009/A7 runInitOnDirectory', () => {
     expect(String(tree['AGENTS.md'])).toContain('.oht/AGENTS.md');
   });
 
-  it('预取探测：宿主 AGENTS.md 已存在时原文逐字保留、末尾追加引用行', async () => {
+  it('预取探测：宿主 AGENTS.md 已存在时入口块插最前、原文逐字在后', async () => {
     const original = '# 宿主项目\n项目自身的说明，一个字都不能动。\n';
     const root = memDir('host-agents', { 'AGENTS.md': original });
 
@@ -50,8 +54,11 @@ describe('T0009/A7 runInitOnDirectory', () => {
     expect(result.ok).toBe(true);
     const tree = await readTree(root);
     const content = String(tree['AGENTS.md']);
-    expect(content.startsWith(original), '原内容逐字保留在前').toBe(true);
-    expect(content, '末尾追加引用行').toContain(HOST_REFERENCE_LINE);
+    expect(
+      content.startsWith(`${hostEntryBlock()}\n\n`),
+      '入口块（版本标记+入口引导）插到最前',
+    ).toBe(true);
+    expect(content.endsWith(original), '原内容逐字保留在后').toBe(true);
     expect(
       content.split('\n').filter((line) => line.includes('.oht/AGENTS.md')).length,
       '引用行恰好一行',

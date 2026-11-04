@@ -16,17 +16,20 @@
  * - readFile 只允许在 exists(path) 为 true 时调用；空目录场景不得调用。
  * - 幂等拒绝：exists('.oht') 为 true 时，返回
  *   { ok:false, reason:非空字符串, written:[] }，且 writeFile 零调用。
- * - 成功：ok=true，written 含全部实际写入路径；宿主 AGENTS.md 已存在时，
- *   写入内容 = 原内容逐字在前 + 末尾追加一行含 ".oht/AGENTS.md" 的引用。
+ * - 成功：ok=true，written 含全部实际写入路径；宿主 AGENTS.md（T0040 起）：
+ *   不存在 → 新建 = 入口块（版本标记行 + 入口引导，照母本模式）；
+ *   已存在且含 ".oht/AGENTS.md" 引用 → 防重复跳过，零写入（written 不含）；
+ *   已存在且不含引用 → 入口块插到最前（原内容整体下移、逐字保留在后）。
  */
 import {
   BOOTSTRAP_CARD,
   FRAMEWORK_FILES,
   FRAMEWORK_VERSION,
-  HOST_REFERENCE_LINE,
+  HOST_REFERENCE_MARK,
   RULES_SKELETON,
   SHELL_GITKEEP_PATHS,
   TEMPLATE_FILES,
+  hostEntryBlock,
 } from '../template';
 
 /**
@@ -79,8 +82,9 @@ export function runInit(
   write('.oht/knowledge/rules.md', RULES_SKELETON);
 
   // 2.6 .oht/.manifest（T0035：版本 + 逐文件 sha256，供升级链路防篡改对账；
-  //    哈希取自内置副本预生成摘要。宿主 AGENTS.md 此处尚无版本标记，
-  //    属宿主自管文件，不入 manifest——与 upgradeFramework 的 user_kept 语义一致）
+  //    哈希取自内置副本预生成摘要。宿主 AGENTS.md 虽含框架管理的版本标记行
+  //    （T0040 起初始化即写入），但正文属宿主自管、随时可改，入 manifest
+  //    会对账误报——不入，升级链路按标记行识别管理边界，语义一致）
   const manifestFiles = Object.fromEntries(
     FRAMEWORK_FILES.filter((f) => f.path !== 'AGENTS.md').map((f) => [f.path, f.sha256]),
   );
@@ -90,14 +94,17 @@ export function runInit(
   // 3. 引导卡：教发需求、卡流转、开定时角色
   write(BOOTSTRAP_CARD.path, BOOTSTRAP_CARD.content);
 
-  // 4. 宿主 AGENTS.md：无则新建一行引用；有则原内容逐字保留+末尾追加一行引用
+  // 4. 宿主 AGENTS.md（T0040）：开头插入入口块（照母本模式，醒目且
+  //    agent 必读）；原内容已含 .oht/AGENTS.md 引用则防重复跳过零写入
   if (exists('AGENTS.md')) {
     const original = readFile('AGENTS.md');
-    // 原文不以换行结尾时补一个，保证追加行独立成行（原内容仍逐字在前）
-    const gap = original.length > 0 && !original.endsWith('\n') ? '\n' : '';
-    write('AGENTS.md', `${original}${gap}${HOST_REFERENCE_LINE}\n`);
+    if (original.includes(HOST_REFERENCE_MARK)) {
+      // 防重复：已有任一形态的入口引用（老版末尾追加行/手工添加），不再插
+    } else {
+      write('AGENTS.md', `${hostEntryBlock()}\n\n${original}`);
+    }
   } else {
-    write('AGENTS.md', `${HOST_REFERENCE_LINE}\n`);
+    write('AGENTS.md', `${hostEntryBlock()}\n`);
   }
 
   return { ok: true, written };

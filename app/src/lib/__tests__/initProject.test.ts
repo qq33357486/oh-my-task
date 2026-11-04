@@ -14,10 +14,22 @@
  * - rules.md 断言语义收紧：内容必须是装机骨架 RULES_SKELETON，
  *   不得把母本业务 rules.md 当模板拷贝（漂移污染防复活）。
  * runInit 三参签名、幂等拒绝、宿主 AGENTS.md 追加语义不变。
+ *
+ * 授权变更二（2026-11-05 T0040 人直连会话需求，防重复标准人拍板
+ * 「含引用即跳过」；卡 .oht/tasks/T0040.md 为授权依据，先例同上）：
+ * 宿主 AGENTS.md 插入语义变更——T0004 的「末尾追加一行引用」改为
+ * 「开头插入入口块（版本标记行+入口引导，照母本模式）」，动因：末尾追加
+ * 在长文件中不可见（用户实测反馈「初始化后没看到提示词」）；并新增
+ * 防重复插入：原内容含 .oht/AGENTS.md 引用（任一形态）即跳过零写入。
+ * runInit 三参签名、幂等拒绝语义不变。
  */
 import { describe, it, expect } from 'vitest';
 import { runInit } from '../initProject';
-import { FRAMEWORK_VERSION, RULES_SKELETON } from '../../template';
+import {
+  FRAMEWORK_VERSION,
+  RULES_SKELETON,
+  hostEntryBlock,
+} from '../../template';
 
 /** roles/ 全套 = 母本 roles/ 现有 9 个文件（dispatcher-intake 已删，见头部授权） */
 const ROLE_FILES = [
@@ -136,17 +148,17 @@ describe('runInit', () => {
     );
   });
 
-  it('A1 空目录：新建宿主 AGENTS.md，内容含 .oht/AGENTS.md 引用', () => {
+  it('A1 空目录：新建宿主 AGENTS.md = 入口块（版本标记行+入口引导）', () => {
     const env = makeEnv();
     runInit(env.writeFile, env.exists, env.readFile);
     const host = env.files.get('AGENTS.md');
     expect(host !== undefined, '空目录应新建宿主 AGENTS.md').toBe(true);
-    expect(host ?? '', '新建的宿主 AGENTS.md 应引用 .oht/AGENTS.md').toContain(
-      '.oht/AGENTS.md',
-    );
+    expect(host, '新建内容 = 入口块全文+换行').toBe(`${hostEntryBlock()}\n`);
+    expect(host?.startsWith(`<!-- OHT-VERSION: ${FRAMEWORK_VERSION} -->`), '首行为版本标记行').toBe(true);
+    expect(host ?? '', '应引用 .oht/AGENTS.md').toContain('.oht/AGENTS.md');
   });
 
-  it('A2 宿主已有 AGENTS.md：原内容逐字保留，末尾追加一行含 .oht/AGENTS.md', () => {
+  it('A2 宿主已有 AGENTS.md：入口块插到最前，原内容逐字保留在后', () => {
     const original = '# 我的工程\n\n自定义说明，不要动我。\n';
     const env = makeEnv({
       existsPaths: ['AGENTS.md'],
@@ -158,16 +170,46 @@ describe('runInit', () => {
     const host = env.files.get('AGENTS.md');
     expect(host !== undefined, '宿主 AGENTS.md 应被写入').toBe(true);
     expect(
-      host?.startsWith(original),
-      '原内容必须逐字保留在最前',
+      host?.startsWith(`${hostEntryBlock()}\n\n`),
+      '入口块应在最前（含空行分隔）',
     ).toBe(true);
-    const appended = (host ?? '').slice(original.length);
-    expect(appended.trim().length, '末尾应有追加内容').toBeGreaterThan(0);
+    expect(host?.endsWith(original), '原内容必须逐字保留在后').toBe(true);
+    const inserted = (host ?? '').slice(0, hostEntryBlock().length);
     expect(
-      appended.split('\n').filter((line) => line.includes('.oht/AGENTS.md'))
+      inserted.split('\n').filter((line) => line.includes('.oht/AGENTS.md'))
         .length,
-      '追加部分应恰有一行引用 .oht/AGENTS.md',
+      '入口块应恰有一行引用 .oht/AGENTS.md',
     ).toBe(1);
+  });
+
+  it('A2b 防重复：原内容已含 .oht/AGENTS.md 引用（任一形态）即跳过，零写入', () => {
+    // 场景一：老版本初始化的末尾追加形态
+    const legacy = '# 我的工程\n循环工程入口：先读 .oht/AGENTS.md 并按其调度（任务卡在 .oht/tasks/）。\n';
+    // 场景二：宿主手工写的其他措辞引用
+    const handmade = '先看 .oht/AGENTS.md 再干活。\n';
+    for (const [label, original] of [
+      ['老版末尾追加形态', legacy],
+      ['手工其他措辞', handmade],
+    ] as const) {
+      const env = makeEnv({
+        existsPaths: ['AGENTS.md'],
+        seedFiles: { 'AGENTS.md': original },
+      });
+      const result = runInit(env.writeFile, env.exists, env.readFile);
+      expect(result.ok, `${label}：初始化整体应成功`).toBe(true);
+      expect(
+        result.written.includes('AGENTS.md'),
+        `${label}：防重复跳过，AGENTS.md 不得入 written`,
+      ).toBe(false);
+      expect(
+        env.writeFileCalls.some((c) => c.path === 'AGENTS.md'),
+        `${label}：AGENTS.md 零写入`,
+      ).toBe(false);
+      expect(
+        env.files.get('AGENTS.md'),
+        `${label}：原内容逐字不动`,
+      ).toBe(original);
+    }
   });
 
   it('A3 已存在 .oht/：拒绝、reason 非空、writeFile 零调用', () => {
