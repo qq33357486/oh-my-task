@@ -13,6 +13,7 @@
 import { useState } from 'react';
 import { Alert, Button, Result, Space } from 'antd';
 import { runInitOnDirectory } from '../fs/initFs';
+import { friendlyError } from '../lib/uiError';
 import { useAppStore } from '../store';
 
 type InitState =
@@ -38,10 +39,7 @@ export function NoProject() {
         setState({ kind: 'refused', reason: result.reason ?? '该目录已初始化' });
       }
     } catch (e) {
-      setState({
-        kind: 'error',
-        message: e instanceof Error ? e.message : String(e),
-      });
+      setState({ kind: 'error', message: friendlyError('初始化', e) });
     }
   };
 
@@ -58,7 +56,7 @@ export function NoProject() {
       <Result
         status="warning"
         title="该目录未初始化循环工程"
-        subTitle="未找到 .oht/ 目录。可以「初始化此目录」一键装入循环工程（写入 .oht/ 框架与引导卡，已有 .oht/ 时拒绝执行不覆盖）；或取消留在本页。"
+        subTitle="这个目录还没有循环工程。可以「初始化此目录」一键装入，或取消留在本页。"
       />
       <Space size="middle" style={{ justifyContent: 'center', display: 'flex' }}>
         <Button

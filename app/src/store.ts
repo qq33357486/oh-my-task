@@ -21,6 +21,7 @@ import {
 } from './lib/frameworkUpdate';
 import { scanTasks, type ScannedCard } from './lib/scanTasks';
 import { FRAMEWORK_VERSION } from './template';
+import { friendlyError } from './lib/uiError';
 
 /** 数据迁移短路表（T0041）：本项目会话内已迁移过的目录名不再探测。
  *  迁移本身幂等，此表只为省轮询的重复读；页面刷新后清空重跑一次无害。 */
@@ -94,7 +95,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         frameworkInstalledVersion: null,
       });
     } catch (e) {
-      set({ error: `恢复目录失败: ${e instanceof Error ? e.message : String(e)}` });
+      set({ error: friendlyError('恢复目录', e) });
     }
   },
 
@@ -109,7 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (e) {
       // 用户取消选择不算错误
       if (e instanceof DOMException && e.name === 'AbortError') return;
-      set({ error: `选择目录失败: ${e instanceof Error ? e.message : String(e)}` });
+      set({ error: friendlyError('选择目录', e) });
     }
   },
 
@@ -120,7 +121,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       saveRecent(pushRecent(loadRecent(), handle.name));
       await get().refresh();
     } catch (e) {
-      set({ error: `切换目录失败: ${e instanceof Error ? e.message : String(e)}` });
+      set({ error: friendlyError('切换目录', e) });
     }
   },
 
@@ -177,7 +178,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
     } catch (e) {
-      set({ error: `扫描任务卡失败: ${e instanceof Error ? e.message : String(e)}` });
+      set({ error: friendlyError('读取任务卡', e) });
     } finally {
       set({ loading: false });
     }
@@ -198,7 +199,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     } catch (e) {
       set({
-        error: `检查工程更新失败: ${e instanceof Error ? e.message : String(e)}`,
+        error: friendlyError('检查更新', e),
       });
     }
   },

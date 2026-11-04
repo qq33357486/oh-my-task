@@ -25,6 +25,7 @@ import { flushSync } from 'react-dom';
 import { Badge, Button, Dropdown, Modal, Space } from 'antd';
 import type { MenuProps } from 'antd';
 import { useAppStore } from '../store';
+import { friendlyError } from '../lib/uiError';
 import { projectContext } from '../fs/projectContext';
 import { upgradeFramework } from '../fs/frameworkWriter';
 import { loadRecent, pushRecent, saveRecent } from '../lib/recentProjects';
@@ -150,16 +151,19 @@ export function MenuBar() {
     try {
       const result = await upgradeFramework(root);
       if (result.ok) {
-        setUpgradeNote(
-          `升级完成：新增 ${result.counts.add}、更新 ${result.counts.update}、未变 ${result.counts.same}（差异文件留 .oht/.upgrade-bak/）`,
-        );
-        // 升级后全量复检：徽章随 frameworkState 变 upToDate 而消失
-        await checkUpdate();
+        setUpgradeNote(`已更新到 ${FRAMEWORK_VERSION}`);
+        // 升级后全量复检：徽章随 frameworkState 变 upToDate 而消失；
+        // 复检失败不影响升级结果展示（T0044：不覆盖已成功的提示）
+        try {
+          await checkUpdate();
+        } catch {
+          /* 复检失败静默：下轮刷新自动重评 */
+        }
       } else {
-        setUpgradeNote(result.reason ?? '升级被拒绝');
+        setUpgradeNote(result.reason ?? '本次未更新');
       }
     } catch (e) {
-      setUpgradeNote(`升级失败: ${e instanceof Error ? e.message : String(e)}`);
+      setUpgradeNote(friendlyError('升级', e));
     } finally {
       setUpgrading(false);
     }
@@ -252,11 +256,11 @@ export function MenuBar() {
         ) : (
           <>
             <p>
-              版本变迁：目标 {installedLabel} → 内置 {FRAMEWORK_VERSION}
+              版本：目标 {installedLabel} → 最新 {FRAMEWORK_VERSION}
             </p>
             {frameworkState === 'modified' && (
               <p>
-                框架文件与安装清单（.oht/.manifest）不符，可能被手改；全部更新可恢复为内置版本，差异文件留 .oht/.upgrade-bak/。
+                框架文件被动过。全部更新可恢复为最新版本（原文件会先备份）。
               </p>
             )}
             {frameworkState === 'upToDate' && <p>目标工程框架已是内置版本，无需更新。</p>}
