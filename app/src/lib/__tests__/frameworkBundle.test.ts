@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON } from '../../template';
+import { BOOTSTRAP_CARD, FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON } from '../../template';
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,6 +39,47 @@ function packManifest(): string[] {
 function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex');
 }
+
+describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
+  const file = (rel: string): string =>
+    FRAMEWORK_FILES.find((f) => f.path === rel)?.content ?? '';
+
+  it('入口五分法：AGENTS.md 含引导分支与「拿不准」降为第 5', () => {
+    const agents = file('.oht/AGENTS.md');
+    expect(agents).toContain('咨询员接待五分法');
+    expect(agents).toContain('4. 无需求/用法不对：按引导节接待');
+    expect(agents).toContain('5. 拿不准：反问一个选择题');
+  });
+
+  it('consultant.md 引导节：三分支 + 心跳判活 + 勿扰与命名建议', () => {
+    const consultant = file('.oht/roles/consultant.md');
+    expect(consultant).toContain('## 引导（五分法第 4 分支）');
+    expect(consultant).toContain('读 .oht/local/dispatcher.log 末行');
+    expect(consultant).toContain('无心跳或停摆：协助建调度员');
+    expect(consultant).toContain('命名建议「调度员【自动】」');
+    expect(consultant).toContain('需求另开会话交代，勿扰调度员会话');
+  });
+
+  it('dispatcher.md 心跳：收尾一行 + 截尾 50', () => {
+    const dispatcher = file('.oht/roles/dispatcher.md');
+    expect(dispatcher).toContain('收尾记心跳：.oht/local/dispatcher.log 一行');
+    expect(dispatcher).toContain('超 50 行截尾留 50');
+  });
+
+  it('引导卡三件事改序：调度员第一，调度令话术在卡，巡检员教程退役', () => {
+    const bootstrap = BOOTSTRAP_CARD.content;
+    expect(bootstrap).toContain('1. 开启循环（最关键）');
+    expect(bootstrap).toContain('调度令：读 .oht/AGENTS.md 并照做');
+    expect(bootstrap).toContain('调度员【自动】');
+    expect(bootstrap).toContain('2. 发第一个需求');
+    expect(bootstrap).toContain('3. 看懂卡流转');
+    expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
+  });
+
+  it('框架版本 0.1.4', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.4');
+  });
+});
 
 describe('T0035/A5 内置框架副本与母本一致', () => {
   it('路径集合与 pack.py 权威清单全等', () => {
