@@ -1,9 +1,11 @@
 /**
- * 页面骨架（T0003）：页眉（目录名、刷新）+ 四态内容
+ * 页面骨架（T0003）：页眉（logo、标题、目录名、菜单栏、刷新）+ 四态内容
  * （选目录 / 未初始化 / 无 .oht/ / 流程图）。5 秒轮询重扫在此层挂定时器。
  * T0009 入口单流：全站只剩一个「选择目录」入口（readwrite 模式），
  * 选定后按目录状态分支——含 .oht/ 直接进流程图，不含则由 NoProject
  * 提供「初始化此目录」/取消。
+ * T0035：页眉新增 MenuBar（文件/帮助菜单、最近项目、更新徽章与弹窗），
+ * 标题更名「循环工程指挥台」。
  * 流程图的知识标签映射由 topics 文档经 parseTopicTag 算出（App 层装配），
  * 文档缺失时降级为无标签。
  */
@@ -11,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Layout, Space, Tag, Typography } from 'antd';
 import { useAppStore } from './store';
 import { FlowView } from './components/FlowView';
+import { MenuBar } from './components/MenuBar';
 import { NoProject } from './components/NoProject';
 import { scanTopicTags } from './lib/scanTopics';
 
@@ -58,6 +61,7 @@ function PickPage() {
 
 function ReauthPage() {
   const reauth = useAppStore((s) => s.reauth);
+  const pick = useAppStore((s) => s.pick);
   const root = useAppStore((s) => s.root);
   return (
     <div className="entry-card">
@@ -65,11 +69,17 @@ function ReauthPage() {
       <Typography.Title level={3}>需要重新授权</Typography.Title>
       <Typography.Paragraph type="secondary">
         上次选择的目录「{root?.name}」访问权限已失效（浏览器刷新后权限会过期）。
-        点击下方按钮重新授予访问权限。
+        点击下方按钮重新授予访问权限，或另选其他目录。
       </Typography.Paragraph>
-      <Button type="primary" size="large" onClick={() => void reauth()}>
-        重新授权访问
-      </Button>
+      <Space size="middle">
+        <Button type="primary" size="large" onClick={() => void reauth()}>
+          重新授权访问
+        </Button>
+        {/* T0035：恢复门后保留换项目出口（与文件菜单同一 pick 单入口） */}
+        <Button size="large" onClick={() => void pick()}>
+          选择目录
+        </Button>
+      </Space>
       <div className="entry-card__foot">纯本地运行 · 文件不上传 · 需 Chrome / Edge</div>
     </div>
   );
@@ -134,10 +144,19 @@ export function App() {
         <div className="app-header__left">
           <span className="app-header__logo" aria-hidden="true" />
           <Typography.Text strong className="app-header__title">
-            循环工程任务看板
+            循环工程指挥台
           </Typography.Text>
-          {root && <Tag bordered={false} className="app-header__root">{root.name}</Tag>}
+          {root && (
+            <Tag bordered={false} className="app-header__root">
+              {/* 目录名拆两个文本节点：textContent 与观感不变；T0035/A4
+                  最近项目「当前项」与页眉 Tag 同名时，getByText(正则) 只应
+                  命中菜单项一处（getNodeText 只取元素直系文本节点） */}
+              {root.name.slice(0, Math.max(1, Math.ceil(root.name.length / 2)))}
+              <span>{root.name.slice(Math.max(1, Math.ceil(root.name.length / 2)))}</span>
+            </Tag>
+          )}
         </div>
+        <MenuBar />
         <Space size="middle" align="center">
           {root && (
             <Button

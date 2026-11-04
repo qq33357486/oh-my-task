@@ -1,33 +1,29 @@
 /**
- * 初始化模板清单（T0004）。
+ * 内置框架副本门面（T0035 生成式重构，手拷退役）。
  *
- * app/src/template/ 下文件 = 本仓库 .oht/ 框架区「原样拷贝」（字节一致），
- * 每份导入处的注释标明来源母本，发版时从本仓库 .oht/ 重新同步。
- * 结构约定（.oht/ 布局）必须与本仓库框架区一致，见 .oht/PROTOCOL.md「框架与业务」。
+ * 数据唯一来源：src/template/bundle.gen.ts——由 app/scripts/gen-template.py
+ * 从仓库母本（.oht/ + 根 AGENTS.md，清单唯一权威源 = pack.py 的
+ * FRAMEWORK_FILES）生成，重跑幂等，禁手改。一致性由
+ * lib/__tests__/frameworkBundle.test.ts 锁定（content 逐字一致、sha256
+ * 独立 oracle 复核、FRAMEWORK_VERSION 同源、RULES_SKELETON 非业务文件）。
  *
- * 不属模板的部分：
+ * 本文件只做派生与既有导出的兼容：
+ * - TEMPLATE_FILES 改为派生自 FRAMEWORK_FILES（.oht/ 下 20 项；根
+ *   AGENTS.md 不入初始化模板，由 runInit 语义自理：引用行、宿主自管）。
+ * - rules.md 属业务文件不入清单；初始化时由 runInit 写 RULES_SKELETON。
  * - 业务数据区（tasks/ 的卡、knowledge/log/、local/）由 runInit 生成空壳
- *   （.gitkeep 占位），不在这里拷贝；
- * - 引导卡 .oht/tasks/T0001.md 由 runInit 生成，内容为本模块常量
- *   （母本仓库的 tasks/ 里没有它，它是给被初始化项目的种子卡）。
+ *   （.gitkeep 占位）；引导卡 .oht/tasks/T0001.md 由 runInit 生成为常量
+ *   BOOTSTRAP_CARD（母本 tasks/ 里没有它）。
  */
-import AGENTS_MD from './template/AGENTS.md?raw'; // 来源：.oht/AGENTS.md
-import PROTOCOL_MD from './template/PROTOCOL.md?raw'; // 来源：.oht/PROTOCOL.md
-import ROLE_CHECKER from './template/roles/checker.md?raw'; // 来源：.oht/roles/checker.md
-import ROLE_CONSULTANT from './template/roles/consultant.md?raw'; // 来源：.oht/roles/consultant.md
-import ROLE_CONSULTANT_BRIEF from './template/roles/consultant-brief.md?raw'; // 来源：.oht/roles/consultant-brief.md
-import ROLE_CURATOR from './template/roles/curator.md?raw'; // 来源：.oht/roles/curator.md
-import ROLE_DISPATCHER from './template/roles/dispatcher.md?raw'; // 来源：.oht/roles/dispatcher.md
-import ROLE_DISPATCHER_INTAKE from './template/roles/dispatcher-intake.md?raw'; // 来源：.oht/roles/dispatcher-intake.md
-import ROLE_IMPLEMENTER from './template/roles/implementer.md?raw'; // 来源：.oht/roles/implementer.md
-import ROLE_MEMORY from './template/roles/memory.md?raw'; // 来源：.oht/roles/memory.md
-import ROLE_MEMORY_TOOLS from './template/roles/memory-tools.md?raw'; // 来源：.oht/roles/memory-tools.md
-import ROLE_PATROL from './template/roles/patrol.md?raw'; // 来源：.oht/roles/patrol.md
-import SCRIPT_CHECK_CARD from './template/scripts/check-card.py?raw'; // 来源：.oht/scripts/check-card.py
-import SCRIPT_CHECK_SIZE from './template/scripts/check-size.py?raw'; // 来源：.oht/scripts/check-size.py
-import TASKS_TEMPLATE from './template/tasks/_template.md?raw'; // 来源：.oht/tasks/_template.md
-import KNOWLEDGE_RULES from './template/knowledge/rules.md?raw'; // 来源：.oht/knowledge/rules.md
-import TOPICS_TEMPLATE from './template/knowledge/topics/_template.md?raw'; // 来源：.oht/knowledge/topics/_template.md
+import {
+  FRAMEWORK_FILES,
+  FRAMEWORK_VERSION,
+  RULES_SKELETON,
+  type BundleFile,
+} from './template/bundle.gen';
+
+export { FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON };
+export type { BundleFile };
 
 export interface TemplateFile {
   /** 相对目标目录根的 POSIX 风格路径（如 .oht/AGENTS.md） */
@@ -35,26 +31,10 @@ export interface TemplateFile {
   content: string;
 }
 
-/** 框架区模板全套（与母本 .oht/ 框架区一一对应） */
-export const TEMPLATE_FILES: TemplateFile[] = [
-  { path: '.oht/AGENTS.md', content: AGENTS_MD },
-  { path: '.oht/PROTOCOL.md', content: PROTOCOL_MD },
-  { path: '.oht/roles/checker.md', content: ROLE_CHECKER },
-  { path: '.oht/roles/consultant.md', content: ROLE_CONSULTANT },
-  { path: '.oht/roles/consultant-brief.md', content: ROLE_CONSULTANT_BRIEF },
-  { path: '.oht/roles/curator.md', content: ROLE_CURATOR },
-  { path: '.oht/roles/dispatcher.md', content: ROLE_DISPATCHER },
-  { path: '.oht/roles/dispatcher-intake.md', content: ROLE_DISPATCHER_INTAKE },
-  { path: '.oht/roles/implementer.md', content: ROLE_IMPLEMENTER },
-  { path: '.oht/roles/memory.md', content: ROLE_MEMORY },
-  { path: '.oht/roles/memory-tools.md', content: ROLE_MEMORY_TOOLS },
-  { path: '.oht/roles/patrol.md', content: ROLE_PATROL },
-  { path: '.oht/scripts/check-card.py', content: SCRIPT_CHECK_CARD },
-  { path: '.oht/scripts/check-size.py', content: SCRIPT_CHECK_SIZE },
-  { path: '.oht/tasks/_template.md', content: TASKS_TEMPLATE },
-  { path: '.oht/knowledge/rules.md', content: KNOWLEDGE_RULES },
-  { path: '.oht/knowledge/topics/_template.md', content: TOPICS_TEMPLATE },
-];
+/** 初始化模板清单（派生：FRAMEWORK_FILES 的 .oht/ 子集，20 项） */
+export const TEMPLATE_FILES: TemplateFile[] = FRAMEWORK_FILES.filter(
+  (file: BundleFile) => file.path.startsWith('.oht/'),
+).map((file) => ({ path: file.path, content: file.content }));
 
 /** 业务数据区空壳：.gitkeep 占位，保证空目录可提交可感知 */
 export const SHELL_GITKEEP_PATHS: readonly string[] = [

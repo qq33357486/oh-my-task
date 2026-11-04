@@ -106,6 +106,66 @@ body {
   font-size: 12px;
 }
 
+/* ===== T0035 菜单栏与更新徽章 ===== */
+.app-header__menubar {
+  flex: none;
+}
+
+/* 文件/帮助触发器：div 不命中 .app-header .ant-btn，幽灵态必须自带
+   （T0035 round 1 返修：继承色落页眉黑底仅 1.07:1 近隐形）——
+   底/边框/白字与 hover 提亮逐字对齐 .app-header .ant-btn 幽灵态；
+   打开态走 rc-dropdown 注入的 ant-dropdown-open 类，同 hover 可读 */
+.app-header__menu-trigger {
+  padding: 3px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.app-header__menu-trigger:hover,
+.app-header__menu-trigger.ant-dropdown-open {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 更新徽章：橙点脉冲（走 --oht-st-tests 令牌），醒目不打扰 */
+.app-header__update-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--oht-st-tests);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.app-header__update-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: oht-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header__update-badge::before {
+    animation: none;
+  }
+}
+
+
 
 
 /* 页眉刷新按钮：深底幽灵形态 */

@@ -21,7 +21,10 @@
  */
 import {
   BOOTSTRAP_CARD,
+  FRAMEWORK_FILES,
+  FRAMEWORK_VERSION,
   HOST_REFERENCE_LINE,
+  RULES_SKELETON,
   SHELL_GITKEEP_PATHS,
   TEMPLATE_FILES,
 } from '../template';
@@ -61,7 +64,8 @@ export function runInit(
     written.push(path);
   };
 
-  // 1. 框架模板全套（与母本 .oht/ 框架区结构一致）
+  // 1. 框架模板全套（生成式副本，与母本 .oht/ 框架区逐字一致；
+  //    rules.md 属业务文件不入清单，见第 3 步单独铺装机骨架）
   for (const file of TEMPLATE_FILES) {
     write(file.path, file.content);
   }
@@ -70,6 +74,18 @@ export function runInit(
   for (const path of SHELL_GITKEEP_PATHS) {
     write(path, '');
   }
+
+  // 2.5 rules.md 装机空骨架（T0035：绝不把母本业务 rules.md 当模板拷贝）
+  write('.oht/knowledge/rules.md', RULES_SKELETON);
+
+  // 2.6 .oht/.manifest（T0035：版本 + 逐文件 sha256，供升级链路防篡改对账；
+  //    哈希取自内置副本预生成摘要。宿主 AGENTS.md 此处尚无版本标记，
+  //    属宿主自管文件，不入 manifest——与 upgradeFramework 的 user_kept 语义一致）
+  const manifestFiles = Object.fromEntries(
+    FRAMEWORK_FILES.filter((f) => f.path !== 'AGENTS.md').map((f) => [f.path, f.sha256]),
+  );
+  const manifest = { version: FRAMEWORK_VERSION, files: manifestFiles };
+  write('.oht/.manifest', `${JSON.stringify(manifest, null, 1)}\n`);
 
   // 3. 引导卡：教发需求、卡流转、开定时角色
   write(BOOTSTRAP_CARD.path, BOOTSTRAP_CARD.content);

@@ -1,0 +1,99 @@
+/**
+ * T0035/A5 内置框架副本=母本生成（咨询员随卡交付，锁定契约；漂移探测器）。
+ *
+ * 契约（src/template.ts 新增导出，产物由生成脚本从母本 .oht/ + pack 清单产出）：
+ * - FRAMEWORK_FILES: {path, content, sha256}[]，路径集合与
+ *   .oht/scripts/pack.py 的 FRAMEWORK_FILES（唯一权威清单）全等；
+ * - content 与仓库对应文件逐字一致（path 相对仓库根：'AGENTS.md' 指根文件，
+ *   '.oht/…' 指框架区文件）——手拷漂移（旧例：dispatcher-intake 已删未同步、
+ *   业务 rules.md 被当模板）在此必红；
+ * - sha256 为 content 的十六进制 sha256（.manifest 直写依赖，独立 oracle 复核）；
+ * - FRAMEWORK_VERSION === .oht/VERSION；
+ * - RULES_SKELETON：装机空骨架（install.py 语义），绝不能是母本业务 rules.md。
+ */
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON } from '../../template';
+
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+);
+
+function readRepo(rel: string): string {
+  return readFileSync(path.join(REPO_ROOT, ...rel.split('/')), 'utf8');
+}
+
+/** 从 pack.py 源文本提取 FRAMEWORK_FILES 清单（唯一权威源，不另立清单） */
+function packManifest(): string[] {
+  const src = readRepo('.oht/scripts/pack.py');
+  const start = src.indexOf('FRAMEWORK_FILES = [');
+  const end = src.indexOf('\n]', start);
+  const block = src.slice(start, end);
+  return [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+}
+
+function sha256(content: string): string {
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+describe('T0035/A5 内置框架副本与母本一致', () => {
+  it('路径集合与 pack.py 权威清单全等', () => {
+    const expected = packManifest();
+    const got = FRAMEWORK_FILES.map((f) => f.path);
+    expect(got.sort()).toEqual(expected.sort());
+  });
+
+  it('每个框架文件 content 与仓库母本逐字一致', () => {
+    for (const f of FRAMEWORK_FILES) {
+      expect(
+        f.content,
+        `${f.path} 必须与母本逐字一致（生成式拷贝，禁手改）`,
+      ).toBe(readRepo(f.path));
+    }
+  });
+
+  it('每项 sha256 是 content 的十六进制 sha256', () => {
+    for (const f of FRAMEWORK_FILES) {
+      expect(f.sha256, `${f.path} 的 sha256 与独立 oracle 不符`).toBe(
+        sha256(f.content),
+      );
+    }
+  });
+
+  it('FRAMEWORK_VERSION 与 .oht/VERSION 同值', () => {
+    expect(FRAMEWORK_VERSION).toBe(readRepo('.oht/VERSION').trim());
+  });
+
+  it('清单负锚：无 dispatcher-intake、无业务 rules.md；正锚：scripts 全套与 VERSION 在列', () => {
+    const paths = FRAMEWORK_FILES.map((f) => f.path);
+    expect(paths, 'dispatcher-intake 已随框架批次删除，不得复活').not.toContain(
+      '.oht/roles/dispatcher-intake.md',
+    );
+    expect(paths, 'rules.md 属业务文件，只能装机生成骨架').not.toContain(
+      '.oht/knowledge/rules.md',
+    );
+    for (const rel of [
+      'AGENTS.md',
+      '.oht/AGENTS.md',
+      '.oht/VERSION',
+      '.oht/scripts/install.py',
+      '.oht/scripts/lock.py',
+      '.oht/scripts/newcard.py',
+      '.oht/scripts/pack.py',
+    ]) {
+      expect(paths, `${rel} 必须在内置清单（升级要写它）`).toContain(rel);
+    }
+  });
+
+  it('RULES_SKELETON 是装机骨架而非母本业务 rules.md', () => {
+    expect(RULES_SKELETON.length, '骨架非空').toBeGreaterThan(0);
+    expect(RULES_SKELETON).toContain('常驻规则');
+    expect(RULES_SKELETON, '不得把母本业务 rules.md 当模板拷贝').not.toBe(
+      readRepo('.oht/knowledge/rules.md'),
+    );
+  });
+});

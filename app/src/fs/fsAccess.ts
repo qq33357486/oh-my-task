@@ -123,3 +123,20 @@ export async function clearHandles(): Promise<void> {
     };
   });
 }
+
+/** 删除单个 key 的句柄（T0035：关闭项目只清默认 key，分 key 保留） */
+export async function deleteHandle(key: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}

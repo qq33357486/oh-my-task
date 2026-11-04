@@ -342,6 +342,14 @@ function ensureFakeIndexedDB(): void {
                     schedule(r, () => kv!.get(key));
                     return r;
                   },
+                  delete(key: string) {
+                    const r = mkReq();
+                    schedule(r, () => {
+                      kv!.delete(key);
+                      return undefined;
+                    });
+                    return r;
+                  },
                   clear() {
                     const r = mkReq();
                     schedule(r, () => {
