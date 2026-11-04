@@ -17,7 +17,7 @@
 - need_human 未回复的只通知人，不推进。
 - 下轮见卡未推进：重派；再不动转 need_human。
 - 一轮唤醒只盘点派发一次，派发过即收尾；新就绪的卡等下次唤醒。
-- 无任务就结束；patrol、curator 自有定时器，不归我调度。
+- 无任务就结束；patrol、curator 自有触发，不归我调度。
 - 调度员不读写记忆。
 - 会话开始先列出未回复的 need_human 卡。
 - 收尾记心跳：.oht/local/dispatcher.log 一行

@@ -149,6 +149,7 @@ replied: false        # 人回复后置 true
 - 固化三去处：rules.md 常驻、topics 按需、转自动检查后删文本。
 - 失效：被取代、与测试代码矛盾或长期未命中，标 superseded 归档，不物理删。
 - 越用越好用的指标，由整理员从卡片统计：每卡 need_human 次数、一次通过率、同类错误重复数。指标不降先查晋升流程，不加新规则。
+- 整理员提议落 local/curator-proposals.md，人采纳走新卡。
 
 ## 框架与业务
 - 框架：AGENTS.md、PROTOCOL.md、roles/、scripts/、模板。

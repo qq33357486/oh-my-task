@@ -1,4 +1,4 @@
-"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python3 -I .oht/scripts/check-size.py [.oht根目录]
+"""剃刀原则检查：单条字数、流程步骤数、内存层总量。用法：python -I .oht/scripts/check-size.py [.oht根目录]
 待检文件实际校验 0 个时打印"未扫描到任何文件，请确认 ROOT 路径"并 exit 1。"""
 import re, sys, glob, os
 

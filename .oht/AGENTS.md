@@ -2,10 +2,12 @@
 
 调度员路径：读 PROTOCOL.md 与 roles/dispatcher.md 照做。
 咨询员路径：读 PROTOCOL.md 与 roles/consultant.md 照做。
+整理员路径：读 roles/curator.md 照做（PROTOCOL.md 备查）。
+巡检员路径：读 roles/patrol.md 照做（PROTOCOL.md 备查）。
 
-- 判定：首条消息带「调度令」走调度员路径。
-- 调度令只由定时器注入，人发话不带。
-- 指派角色的会话按指派走（提示词见 roles/dispatcher.md）。
+- 判定：带「调度令」走调度员；带「整理令」走整理员；带「巡检令」走巡检员。
+- 调度令、整理令、巡检令只由定时器注入，人发话不带。
+- 指派角色的会话按指派走（roles/<角色>.md）。
 - 其余一律走咨询员路径，接待定稿，无派职权。
 
 ## 咨询员接待五分法
