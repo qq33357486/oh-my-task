@@ -17,7 +17,14 @@
  */
 import { compareSemver } from '../lib/frameworkUpdate';
 import { sha256Hex } from '../lib/sha256';
-import { FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON } from '../template';
+import {
+  FRAMEWORK_FILES,
+  FRAMEWORK_VERSION,
+  HOST_REFERENCE_MARK,
+  RULES_SKELETON,
+  hostEntryBlock,
+  hostMarkerLine,
+} from '../template';
 import { pathExists, readFileOrNull, writePath } from './fsPath';
 
 export interface FrameworkState {
@@ -41,8 +48,50 @@ export interface UpgradeResult {
 }
 
 /** 宿主 AGENTS.md 首行版本标记（install.py MARKER_RE 同语义） */
-const MARKER_RE = /^<!--\s*OHT-VERSION:\s*(\d+\.\d+\.\d+)\s*-->$/;
+const MARKER_RE = /^\s*<!--\s*OHT-VERSION:\s*(\d+\.\d+\.\d+)\s*-->$/;
 const VERSION_SEMVER_RE = /^\d+\.\d+\.\d+$/;
+
+/** 数据迁移结果（T0041）：none=无需动作，created=补建，prepended=开头插入 */
+export type HostAgentsMigration =
+  | { action: 'none'; reason: string }
+  | { action: 'created'; version: string }
+  | { action: 'prepended'; version: string };
+
+/**
+ * 数据迁移（T0041，人定位「加载流程里要检查并完成的事」）：已初始化
+ * 项目（有 .oht/）永不走初始化链路，宿主 AGENTS.md 入口缺口（老版
+ * 初始化未插/写入失败/被删）在此补。幂等，可被轮询反复调用：
+ * - .oht/VERSION 缺失或非法 → none（工程状态异常，守恒不猜版本）；
+ * - AGENTS.md 已含 .oht/AGENTS.md 引用 → none（T0040 防重复标准复用）；
+ * - AGENTS.md 首行已是版本标记行 → none（升级链路管理域，防双标记）；
+ * - AGENTS.md 不存在 → created：新建入口块（版本=已装版本）；
+ * - 存在且无引用无标记 → prepended：入口块插到最前，原文逐字下移。
+ * 标记行写已装版本（非内置）：迁移不撒谎，后续升级只推版本行。
+ * 零 .bak（迁移是补缺不是覆盖，原文在下/无原文）；不动 .manifest。
+ */
+export async function migrateHostAgents(
+  root: FileSystemDirectoryHandle,
+): Promise<HostAgentsMigration> {
+  const rawVersion = await readFileOrNull(root, '.oht/VERSION');
+  const installed = rawVersion?.trim() ?? '';
+  if (!VERSION_SEMVER_RE.test(installed)) {
+    return { action: 'none', reason: 'VERSION 缺失或非法，不迁移' };
+  }
+  const existing = await readFileOrNull(root, 'AGENTS.md');
+  if (existing !== null) {
+    if (existing.includes(HOST_REFERENCE_MARK)) {
+      return { action: 'none', reason: '已有入口引用，防重复跳过' };
+    }
+    const head = existing.split('\n', 1)[0]?.trim() ?? '';
+    if (MARKER_RE.test(head)) {
+      return { action: 'none', reason: '首行已是版本标记，升级链路管理' };
+    }
+    await writePath(root, 'AGENTS.md', `${hostEntryBlock(installed)}\n\n${existing}`);
+    return { action: 'prepended', version: installed };
+  }
+  await writePath(root, 'AGENTS.md', `${hostEntryBlock(installed)}\n`);
+  return { action: 'created', version: installed };
+}
 
 /** 业务骨架占位（install.py 同款）：缺则补，绝不碰业务文件 */
 const SKELETON_GITKEEP_PATHS: readonly string[] = [
@@ -53,10 +102,6 @@ const SKELETON_GITKEEP_PATHS: readonly string[] = [
 ];
 
 const ZERO_COUNTS: UpgradeCounts = { add: 0, update: 0, same: 0 };
-
-function markerLine(version: string): string {
-  return `<!-- OHT-VERSION: ${version} -->`;
-}
 
 /** 检测读取：轻量（默认）只读 VERSION；verifyManifest 时对账 .manifest */
 export async function readFrameworkState(
@@ -105,9 +150,9 @@ function planHostAgents(existing: string | null, hostBundle: string): string | '
   if (existing === null) {
     const lines = hostBundle.split('\n');
     if (lines.length > 0 && MARKER_RE.test(lines[0].trim())) {
-      lines[0] = markerLine(FRAMEWORK_VERSION);
+      lines[0] = hostMarkerLine(FRAMEWORK_VERSION);
     } else {
-      lines.unshift(markerLine(FRAMEWORK_VERSION));
+      lines.unshift(hostMarkerLine(FRAMEWORK_VERSION));
     }
     return lines.join('\n');
   }
@@ -115,9 +160,9 @@ function planHostAgents(existing: string | null, hostBundle: string): string | '
   const head = (nl === -1 ? existing : existing.slice(0, nl)).trim();
   const match = MARKER_RE.exec(head);
   if (!match) return null; // 用户自己的宿主 AGENTS.md：原样保留
-  if (head === markerLine(FRAMEWORK_VERSION)) return 'same';
+  if (head === hostMarkerLine(FRAMEWORK_VERSION)) return 'same';
   const rest = nl === -1 ? '' : existing.slice(nl); // 含换行，逐字保留
-  return `${markerLine(FRAMEWORK_VERSION)}${rest}`;
+  return `${hostMarkerLine(FRAMEWORK_VERSION)}${rest}`;
 }
 
 /**

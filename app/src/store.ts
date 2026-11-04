@@ -13,7 +13,7 @@
  */
 import { create } from 'zustand';
 import { projectContext } from './fs/projectContext';
-import { readFrameworkState } from './fs/frameworkWriter';
+import { migrateHostAgents, readFrameworkState } from './fs/frameworkWriter';
 import { loadRecent, pushRecent, saveRecent } from './lib/recentProjects';
 import {
   evaluateFramework,
@@ -21,6 +21,10 @@ import {
 } from './lib/frameworkUpdate';
 import { scanTasks, type ScannedCard } from './lib/scanTasks';
 import { FRAMEWORK_VERSION } from './template';
+
+/** 数据迁移短路表（T0041）：本项目会话内已迁移过的目录名不再探测。
+ *  迁移本身幂等，此表只为省轮询的重复读；页面刷新后清空重跑一次无害。 */
+const migratedProjects = new Set<string>();
 
 interface AppState {
   /** 浏览器是否支持 File System Access API */
@@ -161,6 +165,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         frameworkInstalledVersion,
         error: '',
       });
+      // T0041 数据迁移：已初始化项目补宿主 AGENTS.md 入口缺口（幂等，
+      // 静默，失败不影响看板；短路表=每会话每项目至多探测一次——
+      // none 也短路，防「人删了入口行又被轮询插回」的骚扰循环）
+      if (result.hasOht && !migratedProjects.has(root.name)) {
+        migratedProjects.add(root.name);
+        try {
+          await migrateHostAgents(root);
+        } catch {
+          // 迁移失败不报错不重试（本会话放弃，重开页面再试）
+        }
+      }
     } catch (e) {
       set({ error: `扫描任务卡失败: ${e instanceof Error ? e.message : String(e)}` });
     } finally {

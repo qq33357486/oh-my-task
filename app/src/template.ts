@@ -44,13 +44,19 @@ export const SHELL_GITKEEP_PATHS: readonly string[] = [
 
 /** 宿主 AGENTS.md 的入口块（T0040：照母本模式——版本标记行 + 入口引导，
  *  开头插入；与 upgradeFramework 的 MARKER_RE 识别边界衔接：初始化产物
- *  首行即版本标记，升级链路接管后只更新该行）。 */
-export function hostEntryBlock(): string {
+ *  首行即版本标记，升级链路接管后只更新该行。T0041：版本可参数化，
+ *  迁移写已装版本、初始化/升级写内置版本，缺省内置）。 */
+export function hostEntryBlock(version: string = FRAMEWORK_VERSION): string {
   return [
-    `<!-- OHT-VERSION: ${FRAMEWORK_VERSION} -->`,
+    hostMarkerLine(version),
     '# 循环工程入口',
     '循环工程框架在 .oht/：入口见 .oht/AGENTS.md，先读它并遵循。',
   ].join('\n');
+}
+
+/** 版本标记行（升级链路 MARKER_RE 的同源生成器，防两处漂移） */
+export function hostMarkerLine(version: string): string {
+  return `<!-- OHT-VERSION: ${version} -->`;
 }
 
 /** 防重复插入的判定子串（T0040 人拍板：含引用即跳过，无论措辞） */

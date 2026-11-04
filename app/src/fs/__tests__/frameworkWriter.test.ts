@@ -22,8 +22,17 @@
  */
 import { createHash } from 'node:crypto';
 import { memDir, memWriteFile, readTree, type DirTree } from '../../test/mockFs';
-import { FRAMEWORK_FILES, FRAMEWORK_VERSION, RULES_SKELETON } from '../template';
-import { readFrameworkState, upgradeFramework } from '../frameworkWriter';
+import {
+  FRAMEWORK_FILES,
+  FRAMEWORK_VERSION,
+  RULES_SKELETON,
+  hostEntryBlock,
+} from '../template';
+import {
+  migrateHostAgents,
+  readFrameworkState,
+  upgradeFramework,
+} from '../frameworkWriter';
 import { describe, expect, it } from 'vitest';
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
@@ -195,5 +204,93 @@ describe('T0035/A9 readFrameworkState 检测读取', () => {
     const root = memDir('no-manifest', { '.oht': { VERSION: '0.1.1\n' } });
     const state = await readFrameworkState(root, { verifyManifest: true });
     expect(state.manifestMismatch).toBe(false);
+  });
+});
+
+describe('T0041 migrateHostAgents 数据迁移（已初始化项目补 AGENTS.md 入口缺口）', () => {
+  /** 一个「已装 0.1.4（旧于内置）+ 宿主文件」的目标工程 */
+  const INSTALLED = '0.1.4';
+  const mkOht = (extra?: Record<string, unknown>): DirTree => ({
+    '.oht': { VERSION: `${INSTALLED}\n`, ...(extra ?? {}) },
+    ...({} as Record<string, unknown>),
+  });
+
+  it('A1 有 .oht 无 AGENTS.md：created，新建入口块且标记行=已装版本', async () => {
+    const writeLog: string[] = [];
+    const root = memDir('mig-no-agents', mkOht(), { writeLog });
+
+    const r = await migrateHostAgents(root);
+
+    expect(r).toEqual({ action: 'created', version: INSTALLED });
+    const tree = await readTree(root);
+    expect(tree['AGENTS.md'], '新建内容 = 入口块全文（已装版本）+换行').toBe(
+      `${hostEntryBlock(INSTALLED)}\n`,
+    );
+    expect(
+      String(tree['AGENTS.md']).startsWith(`<!-- OHT-VERSION: ${INSTALLED} -->`),
+      '标记行写已装版本而非内置版本（迁移不撒谎）',
+    ).toBe(true);
+    expect(writeLog).toEqual(['write AGENTS.md']);
+  });
+
+  it('A2 有 AGENTS.md 无引用无标记：prepended，入口块插最前原文逐字在后', async () => {
+    const original = '# 老项目\n\n自己的说明。\n';
+    const writeLog: string[] = [];
+    const root = memDir('mig-agents', { ...mkOht(), 'AGENTS.md': original }, { writeLog });
+
+    const r = await migrateHostAgents(root);
+
+    expect(r).toEqual({ action: 'prepended', version: INSTALLED });
+    const tree = await readTree(root);
+    const content = String(tree['AGENTS.md']);
+    expect(content.startsWith(`${hostEntryBlock(INSTALLED)}\n\n`), '入口块+空行在最前').toBe(true);
+    expect(content.endsWith(original), '原文逐字保留在后').toBe(true);
+    expect(writeLog).toEqual(['write AGENTS.md']);
+  });
+
+  it('A3a 已含 .oht/AGENTS.md 引用（T0040 形态）：none 零写入', async () => {
+    const original = `# 老项目\n${hostEntryBlock(FRAMEWORK_VERSION).split('\n').slice(1).join('\n')}\n`;
+    const writeLog: string[] = [];
+    const root = memDir('mig-has-ref', { ...mkOht(), 'AGENTS.md': original }, { writeLog });
+
+    const r = await migrateHostAgents(root);
+
+    expect(r.action).toBe('none');
+    expect(writeLog, '零写入').toEqual([]);
+    expect(await readTree(root)).toEqual({ ...mkOht(), 'AGENTS.md': original });
+  });
+
+  it('A3b 首行已是版本标记行：none（升级链路管理域，防双标记）', async () => {
+    const original = `<!-- OHT-VERSION: 0.1.1 -->\n# 别人管理的\n`;
+    const writeLog: string[] = [];
+    const root = memDir('mig-has-marker', { ...mkOht(), 'AGENTS.md': original }, { writeLog });
+
+    const r = await migrateHostAgents(root);
+
+    expect(r.action).toBe('none');
+    expect(writeLog).toEqual([]);
+  });
+
+  it('A3c VERSION 缺失/非法：none 守恒不猜（逐字节不变）', async () => {
+    for (const [label, tree] of [
+      ['缺 VERSION', { '.oht': { 'AGENTS.md': '框架\n' }, 'AGENTS.md': '# 项目\n' }],
+      ['非法 VERSION', { '.oht': { VERSION: 'garbage\n' }, 'AGENTS.md': '# 项目\n' }],
+    ] as const) {
+      const writeLog: string[] = [];
+      const root = memDir(`mig-bad-${label.length}`, tree as DirTree, { writeLog });
+      const r = await migrateHostAgents(root);
+      expect(r.action, `${label}：不迁移`).toBe('none');
+      expect(writeLog, `${label}：零写入`).toEqual([]);
+    }
+  });
+
+  it('A4 幂等：迁移后再跑一次 → none（含引用短路）', async () => {
+    const root = memDir('mig-idempotent', mkOht());
+    const first = await migrateHostAgents(root);
+    expect(first.action).toBe('created');
+    const after = await readTree(root);
+    const second = await migrateHostAgents(root);
+    expect(second.action, '第二次含引用短路').toBe('none');
+    expect(await readTree(root), '树逐字节不变').toEqual(after);
   });
 });
