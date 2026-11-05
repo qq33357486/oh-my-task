@@ -76,8 +76,8 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.7', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.7');
+  it('框架版本 0.1.8', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.8');
   });
 });
 
@@ -106,6 +106,12 @@ describe('T0046 拆卡即定稿与待接待滞留报人（语义锚）', () => {
     const protocol = file('.oht/PROTOCOL.md');
     expect(protocol).toContain('定稿材料齐备');
     expect(protocol).toContain('同会话置（需求,执行完毕）');
+  });
+
+  it('A6 check-card.py：预留条目豁免仅限（需求,执行完毕），实现栏不放行', () => {
+    const checkCard = file('.oht/scripts/check-card.py');
+    expect(checkCard).toContain('reserved = bool(chk_line) and "预留" in chk_line.group(1)');
+    expect(checkCard).toContain('stg == "需求" and prg == "执行完毕" and reserved');
   });
 });
 

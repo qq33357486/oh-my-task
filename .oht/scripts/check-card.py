@@ -111,8 +111,15 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         if ty == "human" and s not in ("人看", "绿"):
             err(name, f"{aid} human 状态无效：{s}")
         # 条目交付后（定稿完毕/已进实现或检查）auto 不得未写；初态（需求,未执行/执行中）可
+        # T0046 预留特例：拆卡子卡定稿置（需求,执行完毕）时，接口随实现落定的条目
+        # 经咨询员在「查」行显式注记「预留」可暂不写测试；进入实现栏后本豁免失效
+        # （实现完毕前必须落红/绿），防放水。
         delivered = not fresh
-        if ty == "auto" and delivered and s == "未写":
+        chk_line = re.search(r"^- 查：(.*)$", blk, re.M)
+        reserved = bool(chk_line) and "预留" in chk_line.group(1)
+        if ty == "auto" and delivered and s == "未写" and not (
+            stg == "需求" and prg == "执行完毕" and reserved
+        ):
             err(name, f"{aid} ({stg},{prg}) 时 auto 不得未写（须红或绿，如实记录）")
         if final and s != "绿":
             err(name, f"{aid} 终态（检查,执行完毕）时应为绿，实为 {s}")
