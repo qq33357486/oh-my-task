@@ -42,10 +42,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
 import { elapsedText } from '../lib/elapsed';
+import { buildCardDetail } from '../lib/cardDetail';
 import { mapToNode, hasRedAcceptance } from '../lib/flowMap';
 import { NODE_CARD_LIMIT, capNodeCards } from '../lib/nodeCards';
 import { ARCHIVE_LIMIT, archiveMoreText } from '../lib/archiveList';
-import { MarkdownText } from './MarkdownText';
+import { CardDetail } from './CardDetail';
 
 /** 需求环节卡片区（需求阶段完整清单）的显示上限：截最近 50 张 + 更早提示 */
 const TODO_PANEL_LIMIT = 50;
@@ -65,22 +66,6 @@ const TEAM = [
   { name: '巡查员', img: '/roles/patrol.webp', duty: '巡查未配置', feeds: '需求', idle: true },
   { name: '整理员', img: '/roles/curator.webp', duty: '合并去重，收割教训' },
 ] as const;
-
-/** 卡片全文重建（原在 Kanban.tsx，看板删除后移入 FlowView；T0037 二维字段） */
-function cardFullText(card: ParsedCard): string {
-  const fm = [
-    `id: ${card.id}`, `title: ${card.title}`, `type: ${card.type}`,
-    `stage: ${card.stage}`, `progress: ${card.progress}`,
-    `need_human: ${card.needHuman}`, `round: ${card.round}`,
-    `parent: ${card.parent}`, `origin: ${card.origin}`,
-    `lane: ${card.lane}`, `batch: ${card.batch}`,
-    `stop_reason: ${card.stop_reason ?? ''}`, `question: ${card.question ?? ''}`,
-  ].join('\n');
-  const body = Object.entries(card.sections)
-    .map(([name, content]) => `## ${name}\n${content.replace(/\n+$/, '')}`)
-    .join('\n\n');
-  return `---\n${fm}\n---\n\n${body}\n`;
-}
 
 /**
  * 待调度判定（T0037）：执行完毕但还没被调度员推进的卡——
@@ -392,12 +377,12 @@ export function FlowView({
 
       <Modal
         open={active !== null}
-        title={active ? `${active.id} 卡片全文` : ''}
+        title={active ? `${active.id} · ${active.title || active.id}` : ''}
         footer={null}
         onCancel={() => setActive(null)}
         width={720}
       >
-        {active && <MarkdownText text={cardFullText(active)} />}
+        {active && <CardDetail detail={buildCardDetail(active, now)} />}
       </Modal>
     </div>
   );
