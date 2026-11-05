@@ -76,8 +76,8 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.11', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.11');
+  it('框架版本 0.1.12', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.12');
   });
 });
 
@@ -141,6 +141,7 @@ describe('card.py 结构写入唯一入口（语义锚）', () => {
       expect(t, `${rel} 须禁手改状态`).toContain('手改');
     }
     expect(file('.oht/roles/dispatcher.md')).toContain('脚本失败停下报人');
+    expect(file('.oht/roles/dispatcher.md'), '唤醒自检：check-card 红即记入心跳报人').toContain('跑 check-card 记红');
   });
 });
 
