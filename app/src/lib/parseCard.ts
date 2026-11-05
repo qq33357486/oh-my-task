@@ -81,6 +81,12 @@ function unquote(raw: string): string {
       return v.slice(1, -1);
     }
   }
+  // T0045：非引号值剥行内注释，语义对齐 check-card.py:49 的
+  // v.split("#")[0].strip()——值中空白 + # 起的尾注剥掉；带引号值已在
+  // 上方分支取出引号内文本，值内 # 不误伤。否则照抄模板注释的卡
+  // （stage: 实现  # …）读成 40 字长串，mapToNode 未知降级收件箱。
+  const commentAt = v.search(/\s#/);
+  if (commentAt >= 0) return v.slice(0, commentAt).trim();
   return v;
 }
 

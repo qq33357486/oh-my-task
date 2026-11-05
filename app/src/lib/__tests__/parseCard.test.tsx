@@ -160,3 +160,38 @@ stage: 需求
     expect(parseCard(text).ok).toBe(false);
   });
 });
+
+/**
+ * T0045/A1 行内注释剥离（咨询员交付，实现员不得改，只能新增）。
+ * 语义对齐 check-card.py:49 的 v.split("#")[0].strip()：非引号值中空白+# 起的
+ * 尾注剥掉；带引号值内的 # 不误伤（既有 unquote 引号分支行为保持）。
+ * 背景：T0040~T0044 照抄模板注释，网页解析出 40 字长 stage，
+ * mapToNode 未知降级 → 干活的卡全挂「待人决策」。
+ */
+describe('T0045/A1 frontmatter 行内注释剥离', () => {
+  const mk = (fm: string) => `---\n${fm}\n---\n\n## 原话\n`;
+
+  it('非引号值：stage/progress 的 # 尾注剥离（模板实样格式）', () => {
+    const card = parseCard(
+      mk([
+        'id: T9002',
+        'stage: 实现          # 需求 | 实现 | 检查（跨阶段变动只有调度员可写）',
+        'progress: 执行完毕     # 未执行 | 执行中 | 执行完毕（本阶段工人可写）',
+      ].join('\n')),
+    );
+    expect(card.stage, '注释剥离后 stage=实现').toBe('实现');
+    expect(card.progress, '注释剥离后 progress=执行完毕').toBe('执行完毕');
+  });
+
+  it('need_human: true 带注释解析为 true（反向坑：否则真拍板卡从待人决策消失）', () => {
+    const card = parseCard(
+      mk('id: T9003\nneed_human: true    # true 时为旁路暂停态，stage/progress 冻结'),
+    );
+    expect(card.needHuman).toBe(true);
+  });
+
+  it('带引号值内含 # 不误伤', () => {
+    const card = parseCard(mk('id: T9004\ntitle: "a#b"'));
+    expect(card.title).toBe('a#b');
+  });
+});

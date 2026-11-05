@@ -67,3 +67,27 @@ describe('T0037 hasRedAcceptance：验收条目有红判定', () => {
     ).toBe(false);
   });
 });
+
+/**
+ * T0045/A2 集成链路（咨询员交付，实现员不得改，只能新增）：
+ * 真实带注释卡（T0040~T0044 形态）经 parseCard 后 mapToNode 须挂实现栏，
+ * 不得因注释残留降级收件箱（「干活的卡跑进待人决策」回归锚）。
+ */
+describe('T0045/A2 带行内注释卡的解析→映射集成', () => {
+  it('照抄模板注释的实现卡挂「实现」，不进收件箱', async () => {
+    const { parseCard } = await import('../parseCard');
+    const text = [
+      '---',
+      'id: T9005',
+      'stage: 实现          # 需求 | 实现 | 检查（跨阶段变动只有调度员可写）',
+      'progress: 执行完毕     # 未执行 | 执行中 | 执行完毕（本阶段工人可写）',
+      'need_human: false    # true 时为旁路暂停态，stage/progress 冻结',
+      'round: 0',
+      '---',
+      '',
+      '## 原话',
+    ].join('\n');
+    const card = parseCard(text);
+    expect(mapToNode(card), '带注释实现卡挂实现栏').toBe('实现');
+  });
+});
