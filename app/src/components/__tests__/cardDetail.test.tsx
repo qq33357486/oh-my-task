@@ -1,7 +1,7 @@
 /**
- * 卡片详情组件结构锚（人反馈批 2026-11-06）：点开卡片只显示整理好给人看的。
- * 锚：标签行无裸键值/决策区仅在 need_human/复述卡 lead chip/验收状态 chip/
- * 时间线最新在前+折叠/折叠区默认收起且空节不渲染。
+ * 卡片详情组件结构锚（0.1.10 人话位批）：默认=极简四句+验收徽章行，
+ * 其余一切收「查看全部细节」二级。
+ * 锚：默认视图无机器流内容/人话位四行/徽章统计/二级切换/决策区常驻。
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -30,72 +30,67 @@ function renderDetail(card: ParsedCard) {
 
 afterEach(cleanup);
 
-describe('卡片详情（人反馈批 2026-11-06）', () => {
-  it('标签行：状态 chip 化，无 frontmatter 裸键值（lane/batch 等不出現）', () => {
-    renderDetail(mkCard(FM, { 复述卡: '1. 我的理解:画布纯化。' }));
-    const meta = document.querySelector('[data-detail-meta]')!;
-    expect(meta.textContent).toContain('实现');
-    expect(meta.textContent).toContain('第2轮');
-    expect(meta.textContent).toContain('⏱3:00:00');
-    expect(meta.textContent).toContain('拆自 T0012');
-    for (const bare of ['lane', 'batch', 'need_human', 'stage:', 'progress:']) {
-      expect(document.body.textContent).not.toContain(bare);
-    }
+describe('卡片详情极简视图（0.1.10 人话位）', () => {
+  it('默认视图：标签行+四句+徽章行，机器流内容一概不见', () => {
+    renderDetail(mkCard(
+      { ...FM, intent: '画布纯化一眼分清类型', status: '实现员铺满画布自检过', outcome: '' },
+      {
+        复述卡: '1. 我的理解:画布纯化。\n2. 做:三层。',
+        验收条目:
+          '### A1 画布\n- 类型：auto\n- 查：tests/x.test.tsx\n- 预期：过\n- 状态：绿\n### A2 判定块\n- 类型：auto\n- 查：tests/y.test.tsx\n- 预期：过\n- 状态：红',
+        进度: '- 2026-11-06 实现员：铺满画布。',
+        需求: '1. 完整的 AI 契约长文……',
+      },
+    ));
+    const brief = document.querySelector('[data-detail-brief]')!;
+    expect(brief.textContent).toContain('画布纯化一眼分清类型'); // 做什么
+    expect(brief.textContent).toContain('实现员铺满画布自检过'); // 现在
+    expect(brief.querySelector('[data-detail-badges]')!.textContent).toContain('1/2');
+    // 机器流默认不可见：验收明细标题/查行/时间线/需求全文都不在 brief
+    expect(brief.textContent).not.toContain('tests/x.test.tsx');
+    expect(brief.textContent).not.toContain('铺满画布。'); // 时间线正文（人话位替代）
+    expect(document.querySelector('[data-detail-timeline]')).toBeNull();
+    expect(document.querySelector('[data-detail-digest]')).toBeNull();
   });
 
-  it('决策区：need_human 卡置顶直显 question；普通卡不渲染', () => {
-    const { unmount } = renderDetail(mkCard(FM, {}));
-    expect(document.querySelector('[data-detail-decision]')).toBeNull();
-    unmount();
+  it('人话位缺失回退：intent←复述卡首条、status←最新进度行', () => {
+    renderDetail(mkCard(FM, {
+      复述卡: '1. 我的理解:画布中间只放主角。',
+      进度: '- 2026-11-06 实现员：铺满画布收尾中。',
+    }));
+    const brief = document.querySelector('[data-detail-brief]')!;
+    expect(brief.textContent).toContain('画布中间只放主角');
+    expect(brief.textContent).toContain('铺满画布收尾中');
+  });
+
+  it('二级切换：点「查看全部细节」出全量（复述卡/验收明细/时间线/折叠区）', () => {
+    renderDetail(mkCard(FM, {
+      复述卡: '1. 我的理解:画布纯化。',
+      验收条目:
+        '### A1 画布\n- 类型：auto\n- 查：tests/x.test.tsx\n- 预期：过\n- 状态：绿  # 人评通过',
+      进度: '- 2026-11-06 实现员：铺满画布。',
+      需求: '1. 完整契约。',
+    }));
+    expect(document.querySelector('[data-detail-full]')).toBeNull();
+    fireEvent.click(document.querySelector('[data-detail-more]')!);
+    const full = document.querySelector('[data-detail-full]')!;
+    expect(full.querySelector('[data-detail-lead]')!.textContent).toBe('我的理解');
+    expect(full.querySelector('[data-detail-accept="A1"]')!.textContent).toContain('tests/x.test.tsx');
+    expect(full.querySelector('[data-detail-log]')!.textContent).toContain('铺满画布');
+    expect(screen.getByText('需求')).toBeTruthy(); // 折叠入口（默认收起内容不挂载）
+    expect(document.querySelector('[data-detail-collapse="需求"]')).toBeNull();
+    fireEvent.click(screen.getByText('← 收起，只看摘要'));
+    expect(document.querySelector('[data-detail-full]')).toBeNull();
+    expect(document.querySelector('[data-detail-brief]')).toBeTruthy();
+  });
+
+  it('决策区：need_human 卡置顶且两级视图都在', () => {
     renderDetail(mkCard(
       { ...FM, need_human: 'true', question: '选 A 还是 B？', stop_reason: '方向分叉' }, {},
     ));
     const dec = document.querySelector('[data-detail-decision]')!;
     expect(dec.textContent).toContain('选 A 还是 B？');
-    expect(dec.textContent).toContain('方向分叉');
-  });
-
-  it('复述卡 lead chip 化；人的原话/回复引用块；空节不渲染', () => {
-    renderDetail(mkCard(FM, {
-      复述卡: '1. 我的理解:画布纯化。\n2. 做:三层。',
-      原话: '中间只放画布。',
-      人的回复: '答:B 都要改。',
-    }));
-    const leads = [...document.querySelectorAll('[data-detail-lead]')];
-    expect(leads.map((l) => l.textContent)).toEqual(['我的理解', '做']);
-    expect(document.querySelector('[data-detail-quote]')!.textContent).toContain('中间只放画布');
-    expect(document.querySelector('[data-detail-reply]')!.textContent).toContain('答:B 都要改');
-  });
-
-  it('验收条目：状态 chip（绿）+ 查/预期行；全绿显示 ✓', () => {
-    renderDetail(mkCard(FM, {
-      验收条目:
-        '### A1 中间纯画布\n- 类型：auto\n- 查：tests/x.test.tsx\n- 预期：通过\n- 状态：绿  # 人评通过',
-    }));
-    const a = document.querySelector('[data-detail-accept="A1"]')!;
-    expect(a.querySelector('[data-detail-status]')!.textContent).toBe('绿');
-    expect(a.textContent).toContain('tests/x.test.tsx');
-    expect(a.textContent).toContain('人评通过');
-    expect(document.body.textContent).toContain('全绿');
-  });
-
-  it('时间线：最新在前、超 6 条折叠为「更早 N 条」点开全显', () => {
-    const logs = Array.from({ length: 8 }, (_, i) =>
-      `- 2026-11-0${i + 1} 实现员：第${i + 1}天进展。`).join('\n');
-    renderDetail(mkCard(FM, { 进度: logs }));
-    const items = [...document.querySelectorAll('[data-detail-log]')];
-    expect(items).toHaveLength(6); // 直显上限
-    expect(items[0].textContent).toContain('第8天'); // 最新在前
-    expect(document.querySelector('[data-detail-log-more]')!.textContent).toContain('更早 2 条');
-    fireEvent.click(document.querySelector('[data-detail-log-more]')!);
-    expect(document.querySelectorAll('[data-detail-log]')).toHaveLength(8);
-  });
-
-  it('折叠区：需求默认收起（内容不挂载），空节连标题都不出现', () => {
-    renderDetail(mkCard(FM, { 需求: '1. 完整的 AI 契约正文。' }));
-    expect(screen.getByText('需求')).toBeTruthy(); // 折叠入口可见
-    expect(document.querySelector('[data-detail-collapse="需求"]')).toBeNull(); // 内容未挂载
-    expect(screen.queryByText('失败原因')).toBeNull(); // 空节不进折叠区
-    expect(screen.queryByText('系统文档改动')).toBeNull();
+    fireEvent.click(document.querySelector('[data-detail-more]')!);
+    expect(document.querySelector('[data-detail-decision]')!.textContent).toContain('方向分叉');
   });
 });

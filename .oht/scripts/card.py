@@ -23,6 +23,8 @@
   lesson   <id> --from 文件          候选教训行追加（文件一行：场景｜教训）
   set      <id> --to <stage,progress> --note 一句  拆卡特殊置位（咨询员；终态不复活）
   set      <id> --replied true|false               咨询员代写人回复后的置位
+  set      <id> [--intent|--status|--outcome 一句]  人话位直写（各 ≤40 字）
+状态类命令均可选 --status 一句：状态变更时顺手更新人话位「现在怎样」。
 状态类命令须 need_human=false（冻结卡禁动）；resume 须 need_human=true。
 一切输出走 stdout 一行结果，失败 exit 1 并写 stderr。
 """
@@ -136,6 +138,18 @@ def read_from(path):
     return open(path, encoding="utf-8").read().strip()
 
 
+HUMAN_MAX = 40  # 人话位一句上限（防啰嗦硬闸，check-card 同口径校验）
+
+
+def set_human(card, field, value):
+    """写人话位（intent/status/outcome）：非空须 ≤40 字。"""
+    if value is None:
+        return
+    if len(value) > HUMAN_MAX:
+        die(f"{field} 人话位 {len(value)} 字 > {HUMAN_MAX}（一句说清）")
+    card.set_fm(field, value)
+
+
 def touch_timestamp(card):
     card.set_fm("stage_changed_at", datetime.datetime.now().astimezone().isoformat(timespec="seconds"), "progress")
 
@@ -148,7 +162,7 @@ def guard_active(card, cmd):
         die(f"{card.cid} 当前 ({stg},{prg})，{cmd} 无合法转移（合法起点：{sorted(LEGAL[cmd])}）")
 
 
-def apply_transition(card, cmd, note, role):
+def apply_transition(card, cmd, note, role, human=None):
     (stg, prg) = card.state()
     nstg, nprg = LEGAL[cmd][(stg, prg)]
     if cmd in ("advance", "reassign"):
@@ -156,6 +170,7 @@ def apply_transition(card, cmd, note, role):
     if cmd == "reassign":
         card.set_fm("round", str(int(card.get("round") or 0) + 1))
     card.set_fm("progress", nprg)
+    set_human(card, "status", human)
     touch_timestamp(card)
     card.log_line(role, note)
     card.save()
@@ -166,19 +181,19 @@ def apply_transition(card, cmd, note, role):
 def cmd_receive(a):
     c = Card(a.root, a.id)
     guard_active(c, "receive")
-    apply_transition(c, "receive", a.note, "咨询员")
+    apply_transition(c, "receive", a.note, "咨询员", getattr(a, 'status', None))
 
 
 def cmd_progress(a):
     c = Card(a.root, a.id)
     guard_active(c, "progress")
-    apply_transition(c, "progress", a.note, WORKER[c.state()[0]])
+    apply_transition(c, "progress", a.note, WORKER[c.state()[0]], getattr(a, 'status', None))
 
 
 def cmd_advance(a):
     c = Card(a.root, a.id)
     guard_active(c, "advance")
-    apply_transition(c, "advance", a.note, "调度员")
+    apply_transition(c, "advance", a.note, "调度员", getattr(a, 'status', None))
 
 
 def cmd_reassign(a):
@@ -186,7 +201,7 @@ def cmd_reassign(a):
     guard_active(c, "reassign")
     if c.state() == ("检查", "执行完毕") and not has_red(c):
         die(f"{c.cid} 终态全绿，reassign 拒（重派终态卡须人明示）")
-    apply_transition(c, "reassign", a.note, "调度员")
+    apply_transition(c, "reassign", a.note, "调度员", getattr(a, 'status', None))
 
 
 def has_red(card):
@@ -206,6 +221,7 @@ def cmd_stop(a):
     c.set_fm("resume_to", a.resume_to)
     c.set_fm("stop_reason", a.reason)
     c.set_fm("question", a.question)
+    set_human(c, "status", getattr(a, "status", None))
     c.log_line(a.role, a.note)
     c.save()
     print(f"{c.cid} ({stg},{prg}) 停卡（{a.role}）：stopped_at={a.stopped_at} resume_to={a.resume_to}（stage/progress 冻结）")
@@ -301,14 +317,19 @@ def cmd_set(a):
         c.log_line("咨询员", a.note)
         c.save()
         print(f"{c.cid} ({ostg},{oprg}) set→ ({m.group(1)},{m.group(2)}) stage_changed_at={c.get('stage_changed_at')}")
-    elif a.replied:
-        if a.replied not in ("true", "false"):
-            die("--replied 须 true 或 false")
-        c.set_fm("replied", a.replied)
+    elif any((a.replied, a.intent, a.human_status, a.outcome)):
+        if a.replied:
+            if a.replied not in ("true", "false"):
+                die("--replied 须 true 或 false")
+            c.set_fm("replied", a.replied)
+        set_human(c, "intent", a.intent)
+        set_human(c, "status", a.human_status)
+        set_human(c, "outcome", a.outcome)
         c.save()
-        print(f"{c.cid} replied={a.replied}")
+        wrote = [k for k, v in (("intent", a.intent), ("status", a.human_status), ("outcome", a.outcome), ("replied", a.replied)) if v]
+        print(f"{c.cid} 人话位已写: {' '.join(wrote)}")
     else:
-        die("set 须 --to 或 --replied 之一")
+        die("set 须 --to / --replied / 人话位之一")
 
 
 def cmd_lesson(a):
@@ -336,16 +357,16 @@ def main(argv=None):
         p.set_defaults(fn=fn)
         return p
 
-    p = add("receive", cmd_receive); p.add_argument("--note", required=True)
-    p = add("progress", cmd_progress); p.add_argument("--note", required=True)
-    p = add("advance", cmd_advance); p.add_argument("--note", required=True)
-    p = add("reassign", cmd_reassign); p.add_argument("--note", required=True)
+    p = add("receive", cmd_receive); p.add_argument("--note", required=True); p.add_argument("--status")
+    p = add("progress", cmd_progress); p.add_argument("--note", required=True); p.add_argument("--status")
+    p = add("advance", cmd_advance); p.add_argument("--note", required=True); p.add_argument("--status")
+    p = add("reassign", cmd_reassign); p.add_argument("--note", required=True); p.add_argument("--status")
     p = add("stop", cmd_stop)
     p.add_argument("--role", required=True)
     p.add_argument("--stopped-at", required=True); p.add_argument("--resume-to", required=True)
     p.add_argument("--reason", required=True); p.add_argument("--question", required=True)
-    p.add_argument("--note", required=True)
-    p = add("resume", cmd_resume); p.add_argument("--note", required=True)
+    p.add_argument("--note", required=True); p.add_argument("--status")
+    p = add("resume", cmd_resume); p.add_argument("--note", required=True); p.add_argument("--status")
     p = add("log", cmd_log); p.add_argument("--role", required=True); p.add_argument("--from", dest="from_file", required=True)
     p = add("write", cmd_write); p.add_argument("--section", required=True); p.add_argument("--from", dest="from_file", required=True)
     p = add("accept", cmd_accept)
@@ -355,6 +376,7 @@ def main(argv=None):
     p.add_argument("item", nargs="?"); p.add_argument("value", nargs="?")
     p = add("set", cmd_set)
     p.add_argument("--to"); p.add_argument("--note"); p.add_argument("--replied")
+    p.add_argument("--intent"); p.add_argument("--status", dest="human_status"); p.add_argument("--outcome")
     p = add("lesson", cmd_lesson); p.add_argument("--from", dest="from_file", required=True)
 
     a = ap.parse_args(argv)
@@ -362,8 +384,8 @@ def main(argv=None):
         die("accept add 须 --from 文件（三行：标题/查/预期）")
     if a.cmd == "accept" and a.action == "status" and (not a.item or not a.value):
         die("accept status 须 A号 与 状态值")
-    if a.cmd == "set" and ((a.to and not a.note) or (not a.to and not a.replied)):
-        die("set 须 --to+--note 或 --replied 之一")
+    if a.cmd == "set" and a.to and not a.note:
+        die("set 须 --to+--note / --replied / 人话位之一")
     a.fn(a)
     return 0
 

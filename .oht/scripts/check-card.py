@@ -62,6 +62,11 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         err(name, f"progress 无效：{prg}（须为 {'/'.join(sorted(PROGRESS))}）")
     if h.get("need_human", "false").strip().lower() not in ("true", "false"):
         err(name, "need_human 只能是 true 或 false")
+    # 人话位（intent/status/outcome）：给人看的一句话，≤40 字防啰嗦硬闸
+    for k in ("intent", "status", "outcome"):
+        v = h.get(k, "")
+        if v and len(v) > 40:
+            err(name, f"{k} 人话位 {len(v)} 字 > 40（一句说清）")
     # stage_changed_at（card.py 自动写）：非空须 ISO 8601 且不得晚于今天（时钟异常防呆）
     sca = h.get("stage_changed_at", "")
     if sca:

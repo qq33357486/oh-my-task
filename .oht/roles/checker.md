@@ -20,6 +20,7 @@
 - 失败原因写真实原因，不只写“失败”。
 - 可复用教训 card.py lesson 写“候选教训”。
 - 写卡走 card.py（accept/log 等），禁手改状态。
+- 置毕带 --status；终态 set --outcome 一句人话。
 - 卡住 card.py stop 置位（--role 检查员），四字段成套。
 - 有 memos：review 时搜同类旧错误；收尾自写本卡教训候选。
 - 测试与干活自跑用例：不新起 zcode、不做沙盒唤醒。

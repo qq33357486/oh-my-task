@@ -76,8 +76,8 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.9', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.9');
+  it('框架版本 0.1.10', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.10');
   });
 });
 
@@ -109,6 +109,22 @@ describe('card.py 结构写入唯一入口（语义锚）', () => {
     const check = file('.oht/scripts/check-card.py');
     expect(check).toContain('stage_changed_at 须 ISO 8601');
     expect(check).toContain('晚于今天');
+  });
+
+  it('人话位（0.1.10）：模板三字段、card.py 顺写、check-card 40 字闸、四手册义务', () => {
+    const tpl = file('.oht/tasks/_template.md');
+    for (const k of ['intent', 'status', 'outcome']) {
+      expect(tpl, `${k} 人话位在模板`).toContain(`${k}: ""`);
+    }
+    const card = file('.oht/scripts/card.py');
+    expect(card, '--status 顺写入口').toContain('--status');
+    expect(card, '人话位字数闸').toContain('HUMAN_MAX = 40');
+    const check = file('.oht/scripts/check-card.py');
+    expect(check, '校验同口径').toContain('人话位');
+    for (const rel of ['.oht/roles/consultant.md', '.oht/roles/implementer.md',
+      '.oht/roles/checker.md', '.oht/roles/dispatcher.md']) {
+      expect(file(rel), `${rel} 须有顺更义务`).toContain('--status');
+    }
   });
 
   it('四手册各指路 card.py 并禁手改状态', () => {

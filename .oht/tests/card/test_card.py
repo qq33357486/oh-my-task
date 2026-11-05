@@ -182,6 +182,21 @@ ok(code == 0 and re.search(r"^- \d{4}-\d{2}-\d{2}｜T0001｜验收预期红类�
 ok(not [f for f in os.listdir(os.path.join(root, "tasks")) if f.endswith(".tmp-card")], "原子写无 tmp 残留")
 shutil.rmtree(root)
 
+# ---- 4b. 人话位：--status 顺写 / 40 字闸 / set 直写 ----
+root = fresh_root()
+c = os.path.join(root, "tasks", "T0001.md")
+code, out, _ = run(root, "receive", "T0001", "--note", "接待", "--status", "咨询员对齐需求中")
+ok(code == 0 and fm_of(c, "status") == "咨询员对齐需求中", "--status 顺写")
+run(root, "progress", "T0001", "--note", "完毕")
+code, out, _ = run(root, "set", "T0001", "--intent", "画布纯化与视觉语言")
+ok(code == 0 and fm_of(c, "intent") == "画布纯化与视觉语言", "set --intent 直写")
+long42 = "四十二字" * 10 + "超了"
+code, _, err = run(root, "set", "T0001", "--status", long42)
+ok(code == 1 and "40" in err, "人话位 40 字闸拒绝")
+code, out, _ = run(root, "set", "T0001", "--outcome", "画布纯化已全绿归档")
+ok(code == 0 and fm_of(c, "outcome") == "画布纯化已全绿归档", "set --outcome 直写")
+shutil.rmtree(root)
+
 # ---- 5. frontmatter 注释保留 ----
 root = fresh_root()
 c = os.path.join(root, "tasks", "T0001.md")

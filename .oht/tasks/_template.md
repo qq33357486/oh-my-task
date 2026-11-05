@@ -5,6 +5,9 @@ type: ""
 stage: 需求          # 需求 | 实现 | 检查（跨阶段变动只有调度员可写）
 progress: 未执行     # 未执行 | 执行中 | 执行完毕（本阶段工人可写）
 stage_changed_at: "" # 当前「stage,progress」生效时刻（ISO 8601；card.py 状态命令自动写）
+intent: ""           # 人话位：这卡要干嘛（咨询员定稿写，一句 ≤40 字）
+status: ""           # 人话位：现在怎样（状态动作顺手 --status 更新，≤40 字）
+outcome: ""          # 人话位：做成了什么（终态写，一句 ≤40 字）
 need_human: false    # true 时为旁路暂停态，stage/progress 冻结
 round: 0
 parent: ""

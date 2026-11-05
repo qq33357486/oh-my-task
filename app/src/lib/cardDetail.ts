@@ -54,6 +54,14 @@ export interface CardDetail {
   elapsed: string | null;
   /** 来龙去脉一句人话：拆自 T0012 / T0010 的跟进卡 / '' */
   lineage: string;
+  /** 人话位：这卡要干嘛（intent；缺失回退复述卡首条） */
+  intent: string;
+  /** 人话位：现在怎样（status；缺失回退最新进度行截断） */
+  humanStatus: string;
+  /** 人话位：做成了什么（outcome；缺失为 ''） */
+  outcome: string;
+  /** 验收徽章统计：绿/红/未决（未写|人看|空） */
+  acceptanceStats: { green: number; red: number; pending: number };
   decision: { question: string; stopReason: string } | null;
   digest: DigestItem[];
   quote: string;
@@ -143,6 +151,13 @@ export function buildCardDetail(card: ParsedCard, now: number): CardDetail {
         ? `${card.parent} 的跟进卡`
         : `关联 ${card.parent}`
     : "";
+  const digest = parseDigest(sectionOf(card, "复述卡"));
+  const timeline = parseTimeline(sectionOf(card, "进度"));
+  const acceptances = parseAcceptances(sectionOf(card, "验收条目"));
+  // 人话位回退链：intent←复述卡首条；status←最新进度行（时间线已最新在前）截 40
+  const intent = card.intent || digest.find((d) => d.text)?.text || "";
+  const latest = timeline[0]?.text.split("\n")[0] ?? "";
+  const humanStatus = card.humanStatus || (latest.length > 40 ? `${latest.slice(0, 40)}…` : latest);
   return {
     id: card.id,
     title: card.title || card.id,
@@ -153,15 +168,23 @@ export function buildCardDetail(card: ParsedCard, now: number): CardDetail {
     needHuman: card.needHuman,
     elapsed: elapsedText(card.stageChangedAt, now),
     lineage,
+    intent,
+    humanStatus,
+    outcome: card.outcome || "",
+    acceptanceStats: {
+      green: acceptances.filter((a) => a.status === "绿").length,
+      red: acceptances.filter((a) => a.status === "红").length,
+      pending: acceptances.filter((a) => a.status !== "绿" && a.status !== "红").length,
+    },
     decision:
       card.needHuman && (card.question || card.stop_reason)
         ? { question: card.question ?? "", stopReason: card.stop_reason ?? "" }
         : null,
-    digest: parseDigest(sectionOf(card, "复述卡")),
+    digest,
     quote: sectionOf(card, "原话"),
     reply: sectionOf(card, "人的回复"),
-    acceptances: parseAcceptances(sectionOf(card, "验收条目")),
-    timeline: parseTimeline(sectionOf(card, "进度")),
+    acceptances,
+    timeline,
     collapsibles: (["需求", "系统文档改动", "失败原因", "候选教训"] as const)
       .map((name) => ({ name, content: sectionOf(card, name) }))
       .filter((s) => s.content.length > 0),

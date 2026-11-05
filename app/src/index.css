@@ -1597,3 +1597,50 @@ body {
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* ---- 极简四句视图（0.1.10 人话位） ---- */
+
+.detail-brief { display: flex; flex-direction: column; gap: 10px; }
+
+.detail-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 13.5px;
+}
+
+.detail-key {
+  flex: none;
+  width: 3em;
+  font-size: 11px;
+  color: #94a3b8;
+  letter-spacing: 0.1em;
+}
+
+.detail-badges { display: inline-flex; align-items: center; gap: 2px; }
+
+.detail-badges i { font-style: normal; letter-spacing: 2px; }
+.detail-badge--ok { color: #15803d; }
+.detail-badge--bad { color: #dc2626; }
+.detail-badge--todo { color: #cbd5e1; }
+
+.detail-badges em {
+  font-style: normal;
+  margin-left: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-more {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #4338ca;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  margin-top: 2px;
+}
+
+.detail-full { display: flex; flex-direction: column; gap: 18px; }

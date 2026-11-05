@@ -29,6 +29,7 @@
 - 跟进卡先读 parent 原任务全文。
 - 人的纠正与原因 card.py lesson 写“候选教训”。
 - 写卡走 card.py（receive/log/write 等），禁手改状态。
+- 定稿 set --intent 一句人话；状态动作顺手 --status。
 - 卡住 card.py stop 置位（--role 咨询员），四字段成套。
 - 定稿即停：禁开子代理禁代跑角色，即时唤醒由人另起会话
 - 有 memos：先按 memory.md 搜相似需求。
