@@ -1177,6 +1177,7 @@ body {
 
 /* 卡面：编号 + 标题主显；变体 default / urgent / row */
 .flow-card {
+  position: relative; /* 时长 chip 绝对定位右上角的锚 */
   background: var(--oht-surface);
   border: 1px solid var(--oht-border);
   border-radius: 10px;
@@ -1242,8 +1243,11 @@ body {
   line-height: 16px;
 }
 
-/* 时长 chip（卡批 2026-11-06）：等宽字体防秒级跳动撑宽卡面 */
+/* 时长 chip（卡批 2026-11-06）：卡右上角悬浮；等宽字体防秒级跳动撑宽卡面 */
 .flow-card__timer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   padding: 0 6px;
   border-radius: 8px;
   background: #f8fafc;

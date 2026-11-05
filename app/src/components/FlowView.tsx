@@ -28,8 +28,8 @@
  * - 实现/检查环节直挂最新 4 张，超出为 data-node-more="true" 计数提示；
  * - 卡面：编号 + 人话标题主显；round>0 显示「第N轮」；知识标签 data-flow-tag；
  *   待调度徽标 data-flow-await；时长 chip data-flow-timer（卡批 2026-11-06：
- *   据 stage_changed_at 显示——执行中「⏱H:MM:SS」每秒跳、待接待/待调度/
- *   待决策「等X」前缀；旧卡无字段不渲染）；
+ *   据 stage_changed_at 显示，卡右上角悬浮——执行中「⏱H:MM:SS」每秒跳、
+ *   待接待/待调度/待决策「等X」前缀；旧卡无字段不渲染）；
  * - data-flow-link="需求→实现" / "实现→检查" 恰两条顺序连接；
  *   data-flow-edge="检查→实现"（打回）/"检查→需求"（循环）恰两条回路，各带
  *   data-flow-text="edge-label"；
@@ -124,6 +124,12 @@ function FlowCard({
       data-flow-card-id={card.id}
       onClick={() => onOpen(card)}
     >
+      {/* 时长 chip：卡右上角悬浮；stage_changed_at 缺失（旧卡/残卡）不渲染 */}
+      {elapsed && (
+        <span className="flow-card__timer" data-flow-timer="true">
+          {timerLabel(card, awaiting, variant === 'urgent')}{elapsed}
+        </span>
+      )}
       <div className="flow-card__head">
         <span className="flow-card__num" data-flow-text="card-num">
           {card.id}
@@ -140,12 +146,6 @@ function FlowCard({
         {awaiting && (
           <span className="flow-card__await" data-flow-await="true">
             待调度
-          </span>
-        )}
-        {/* 时长 chip：stage_changed_at 缺失（旧卡/残卡）不渲染 */}
-        {elapsed && (
-          <span className="flow-card__timer" data-flow-timer="true">
-            {timerLabel(card, awaiting, variant === 'urgent')}{elapsed}
           </span>
         )}
       </div>
