@@ -29,6 +29,7 @@ FRAMEWORK_FILES = [
     ".oht/roles/memory-tools.md",
     ".oht/roles/memory.md",
     ".oht/roles/patrol.md",
+    ".oht/scripts/card.py",
     ".oht/scripts/check-card.py",
     ".oht/scripts/check-size.py",
     ".oht/scripts/install.py",

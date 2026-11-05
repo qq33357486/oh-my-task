@@ -27,7 +27,9 @@
  *   （终态+历史 done/recorded，截最近 50 张 + data-flow-archive-more）；
  * - 实现/检查环节直挂最新 4 张，超出为 data-node-more="true" 计数提示；
  * - 卡面：编号 + 人话标题主显；round>0 显示「第N轮」；知识标签 data-flow-tag；
- *   待调度徽标 data-flow-await；
+ *   待调度徽标 data-flow-await；时长 chip data-flow-timer（卡批 2026-11-06：
+ *   据 stage_changed_at 显示——执行中「⏱H:MM:SS」每秒跳、待接待/待调度/
+ *   待决策「等X」前缀；旧卡无字段不渲染）；
  * - data-flow-link="需求→实现" / "实现→检查" 恰两条顺序连接；
  *   data-flow-edge="检查→实现"（打回）/"检查→需求"（循环）恰两条回路，各带
  *   data-flow-text="edge-label"；
@@ -36,9 +38,10 @@
  * - data-flow-text 文字层级锚：node-name｜card-num｜card-title｜panel-head
  *   （待人决策、最近完成各恰一）｜edge-label。
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'antd';
 import type { ParsedCard } from '../lib/parseCard';
+import { elapsedText } from '../lib/elapsed';
 import { mapToNode, hasRedAcceptance } from '../lib/flowMap';
 import { NODE_CARD_LIMIT, capNodeCards } from '../lib/nodeCards';
 import { ARCHIVE_LIMIT, archiveMoreText } from '../lib/archiveList';
@@ -90,6 +93,14 @@ function isAwaitingDispatch(card: ParsedCard): boolean {
   return hasRedAcceptance(card.sections);
 }
 
+/** 时长 chip 前缀：执行中=跑钟（⏱），其余为「等X」——判滞的物理时钟信号 */
+function timerLabel(card: ParsedCard, awaiting: boolean, urgent: boolean): string {
+  if (urgent) return '等决策 ';
+  if (awaiting) return '等调度 ';
+  if (card.progress === '未执行') return '等接待 ';
+  return '⏱';
+}
+
 /** 流程卡面：编号 + 人话标题主显；round 徽标与知识标签按需；
  *  variant=urgent 直显决策信息（question/stop_reason），variant=row 为紧凑行 */
 function FlowCard({
@@ -97,13 +108,16 @@ function FlowCard({
   tag,
   onOpen,
   variant = 'default',
+  now,
 }: {
   card: ParsedCard;
   tag?: string;
   onOpen: (c: ParsedCard) => void;
   variant?: 'default' | 'urgent' | 'row';
+  now?: number;
 }) {
   const awaiting = variant !== 'urgent' && isAwaitingDispatch(card);
+  const elapsed = now !== undefined ? elapsedText(card.stageChangedAt, now) : null;
   return (
     <div
       className={`flow-card flow-card--${variant}`}
@@ -128,6 +142,12 @@ function FlowCard({
             待调度
           </span>
         )}
+        {/* 时长 chip：stage_changed_at 缺失（旧卡/残卡）不渲染 */}
+        {elapsed && (
+          <span className="flow-card__timer" data-flow-timer="true">
+            {timerLabel(card, awaiting, variant === 'urgent')}{elapsed}
+          </span>
+        )}
       </div>
       <div className="flow-card__title" data-flow-text="card-title">
         {card.title || card.id}
@@ -150,6 +170,12 @@ export function FlowView({
   topicTags?: Record<string, string>;
 }) {
   const [active, setActive] = useState<ParsedCard | null>(null);
+  // 秒级心跳：驱动执行中卡的时长 chip 每秒跳（与 5 秒轮询重扫解耦）
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const buckets = useMemo(() => {
     const loop: Record<StageName, ParsedCard[]> = { 需求: [], 实现: [], 检查: [] };
@@ -222,6 +248,7 @@ export function FlowView({
                   tag={tagOf(card)}
                   onOpen={setActive}
                   variant="urgent"
+                  now={now}
                 />
               ))}
             </div>
@@ -269,6 +296,7 @@ export function FlowView({
                               card={card}
                               tag={tagOf(card)}
                               onOpen={setActive}
+                              now={now}
                             />
                           ))
                         )}

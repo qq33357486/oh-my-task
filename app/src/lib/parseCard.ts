@@ -12,7 +12,9 @@
  *   title（T0015 新增：人话单行标题，看板主显用；旧卡缺该字段时为 ''）、
  *   question 与 stop_reason（T0016 新增：need_human 卡的人话决策问题与
  *   终止原因，看板卡面直显用；frontmatter 缺该字段时为 undefined，
- *   与既有必填字段的 '' 缺省不同——本两类字段按需可选）。
+ *   与既有必填字段的 '' 缺省不同——本两类字段按需可选）、
+ *   stage_changed_at（卡批 2026-11-06：当前「stage,progress」生效时刻，
+ *   card.py 状态命令自动写，看板时长 chip 用；缺失/空为 undefined）。
  *   round 解析为 number；need_human 解析为 boolean（缺省 false，值须
  *   true/false 否则 false）；其余为 string。
  * - sections：键 = 正文九节标题（不含 "## "）：
@@ -42,6 +44,8 @@ export interface ParsedCard {
   question?: string;
   /** need_human 卡的终止原因（T0016：frontmatter stop_reason；缺失时 undefined） */
   stop_reason?: string;
+  /** 当前「stage,progress」生效时刻（card.py 自动写；缺失/空为 undefined） */
+  stageChangedAt?: string;
   /** 九节标题 → 内容，键不含 "## " 前缀 */
   sections: Record<string, string>;
   ok: boolean;
@@ -166,6 +170,8 @@ export function parseCard(text: string): ParsedCard {
       // 字段存在但为空串（如模板 question: ""）时如实传 ''，由渲染层判空。
       question: fm.question,
       stop_reason: fm.stop_reason,
+      // 卡批 2026-11-06：同上按需承载；空串（模板初值）归一为 undefined，渲染层免判空。
+      stageChangedAt: fm.stage_changed_at || undefined,
       sections,
       ok: true,
     };

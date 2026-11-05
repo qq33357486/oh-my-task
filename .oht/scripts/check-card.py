@@ -3,7 +3,10 @@
 目录模式下扫到 0 张卡时打印"未扫描到任何卡片，请确认 ROOT 路径"并 exit 1；单卡模式无此判定。
 title（T0015）：非 _ 开头卡 frontmatter 必填，人话单行 ≤24 字（无日期、卡号、
 括号注记，给人看的摘要）；缺 title 或超 24 字报错。"""
-import re, sys, glob, os
+import datetime, re, sys, glob, os
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _arg = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -59,6 +62,13 @@ for f in sorted(glob.glob(os.path.join(ROOT, "tasks/*.md")) if ONLY is None else
         err(name, f"progress 无效：{prg}（须为 {'/'.join(sorted(PROGRESS))}）")
     if h.get("need_human", "false").strip().lower() not in ("true", "false"):
         err(name, "need_human 只能是 true 或 false")
+    # stage_changed_at（card.py 自动写）：非空须 ISO 8601 且不得晚于今天（时钟异常防呆）
+    sca = h.get("stage_changed_at", "")
+    if sca:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}", sca):
+            err(name, "stage_changed_at 须 ISO 8601（card.py 状态命令自动写）")
+        elif sca[:10] > datetime.date.today().isoformat():
+            err(name, "stage_changed_at 晚于今天（时钟异常）")
     if h.get("id") != name[:-3]:
         err(name, "id 与文件名不一致")
     title = h.get("title", "")

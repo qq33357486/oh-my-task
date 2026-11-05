@@ -76,8 +76,49 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.8', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.8');
+  it('框架版本 0.1.9', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.9');
+  });
+});
+
+describe('card.py 结构写入唯一入口（语义锚）', () => {
+  const file = (rel: string): string =>
+    FRAMEWORK_FILES.find((f) => f.path === rel)?.content ?? '';
+
+  it('card.py 进 bundle：十三子命令与状态机防呆在文', () => {
+    const card = file('.oht/scripts/card.py');
+    expect(card).toContain('advance  <id>');
+    for (const cmd of ['receive', 'progress', 'advance', 'reassign', 'stop', 'resume',
+      'log', 'write', 'accept', 'lesson', 'set']) {
+      expect(card, `${cmd} 子命令须在`).toContain(cmd);
+    }
+    expect(card, '转移合法性表是防呆核心').toContain('LEGAL = {');
+    expect(card, '原子写防半写态').toContain('os.replace');
+    expect(card, '时间戳自动内嵌').toContain('stage_changed_at');
+  });
+
+  it('PROTOCOL.md：状态变更走 card.py 与禁手改双条', () => {
+    const protocol = file('.oht/PROTOCOL.md');
+    expect(protocol).toContain('状态变更一律走 scripts/card.py');
+    expect(protocol).toContain('禁手改 frontmatter 状态字段');
+    expect(protocol).toContain('stage_changed_at');
+  });
+
+  it('_template 与 check-card：字段在模板、校验在看门', () => {
+    expect(file('.oht/tasks/_template.md')).toContain('stage_changed_at');
+    const check = file('.oht/scripts/check-card.py');
+    expect(check).toContain('stage_changed_at 须 ISO 8601');
+    expect(check).toContain('晚于今天');
+  });
+
+  it('四手册各指路 card.py 并禁手改状态', () => {
+    for (const rel of ['.oht/roles/dispatcher.md', '.oht/roles/consultant.md',
+      '.oht/roles/implementer.md', '.oht/roles/checker.md']) {
+      const t = file(rel);
+      expect(t, `${rel} 须指路 card.py`).toContain('card.py');
+      expect(t, `${rel} 须禁手改状态`).toContain('手改');
+    }
+    expect(file('.oht/roles/dispatcher.md')).toContain('脚本失败停下报人');
   });
 });
 
@@ -88,7 +129,7 @@ describe('T0046 拆卡即定稿与待接待滞留报人（语义锚）', () => {
   it('A1 consultant.md：子卡材料齐备同会话定稿，缺则等接待', () => {
     const consultant = file('.oht/roles/consultant.md');
     expect(consultant).toContain('子卡定稿材料齐备');
-    expect(consultant).toContain('同会话置（需求,执行完毕）');
+    expect(consultant).toContain('同会话 set 置执行完毕');
     expect(consultant).toContain('置（需求,未执行）等接待');
     expect(
       consultant,
@@ -155,6 +196,7 @@ describe('T0035/A5 内置框架副本与母本一致', () => {
       'AGENTS.md',
       '.oht/AGENTS.md',
       '.oht/VERSION',
+      '.oht/scripts/card.py',
       '.oht/scripts/install.py',
       '.oht/scripts/lock.py',
       '.oht/scripts/newcard.py',

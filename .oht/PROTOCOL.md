@@ -17,6 +17,8 @@
 | 检查 | 执行完毕 | — | 终态，即归档（差异已合并、检查员核对） | — |
 
 - 调度员独占跨阶段推进（stage 变动只能调度员写）；工人只写本阶段 progress。
+- 状态变更一律走 scripts/card.py：转移合法性、时间戳、进度行由脚本保证。
+- 禁手改 frontmatter 状态字段；脚本失败停下报人，禁绕过。
 - 调度员每次唤醒扫描所有 progress=执行完毕 且 need_human=false 的卡，逐卡决策：推进或留队（顺序/泳道/批次约束时留队，以执行完毕身份压在本阶段栏，下轮再决策）。
 - 执行中的卡工人死亡（会话生灭）无人写完毕：判滞制兜底（见 roles/dispatcher.md），卡面（阶段,执行中）+台账无账即嫌疑。
 - need_human 为旁路暂停态：true 时 stage/progress 冻结，四字段填全；人回复后调度员按 resume_to 恢复（置 need_human=false，stage/progress=resume_to 值）。
@@ -34,9 +36,10 @@
 | id、parent、origin、原话、初始（需求,未执行） | 调度员（或咨询员会话建卡） |
 | type、knowledge、lane、touches | 咨询员 |
 | batch、round（实现失败以外的重试） | 调度员 |
-| round（检查不通过 +1） | 检查员 |
-| stage 跨阶段变动、重派时 progress 重置 | 调度员（独占） |
-| 本阶段 progress（执行中→执行完毕） | 该阶段工人 |
+| round（检查不通过 +1） | card.py reassign（调度员触发） |
+| stage 跨阶段变动、重派时 progress 重置 | 调度员（独占，走 card.py） |
+| 本阶段 progress（执行中→执行完毕） | 该阶段工人（走 card.py） |
+| stage_changed_at、进度行日期/署名 | card.py（自动） |
 | 需求、复述卡、验收条目（除状态）、.oht/tests/<id>/ | 咨询员 |
 | system、系统文档改动、新系统文档草稿 | 咨询员 |
 | 系统文档的合并（收尾） | 实现员 |
@@ -56,6 +59,7 @@ id: T0001
 type: <任务类型，对应 knowledge/topics/<type>.md>
 stage: 需求           # 需求 | 实现 | 检查
 progress: 未执行      # 未执行 | 执行中 | 执行完毕
+stage_changed_at: ""  # 当前「stage,progress」生效时刻（card.py 自动写）
 need_human: false     # true 时为旁路暂停态，stage/progress 冻结
 round: 0              # 实现-检查往返次数
 parent: ""            # 拆分子卡或跟进卡指向原卡

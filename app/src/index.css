@@ -1242,6 +1242,19 @@ body {
   line-height: 16px;
 }
 
+/* 时长 chip（卡批 2026-11-06）：等宽字体防秒级跳动撑宽卡面 */
+.flow-card__timer {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .flow-card--urgent {
   border-color: #fecaca;
   border-left: 3px solid var(--oht-st-need_human);
