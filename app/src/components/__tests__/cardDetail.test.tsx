@@ -4,7 +4,7 @@
  * 锚：默认视图无机器流内容/人话位四行/徽章统计/二级切换/决策区常驻。
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CardDetail } from '../CardDetail';
 import { buildCardDetail } from '../../lib/cardDetail';
 import type { ParsedCard } from '../../lib/parseCard';
@@ -86,15 +86,40 @@ describe('卡片详情极简视图（0.1.10 人话位）', () => {
     expect(document.querySelector('[data-detail-brief]')).toBeTruthy();
   });
 
-  it('决策区：question 首句大字，机器腔长文与 stop_reason 不上卡面', () => {
+  it('决策区：问句大字 + A/B/C 可点选项，点选写回并锁定', async () => {
+    const replies: Array<[string, string]> = [];
+    render(
+      <CardDetail
+        detail={buildCardDetail(mkCard(
+          { ...FM, need_human: 'true',
+            question: '画布是否已占满中间区域,主题正常?A=认可(T0013 置绿终态);B=不认可(写明哪里不对);C=部分认可(写明残余问题)。' },
+          {},
+        ), NOW)}
+        onReply={async (id, key, text) => {
+          replies.push([id, key]);
+          return key !== 'B';
+        }}
+      />,
+    );
+    const dec = document.querySelector('[data-detail-decision]')!;
+    expect(dec.querySelector('[data-detail-ask]')!.textContent).toContain('画布是否已占满中间区域');
+    const opts = [...dec.querySelectorAll('[data-detail-option]')];
+    expect(opts.map((o) => o.getAttribute('data-detail-option'))).toEqual(['A', 'B', 'C']);
+    fireEvent.click(dec.querySelector('[data-detail-option="B"]')!);
+    await waitFor(() => expect(replies).toEqual([['T0099', 'B']]));
+    expect(dec.querySelector('[data-detail-answered]')).toBeNull(); // B 写回失败不锁
+    fireEvent.click(dec.querySelector('[data-detail-option="A"]')!);
+    await waitFor(() => expect(replies).toEqual([['T0099', 'B'], ['T0099', 'A']]));
+    expect(dec.querySelector('[data-detail-answered]')!.textContent).toContain('选 A');
+    expect(dec.querySelector('[data-detail-option="A"]')).toHaveProperty('disabled', true);
+  });
+
+  it('决策区无选项：只显示问句（写回入口隐藏）', () => {
     renderDetail(mkCard(
-      { ...FM, need_human: 'true',
-        question: 'A5 视觉终审通过吗：看 .oht/local/ 三张截图逐张核对颜色配对与铺满效果',
-        stop_reason: 'A5 是 human 条目须人判定;round1 修点复核全绿;按调度令聚焦铺满' }, {},
+      { ...FM, need_human: 'true', question: '方向二选一没写选项标记的自述长文' }, {},
     ));
     const dec = document.querySelector('[data-detail-decision]')!;
-    expect(dec.textContent).toContain('A5 视觉终审通过吗');
-    expect(dec.textContent).not.toContain('.oht/local/');
-    expect(dec.textContent).not.toContain('human 条目');
+    expect(dec.querySelector('[data-detail-ask]')!.textContent).toContain('方向二选一');
+    expect(dec.querySelector('[data-detail-options]')).toBeNull();
   });
 });

@@ -1669,3 +1669,44 @@ body {
 
 /* 等决策卡在待人决策区：标题给足空间，timer 右上不叠字 */
 .flow-card--urgent .flow-card__head { padding-right: 96px; }
+
+/* ---- 决策区选项（点选写回） ---- */
+
+.detail-question { font-size: 15px; font-weight: 600; color: #b91c1c; line-height: 1.5; }
+
+.detail-options { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+
+.detail-option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--oht-text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.detail-option:hover:not(:disabled) { border-color: #dc2626; background: #fef2f2; }
+
+.detail-option b {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.detail-option:disabled { cursor: default; opacity: 0.65; }
+
+.detail-answered { margin-top: 8px; font-size: 12px; color: #15803d; }

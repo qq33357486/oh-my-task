@@ -137,9 +137,12 @@ function FlowCard({
 export function FlowView({
   cards,
   topicTags,
+  onReply,
 }: {
   cards: ParsedCard[];
   topicTags?: Record<string, string>;
+  /** 决策区点选写回（App 层实现：writeReply + 刷新） */
+  onReply?: (cardId: string, key: string, text: string) => Promise<boolean>;
 }) {
   const [active, setActive] = useState<ParsedCard | null>(null);
   // 秒级心跳：驱动执行中卡的时长 chip 每秒跳（与 5 秒轮询重扫解耦）
@@ -363,7 +366,7 @@ export function FlowView({
         onCancel={() => setActive(null)}
         width={720}
       >
-        {active && <CardDetail detail={buildCardDetail(active, now)} />}
+        {active && <CardDetail detail={buildCardDetail(active, now)} onReply={onReply} />}
       </Modal>
     </div>
   );

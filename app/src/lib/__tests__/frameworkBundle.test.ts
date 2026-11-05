@@ -76,8 +76,8 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.10', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.10');
+  it('框架版本 0.1.11', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.11');
   });
 });
 
@@ -109,6 +109,12 @@ describe('card.py 结构写入唯一入口（语义锚）', () => {
     const check = file('.oht/scripts/check-card.py');
     expect(check).toContain('stage_changed_at 须 ISO 8601');
     expect(check).toContain('晚于今天');
+  });
+
+  it('question 结构化（0.1.11）：问句+A=/B= 选项协议与看板点选口径', () => {
+    const protocol = file('.oht/PROTOCOL.md');
+    expect(protocol).toContain('问句 + A=/B=/C= 选项（看板可点选）');
+    expect(file('.oht/roles/consultant.md')).toContain('看板点选直答');
   });
 
   it('人话位（0.1.10）：模板三字段、card.py 顺写、check-card 40 字闸、四手册义务', () => {

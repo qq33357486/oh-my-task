@@ -28,16 +28,52 @@ const STATUS_TONE: Record<string, string> = {
   未写: 'todo',
 };
 
-function Decision({ detail }: { detail: DetailModel }) {
+/**
+ * 决策区：问句大字 + 可点选项（点选即写回「人的回复」+replied=true，
+ * 调度员下次唤醒 resume 消费）。选项由 question 宽容解析；无选项时
+ * 只显示问句（完整原文在「查看全部细节」二级）。
+ */
+function Decision({
+  detail,
+  onReply,
+}: {
+  detail: DetailModel;
+  onReply?: (key: string, text: string) => Promise<boolean>;
+}) {
+  const [answered, setAnswered] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   if (!detail.decision) return null;
+  const { ask, options } = detail.decision;
+  const pick = async (key: string, text: string) => {
+    if (!onReply || busy) return;
+    setBusy(true);
+    const okDone = await onReply(key, text);
+    setBusy(false);
+    if (okDone) setAnswered(key);
+  };
   return (
     <section className="detail-decision" data-detail-decision="true">
       <div className="detail-sec-head">等你决策</div>
-      {detail.decision.question && (
-        <div className="detail-question">{detail.decision.question}</div>
+      <div className="detail-question" data-detail-ask="true">{ask}</div>
+      {options.length > 0 && (
+        <div className="detail-options" data-detail-options="true">
+          {options.map((o) => (
+            <button
+              key={o.key}
+              className="detail-option"
+              data-detail-option={o.key}
+              disabled={answered !== null || busy}
+              onClick={() => void pick(o.key, o.text)}
+            >
+              <b>{o.key}</b> {o.text}
+            </button>
+          ))}
+        </div>
       )}
-      {detail.decision.stopReason && (
-        <div className="detail-stopreason">终止原因：{detail.decision.stopReason}</div>
+      {answered && (
+        <div className="detail-answered" data-detail-answered="true">
+          ✓ 已记录：选 {answered}（调度员下次唤醒后继续）
+        </div>
       )}
     </section>
   );
@@ -187,7 +223,13 @@ function Full({ detail, onBack }: { detail: DetailModel; onBack: () => void }) {
   );
 }
 
-export function CardDetail({ detail }: { detail: DetailModel }) {
+export function CardDetail({
+  detail,
+  onReply,
+}: {
+  detail: DetailModel;
+  onReply?: (cardId: string, key: string, text: string) => Promise<boolean>;
+}) {
   const [showAll, setShowAll] = useState(false);
   return (
     <div className="card-detail" data-detail="true">
@@ -201,7 +243,10 @@ export function CardDetail({ detail }: { detail: DetailModel }) {
         {detail.lineage && <span className="detail-lineage">{detail.lineage}</span>}
       </div>
 
-      <Decision detail={detail} />
+      <Decision
+        detail={detail}
+        onReply={onReply ? (key, text) => onReply(detail.id, key, text) : undefined}
+      />
       {showAll
         ? <Full detail={detail} onBack={() => setShowAll(false)} />
         : <Brief detail={detail} onMore={() => setShowAll(true)} />}

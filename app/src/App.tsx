@@ -18,6 +18,7 @@ import { FlowView } from './components/FlowView';
 import { MenuBar } from './components/MenuBar';
 import { NoProject } from './components/NoProject';
 import { scanTopicTags } from './lib/scanTopics';
+import { writeReply } from './lib/replyWriter';
 
 const POLL_MS = 5000;
 
@@ -142,7 +143,16 @@ export function App() {
     content = <NoProject />;
   } else {
     content = (
-      <FlowView cards={cards.map((c) => c.card)} topicTags={topicTags} />
+      <FlowView
+        cards={cards.map((c) => c.card)}
+        topicTags={topicTags}
+        onReply={async (cardId, key, text) => {
+          if (!root) return false;
+          const r = await writeReply(root, cardId, key, text);
+          if (r === 'ok') void refresh();
+          return r === 'ok';
+        }}
+      />
     );
   }
 

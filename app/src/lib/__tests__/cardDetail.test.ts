@@ -35,17 +35,21 @@ describe('buildCardDetail（人反馈批 2026-11-06）', () => {
     expect(d.decision).toBeNull();
   });
 
-  it('decision：question 取首句人话，stop_reason 不进人话流', () => {
+  it('decision：问句+选项宽容解析，stop_reason 不进人话流', () => {
     const d = buildCardDetail(
       cardWith({
         ...BASE_FM, need_human: 'true',
-        question: 'T0013 round 1 人验收(聚焦画布铺满):看 .oht/local/ 三张 r1 截图逐张核对',
-        stop_reason: 'A5 美观终审是 human 条目须人判定;round 1 修点机器侧复核全绿……长文',
+        question: '画布是否已占满中间区域,主题正常?A=认可(置绿终态);B=不认可(写明问题)',
+        stop_reason: 'A5 是 human 条目须人判定;round 1 修点复核全绿……长文',
       }, {}),
       NOW,
     );
-    expect(d.decision!.question).toBe('T0013 round 1 人验收(聚焦画布铺满)');
-    expect(d.decision!.stopReason).toBe('');
+    expect(d.decision!.ask).toBe('画布是否已占满中间区域,主题正常?');
+    expect(d.decision!.options).toEqual([
+      { key: 'A', text: '认可(置绿终态)' },
+      { key: 'B', text: '不认可(写明问题)' },
+    ]);
+    expect(JSON.stringify(d.decision)).not.toContain('human 条目');
   });
 
   it('digest：编号行拆 lead（我的理解:）与正文；无编号整段兜底', () => {

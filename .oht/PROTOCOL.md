@@ -77,7 +77,7 @@ batch: ""             # 同批次的编号，由调度员填
 stopped_at: ""        # need_human=true 时必填：停在哪个角色/步骤
 resume_to: ""         # need_human=true 时必填：恢复到哪个「stage,progress」
 stop_reason: ""       # need_human=true 时必填：终止原因
-question: ""          # need_human=true 时必填：一个具体的选择题
+question: ""          # need_human=true 时必填：问句 + A=/B=/C= 选项（看板可点选）
 replied: false        # 人回复后置 true
 ---
 ```

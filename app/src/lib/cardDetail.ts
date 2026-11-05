@@ -21,6 +21,7 @@
  */
 import type { ParsedCard } from './parseCard';
 import { elapsedText } from './elapsed';
+import { parseQuestion } from './question';
 
 export interface AcceptanceItem {
   id: string;
@@ -62,7 +63,8 @@ export interface CardDetail {
   outcome: string;
   /** 验收徽章统计：绿/红/未决（未写|人看|空） */
   acceptanceStats: { green: number; red: number; pending: number };
-  decision: { question: string; stopReason: string } | null;
+  /** 决策区：问句 + 选项（宽容解析 question 字段）+ 原文 */
+  decision: { ask: string; options: Array<{ key: string; text: string }>; raw: string } | null;
   digest: DigestItem[];
   quote: string;
   reply: string;
@@ -183,7 +185,11 @@ export function buildCardDetail(card: ParsedCard, now: number): CardDetail {
     },
     decision:
       card.needHuman && card.question
-        ? { question: firstSentence(card.question), stopReason: "" }
+        ? {
+            ask: parseQuestion(card.question)?.ask ?? firstSentence(card.question),
+            options: parseQuestion(card.question)?.options ?? [],
+            raw: card.question,
+          }
         : null,
     digest,
     quote: sectionOf(card, "原话"),
