@@ -75,6 +75,12 @@ function sectionOf(card: ParsedCard, name: string): string {
   return (card.sections[name] ?? '').trim();
 }
 
+/** question 首句：角色塞进来的常是机器腔长文，人只看第一句（≤40 字） */
+function firstSentence(raw: string): string {
+  const head = raw.split(/[:：;；\n，。]/)[0] ?? raw;
+  return head.length > 40 ? `${head.slice(0, 40)}…` : head || raw.slice(0, 40);
+}
+
 /** 状态行「绿  # 人 11-05 评…」→ 首段为值，# 后为备注 */
 function splitStatus(raw: string): { status: string; note: string } {
   const m = /^(.+?)\s*#\s*(.*)$/.exec(raw.trim());
@@ -154,10 +160,9 @@ export function buildCardDetail(card: ParsedCard, now: number): CardDetail {
   const digest = parseDigest(sectionOf(card, "复述卡"));
   const timeline = parseTimeline(sectionOf(card, "进度"));
   const acceptances = parseAcceptances(sectionOf(card, "验收条目"));
-  // 人话位回退链：intent←复述卡首条；status←最新进度行（时间线已最新在前）截 40
-  const intent = card.intent || digest.find((d) => d.text)?.text || "";
-  const latest = timeline[0]?.text.split("\n")[0] ?? "";
-  const humanStatus = card.humanStatus || (latest.length > 40 ? `${latest.slice(0, 40)}…` : latest);
+  // 人话位零回退（宁缺毋滥）：没人话位就不显示该行；intent 缺失时用 title（天生人话 ≤24 字）
+  const intent = card.intent || card.title || "";
+  const humanStatus = card.humanStatus || "";
   return {
     id: card.id,
     title: card.title || card.id,
@@ -177,8 +182,8 @@ export function buildCardDetail(card: ParsedCard, now: number): CardDetail {
       pending: acceptances.filter((a) => a.status !== "绿" && a.status !== "红").length,
     },
     decision:
-      card.needHuman && (card.question || card.stop_reason)
-        ? { question: card.question ?? "", stopReason: card.stop_reason ?? "" }
+      card.needHuman && card.question
+        ? { question: firstSentence(card.question), stopReason: "" }
         : null,
     digest,
     quote: sectionOf(card, "原话"),

@@ -35,12 +35,17 @@ describe('buildCardDetail（人反馈批 2026-11-06）', () => {
     expect(d.decision).toBeNull();
   });
 
-  it('decision：need_human 卡带 question/stop_reason', () => {
+  it('decision：question 取首句人话，stop_reason 不进人话流', () => {
     const d = buildCardDetail(
-      cardWith({ ...BASE_FM, need_human: 'true', question: '选 A 还是 B', stop_reason: '方向分叉' }, {}),
+      cardWith({
+        ...BASE_FM, need_human: 'true',
+        question: 'T0013 round 1 人验收(聚焦画布铺满):看 .oht/local/ 三张 r1 截图逐张核对',
+        stop_reason: 'A5 美观终审是 human 条目须人判定;round 1 修点机器侧复核全绿……长文',
+      }, {}),
       NOW,
     );
-    expect(d.decision).toEqual({ question: '选 A 还是 B', stopReason: '方向分叉' });
+    expect(d.decision!.question).toBe('T0013 round 1 人验收(聚焦画布铺满)');
+    expect(d.decision!.stopReason).toBe('');
   });
 
   it('digest：编号行拆 lead（我的理解:）与正文；无编号整段兜底', () => {
@@ -69,6 +74,15 @@ describe('buildCardDetail（人反馈批 2026-11-06）', () => {
       check: 'tests/x.test.tsx', expect: '断言通过',
       status: '绿', statusNote: '人 11-05 评通过',
     });
+  });
+
+  it('人话位零回退：intent 缺失用 title，status 缺失为空（不拿进度行冒充）', () => {
+    const d = buildCardDetail(
+      cardWith({ ...BASE_FM, title: '流程画布纯化' }, { 进度: '- 2026-11-06 实现员：铺满画布。' }),
+      NOW,
+    );
+    expect(d.intent).toBe('流程画布纯化');
+    expect(d.humanStatus).toBe('');
   });
 
   it('timeline：角色可缺、无日期续行并入前条、最新在前', () => {

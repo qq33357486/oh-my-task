@@ -26,10 +26,11 @@
  *   50 张 + data-flow-todo-more 提示）；data-flow-archive="true" 最近完成
  *   （终态+历史 done/recorded，截最近 50 张 + data-flow-archive-more）；
  * - 实现/检查环节直挂最新 4 张，超出为 data-node-more="true" 计数提示；
- * - 卡面：编号 + 人话标题主显；round>0 显示「第N轮」；知识标签 data-flow-tag；
- *   待调度徽标 data-flow-await；时长 chip data-flow-timer（卡批 2026-11-06：
- *   据 stage_changed_at 显示，卡右上角悬浮——执行中「⏱H:MM:SS」每秒跳、
- *   待接待/待调度/待决策「等X」前缀；旧卡无字段不渲染）；
+ * - 卡面（0.1.10b 极简）：编号 + 标题一行（超长省略）+ 状态色条
+ *   （flow-card--run蓝/wait黄/decide红/idle灰）+ 右上角时长 chip
+ *   data-flow-timer（执行中「⏱H:MM:SS」每秒跳、待接待/待调度/待决策
+ *   「等X」前缀；旧卡无字段不渲染）；第N轮/知识标签 data-flow-tag/
+ *   待调度徽标 data-flow-await 已撤（负锚：不得复活）；
  * - data-flow-link="需求→实现" / "实现→检查" 恰两条顺序连接；
  *   data-flow-edge="检查→实现"（打回）/"检查→需求"（循环）恰两条回路，各带
  *   data-flow-text="edge-label"；
@@ -78,6 +79,14 @@ function isAwaitingDispatch(card: ParsedCard): boolean {
   return hasRedAcceptance(card.sections);
 }
 
+/** 卡面状态色条：人只扫颜色不读字（2026-11-06 人反馈：卡面只留标题+关键信息） */
+function cardTone(card: ParsedCard, awaiting: boolean, urgent: boolean): string {
+  if (urgent || card.needHuman) return 'decide';
+  if (awaiting) return 'wait';
+  if (card.progress === '执行中') return 'run';
+  return 'idle';
+}
+
 /** 时长 chip 前缀：执行中=跑钟（⏱），其余为「等X」——判滞的物理时钟信号 */
 function timerLabel(card: ParsedCard, awaiting: boolean, urgent: boolean): string {
   if (urgent) return '等决策 ';
@@ -86,30 +95,28 @@ function timerLabel(card: ParsedCard, awaiting: boolean, urgent: boolean): strin
   return '⏱';
 }
 
-/** 流程卡面：编号 + 人话标题主显；round 徽标与知识标签按需；
- *  variant=urgent 直显决策信息（question/stop_reason），variant=row 为紧凑行 */
+/** 流程卡面（0.1.10b 极简）：编号 + 标题一行 + 状态色条 + 右上角时长 chip。
+ *  第N轮/知识标签/待调度徽标已撤（信息密度让位于可读性，点开详情看全部）。 */
 function FlowCard({
   card,
-  tag,
   onOpen,
   variant = 'default',
   now,
 }: {
   card: ParsedCard;
-  tag?: string;
   onOpen: (c: ParsedCard) => void;
   variant?: 'default' | 'urgent' | 'row';
   now?: number;
 }) {
   const awaiting = variant !== 'urgent' && isAwaitingDispatch(card);
   const elapsed = now !== undefined ? elapsedText(card.stageChangedAt, now) : null;
+  const tone = cardTone(card, awaiting, variant === 'urgent');
   return (
     <div
-      className={`flow-card flow-card--${variant}`}
+      className={`flow-card flow-card--${variant} flow-card--${tone}`}
       data-flow-card-id={card.id}
       onClick={() => onOpen(card)}
     >
-      {/* 时长 chip：卡右上角悬浮；stage_changed_at 缺失（旧卡/残卡）不渲染 */}
       {elapsed && (
         <span className="flow-card__timer" data-flow-timer="true">
           {timerLabel(card, awaiting, variant === 'urgent')}{elapsed}
@@ -119,30 +126,10 @@ function FlowCard({
         <span className="flow-card__num" data-flow-text="card-num">
           {card.id}
         </span>
-        {/* round 徽标：仅 round>0 渲染（round=0 不得出现「第0轮」） */}
-        {card.round > 0 && <span className="flow-card__round">第{card.round}轮</span>}
-        {/* 知识标签：有映射才渲染（恰一/零 data-flow-tag） */}
-        {tag ? (
-          <span className="flow-card__tag" data-flow-tag="true">
-            {tag}
-          </span>
-        ) : null}
-        {/* 待调度徽标（T0037）：执行完毕压队等调度员推进/重派 */}
-        {awaiting && (
-          <span className="flow-card__await" data-flow-await="true">
-            待调度
-          </span>
-        )}
+        <span className="flow-card__title" data-flow-text="card-title">
+          {card.title || card.id}
+        </span>
       </div>
-      <div className="flow-card__title" data-flow-text="card-title">
-        {card.title || card.id}
-      </div>
-      {variant === 'urgent' && card.stop_reason ? (
-        <div className="flow-card__stop">终止原因：{card.stop_reason}</div>
-      ) : null}
-      {variant === 'urgent' && card.question ? (
-        <div className="flow-card__question">{card.question}</div>
-      ) : null}
     </div>
   );
 }
@@ -177,9 +164,6 @@ export function FlowView({
     }
     return { loop, inbox, archive };
   }, [cards]);
-
-  const tagOf = (card: ParsedCard): string | undefined =>
-    topicTags?.[card.type] || undefined;
 
   const todoView = useMemo(
     () => capNodeCards(buckets.loop['需求'], TODO_PANEL_LIMIT),
@@ -230,7 +214,6 @@ export function FlowView({
                 <FlowCard
                   key={card.id || card.error}
                   card={card}
-                  tag={tagOf(card)}
                   onOpen={setActive}
                   variant="urgent"
                   now={now}
@@ -279,7 +262,6 @@ export function FlowView({
                             <FlowCard
                               key={card.id}
                               card={card}
-                              tag={tagOf(card)}
                               onOpen={setActive}
                               now={now}
                             />
@@ -361,7 +343,6 @@ export function FlowView({
               <FlowCard
                 key={card.id}
                 card={card}
-                tag={tagOf(card)}
                 onOpen={setActive}
                 variant="row"
               />

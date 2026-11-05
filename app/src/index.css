@@ -1644,3 +1644,28 @@ body {
 }
 
 .detail-full { display: flex; flex-direction: column; gap: 18px; }
+
+/* ---- 卡面极简（0.1.10b）：状态色条 + 标题单行省略 ---- */
+
+.flow-card--run   { border-left: 4px solid #6366f1; }
+.flow-card--wait  { border-left: 4px solid #f59e0b; }
+.flow-card--decide{ border-left: 4px solid #ef4444; }
+.flow-card--idle  { border-left: 4px solid #cbd5e1; }
+
+.flow-card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.flow-card .flow-card__title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 等决策卡在待人决策区：标题给足空间，timer 右上不叠字 */
+.flow-card--urgent .flow-card__head { padding-right: 96px; }

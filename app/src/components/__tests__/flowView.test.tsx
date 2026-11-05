@@ -263,10 +263,11 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       inbox!.querySelector('[data-flow-card-id="T19T"]'),
       '收件箱区应含已废 tests 态卡 T19T（T0032 四态化降级）',
     ).not.toBeNull();
+    // 0.1.10b 卡面极简：question 长文不再直显卡面（点开详情看首句），防机器腔糊脸
     expect(
-      within(inbox as HTMLElement).getByText('流程图收件箱应直显的决策问题'),
-      '收件箱区应直显 need_human 卡的 question 全文（T0016 模式）',
-    ).toBeTruthy();
+      inbox!.textContent ?? '',
+      '卡面不得直显 question 原文（点开详情看）',
+    ).not.toContain('流程图收件箱应直显的决策问题');
 
     // 需求清单区：含需求阶段卡
     const todo = view.container.querySelector('[data-flow-todo="true"]');
@@ -302,39 +303,15 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       expect(card.textContent ?? '', `${cardId} 卡面应含人话标题`).toContain(title);
     }
 
-    // round 徽标：round>0 显示「第N轮」；round=0 不得出现「第0轮」
-    const round2 = view.container.querySelector('[data-flow-card-id="T19R"]')!;
+    // 0.1.10b 卡面极简：第N轮徽标与知识标签已撤（负锚防复活，点开详情看）
+    for (const cardId of ['T19R', 'T19N']) {
+      const c = view.container.querySelector(`[data-flow-card-id="${cardId}"]`)!;
+      expect(c.textContent ?? '', '卡面不得出现轮次徽标').not.toContain('第2轮');
+      expect(c.querySelectorAll('[data-flow-tag]').length, '卡面零 data-flow-tag').toBe(0);
+    }
     expect(
-      round2.textContent ?? '',
-      'round=2 卡应显示「第2轮」徽标（当前实现无，应红）',
-    ).toContain('第2轮');
-    const round0 = view.container.querySelector('[data-flow-card-id="T19N"]')!;
-    expect(
-      round0.textContent ?? '',
-      'round=0 卡不得出现「第0轮」',
-    ).not.toContain('第0轮');
-
-    // 知识标签：type 有映射 → 恰一个 data-flow-tag 且文本为标签文字
-    const tagged = view.container.querySelector('[data-flow-card-id="T19T"]')!;
-    const tagEls = tagged.querySelectorAll('[data-flow-tag]');
-    expect(
-      tagEls.length,
-      '有映射的卡应恰一个 data-flow-tag 元素（当前实现无，应红）',
-    ).toBe(1);
-    expect(
-      tagEls[0].textContent ?? '',
-      '标签元素文本应为 topics「标签」字段文字',
-    ).toBe('系开');
-
-    // 无映射 → 零 data-flow-tag，卡面不出现别卡标签文字
-    const untagged = view.container.querySelector('[data-flow-card-id="T19R"]')!;
-    expect(
-      untagged.querySelectorAll('[data-flow-tag]').length,
-      '无映射的卡不得渲染 data-flow-tag',
-    ).toBe(0);
-    expect(
-      untagged.textContent ?? '',
-      '无标签卡面不得出现别卡的标签文字',
+      view.container.textContent ?? '',
+      '卡面不得出现标签文字（含别卡映射）',
     ).not.toContain('系开');
   });
 
@@ -349,25 +326,16 @@ describe('T0019/A3 流程图视图整体呈现', () => {
       awaitingCard.closest('[data-flow-node]')?.getAttribute('data-flow-node'),
       '执行完毕卡应压在实现环节栏（调度员推进前不跳栏）',
     ).toBe('实现');
+    // 0.1.10b：待调度徽标撤除（状态由左色条表达），负锚防复活
     expect(
       awaitingCard.querySelectorAll('[data-flow-await="true"]').length,
-      '执行完毕压队卡应恰一个待调度徽标',
-    ).toBe(1);
-    expect(awaitingCard.textContent ?? '').toContain('待调度');
-
-    // T19R（实现,执行中）：不带徽标
-    const running = view.container.querySelector('[data-flow-card-id="T19R"]')!;
-    expect(
-      running.querySelectorAll('[data-flow-await="true"]').length,
-      '执行中卡不得带待调度徽标',
+      '卡面零 data-flow-await（徽标已撤）',
     ).toBe(0);
-
-    // T19D（检查,执行完毕终态）：归档行不带徽标
-    const done = view.container.querySelector('[data-flow-card-id="T19D"]')!;
+    expect(awaitingCard.className, '压队卡由黄色条表达').toContain('flow-card--wait');
     expect(
-      done.querySelectorAll('[data-flow-await="true"]').length,
-      '终态归档卡不得带待调度徽标',
-    ).toBe(0);
+      view.container.querySelector('[data-flow-card-id="T19R"]')!.className,
+      '执行中卡由蓝色条表达',
+    ).toContain('flow-card--run');
   });
 
   // T0037：检查完毕有红（等重派）→ 留检查栏压队带待调度徽标，不进归档
@@ -394,8 +362,8 @@ describe('T0019/A3 流程图视图整体呈现', () => {
     const xCard = view.container.querySelector('[data-flow-card-id="T19X"]')!;
     expect(
       xCard.querySelectorAll('[data-flow-await="true"]').length,
-      '等重派卡应带待调度徽标',
-    ).toBe(1);
+      '等重派卡零 data-flow-await（徽标已撤，色条表达）',
+    ).toBe(0);
   });
 });
 
@@ -643,11 +611,16 @@ describe('T0030/A3 需求环节清单截 50', () => {
 });
 
 describe('待人决策的两种形态', () => {
-  it('有事：直显 question 与终止原因；无事：显示平静占位并带 clear 形态类', () => {
+  it('有事：待人决策卡挂收件箱红条；无事：平静占位并带 clear 形态类', () => {
     const busy = render(<FlowView cards={fixtureCards()} />);
     const inbox = busy.container.querySelector('[data-flow-inbox="true"]')!;
-    expect(inbox.textContent).toContain('流程图收件箱应直显的决策问题');
-    expect(inbox.textContent).toContain('收件箱夹具终止原因');
+    // 0.1.10b 卡面极简：question/stop_reason 长文不上卡面（点开详情看首句）
+    expect(inbox.textContent).not.toContain('流程图收件箱应直显的决策问题');
+    expect(inbox.textContent).not.toContain('收件箱夹具终止原因');
+    expect(
+      inbox.querySelector('[data-flow-card-id="T19H"]')!.className,
+      '待人决策卡由红色条表达',
+    ).toContain('flow-card--decide');
     expect(inbox.className).not.toContain('flow-inbox--clear');
     busy.unmount();
 

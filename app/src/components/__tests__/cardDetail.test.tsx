@@ -53,14 +53,16 @@ describe('卡片详情极简视图（0.1.10 人话位）', () => {
     expect(document.querySelector('[data-detail-digest]')).toBeNull();
   });
 
-  it('人话位缺失回退：intent←复述卡首条、status←最新进度行', () => {
+  it('人话位零回退：status 缺失不显示该行（不拿机器进度冒充人话）', () => {
     renderDetail(mkCard(FM, {
       复述卡: '1. 我的理解:画布中间只放主角。',
       进度: '- 2026-11-06 实现员：铺满画布收尾中。',
     }));
     const brief = document.querySelector('[data-detail-brief]')!;
-    expect(brief.textContent).toContain('画布中间只放主角');
-    expect(brief.textContent).toContain('铺满画布收尾中');
+    expect(brief.textContent).toContain('示例卡'); // intent 兜底 title（人话天生）
+    expect(brief.textContent).not.toContain('画布中间只放主角'); // 复述卡原文不上默认视图
+    expect(brief.textContent).not.toContain('铺满画布收尾中'); // 机器进度不上卡面
+    expect(brief.querySelector('[data-detail-key="现在"]')).toBeNull();
   });
 
   it('二级切换：点「查看全部细节」出全量（复述卡/验收明细/时间线/折叠区）', () => {
@@ -84,13 +86,15 @@ describe('卡片详情极简视图（0.1.10 人话位）', () => {
     expect(document.querySelector('[data-detail-brief]')).toBeTruthy();
   });
 
-  it('决策区：need_human 卡置顶且两级视图都在', () => {
+  it('决策区：question 首句大字，机器腔长文与 stop_reason 不上卡面', () => {
     renderDetail(mkCard(
-      { ...FM, need_human: 'true', question: '选 A 还是 B？', stop_reason: '方向分叉' }, {},
+      { ...FM, need_human: 'true',
+        question: 'A5 视觉终审通过吗：看 .oht/local/ 三张截图逐张核对颜色配对与铺满效果',
+        stop_reason: 'A5 是 human 条目须人判定;round1 修点复核全绿;按调度令聚焦铺满' }, {},
     ));
     const dec = document.querySelector('[data-detail-decision]')!;
-    expect(dec.textContent).toContain('选 A 还是 B？');
-    fireEvent.click(document.querySelector('[data-detail-more]')!);
-    expect(document.querySelector('[data-detail-decision]')!.textContent).toContain('方向分叉');
+    expect(dec.textContent).toContain('A5 视觉终审通过吗');
+    expect(dec.textContent).not.toContain('.oht/local/');
+    expect(dec.textContent).not.toContain('human 条目');
   });
 });
