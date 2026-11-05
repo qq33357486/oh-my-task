@@ -76,8 +76,36 @@ describe('T0039 引导分支、心跳与引导卡改序（语义锚）', () => {
     expect(bootstrap, '巡检员定时教程已过时，不得残留在引导卡').not.toContain('巡检员');
   });
 
-  it('框架版本 0.1.6', () => {
-    expect(FRAMEWORK_VERSION).toBe('0.1.6');
+  it('框架版本 0.1.7', () => {
+    expect(FRAMEWORK_VERSION).toBe('0.1.7');
+  });
+});
+
+describe('T0046 拆卡即定稿与待接待滞留报人（语义锚）', () => {
+  const file = (rel: string): string =>
+    FRAMEWORK_FILES.find((f) => f.path === rel)?.content ?? '';
+
+  it('A1 consultant.md：子卡材料齐备同会话定稿，缺则等接待', () => {
+    const consultant = file('.oht/roles/consultant.md');
+    expect(consultant).toContain('子卡定稿材料齐备');
+    expect(consultant).toContain('同会话置（需求,执行完毕）');
+    expect(consultant).toContain('置（需求,未执行）等接待');
+    expect(
+      consultant,
+      '旧拆卡句「子卡（需求,未执行）」把已定稿子卡留在无人格，必须整句改写',
+    ).not.toContain('子卡（需求,未执行）');
+  });
+
+  it('A2 dispatcher.md：待接待滞留 3 轮显式报人', () => {
+    const dispatcher = file('.oht/roles/dispatcher.md');
+    expect(dispatcher).toContain('连续 3 轮未动');
+    expect(dispatcher).toContain('等人接待');
+  });
+
+  it('A3 PROTOCOL.md：大需求拆分行与拆卡即定稿同语义', () => {
+    const protocol = file('.oht/PROTOCOL.md');
+    expect(protocol).toContain('定稿材料齐备');
+    expect(protocol).toContain('同会话置（需求,执行完毕）');
   });
 });
 
