@@ -332,8 +332,8 @@ export const useStore = create<State>()((set, get) => {
         const handle = await fsa.pickDirectory();
         // 先打开目录：存储要是卡住（磁盘满），不能连选好的目录都打不开；打不开的目录也不该被记住。
         await get().open(fsa.wrapDir(handle));
-        // 打不开的目录不记住（打开出错时页面停在出错页）。
-        if (get().view.name === 'error') return;
+        // 目录已经不在了就不记住（那时手里没有它）。只是这一次没读出来不算：目录还在，之后点「重试」能打开。
+        if (!get().root) return;
         void rememberQuietly(handle);
       } catch (err) {
         if (isCancelled(err)) return;
@@ -354,7 +354,8 @@ export const useStore = create<State>()((set, get) => {
         return;
       }
       try {
-        const handle = await fsa.loadHandle(name);
+        // 浏览器的存储要是一直不返回，等一小会儿就当没有这条记录：点了「继续打开」不能没有任何反应。
+        const handle = await giveUpAfter(fsa.loadHandle(name), BOOT_STORAGE_MS);
         if (!handle) {
           // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页；
           // 「上次打开的」要是它，也一起去掉（放到后台做，页面先更新）。
@@ -380,7 +381,7 @@ export const useStore = create<State>()((set, get) => {
           return;
         }
         await get().open(fsa.wrapDir(handle));
-        if (get().view.name === 'error') return;
+        if (!get().root) return;
         void rememberQuietly(handle);
       } catch (err) {
         if (isCancelled(err)) return;
@@ -496,7 +497,7 @@ export const useStore = create<State>()((set, get) => {
               : result.reason === 'already-initialized'
                 ? '刷新一下页面'
                 : result.reason === 'encoding'
-                  ? '把根 AGENTS.md 另存成 UTF-8（带不带 BOM 都行），再试一次。'
+                  ? '把根 AGENTS.md 另存成 UTF-8（带不带 BOM 都行），再试一次'
                   : '';
           set({
             error: { message: result.message, next, details: 'conflicts' in result ? result.conflicts : undefined, sticky: true },
@@ -556,7 +557,7 @@ export const useStore = create<State>()((set, get) => {
           set({
             error: {
               message: result.message,
-              next: '把根 AGENTS.md 另存成 UTF-8（带不带 BOM 都行），再点一次「有更新」。',
+              next: '把根 AGENTS.md 另存成 UTF-8（带不带 BOM 都行），再点一次「有更新」',
               sticky: true,
             },
           });

@@ -111,6 +111,22 @@ describe('记住目录', () => {
     vi.restoreAllMocks();
   });
 
+  it('事务出错、却没有给出错误对象：照样报错，不当成成功', async () => {
+    const objectStore = { put: () => ({}), get: () => ({}), delete: () => ({}) };
+    const tx = { objectStore: () => objectStore, error: null, onerror: null as null | (() => void) };
+    const db = { transaction: () => tx, close: vi.fn() };
+    const request = { result: db, onupgradeneeded: null, onsuccess: null as null | ((ev: Event) => void), onerror: null };
+    vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+      queueMicrotask(() => {
+        request.onsuccess?.(new Event('success'));
+        queueMicrotask(() => tx.onerror?.());
+      });
+      return request as unknown as IDBOpenDBRequest;
+    });
+    await expect(lastHandleName()).rejects.toThrow('浏览器没能完成这次存储操作');
+    vi.restoreAllMocks();
+  });
+
   it('两条记录写进同一个事务：要么都记上，要么都没记', async () => {
     const store = { put: vi.fn(() => ({})), get: () => ({}), delete: () => ({}) };
     const tx = { objectStore: () => store, oncomplete: null as null | (() => void) };

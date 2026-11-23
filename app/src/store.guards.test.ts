@@ -52,6 +52,19 @@ const stale = (): Tree => {
   return tree;
 };
 
+/** 框架文件都和内置的一致的项目。 */
+const fresh = (name: string) => {
+  const tree: Tree = { '.omt': {}, openspec: { changes: {} } };
+  for (const file of FRAMEWORK_FILES) {
+    const parts = file.path.split('/');
+    const last = parts.pop()!;
+    let cur: Tree = tree;
+    for (const part of parts) cur = (cur[part] ??= {}) as Tree;
+    cur[last] = file.content;
+  }
+  return fakeDir(name, tree, { failOnWrite: true });
+};
+
 const board = (name: string) => fakeDir(name, { '.omt': {}, openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1' } } } }, { failOnWrite: true });
 
 beforeEach(() => {
@@ -376,5 +389,122 @@ describe('更新写到一半，目录被移走', () => {
     expect(state.error).toMatchObject({ message: expect.stringContaining('打不开了'), pick: true });
     expect(state.view).toEqual({ name: 'error' });
     expect(state.busy).toBe(false);
+  });
+});
+
+// 第七轮独立验收抓出来的：这几处防护撤掉，全量照样全绿。
+describe('第七轮补的', () => {
+  // out 为 denied 时，放行后这一次读抛「没权限」。
+  async function staleRoot(update: boolean, out?: 'denied') {
+    const root = fakeDir('proj-A', update ? stale() : {});
+    const held = hold(root, 'getFile', 'AGENTS.md', out);
+    useStore.setState({ view: { name: update ? 'board' : 'uninitialized', projectName: 'proj-A' }, root, hasUpdate: true });
+    const running = update ? useStore.getState().applyUpdate() : useStore.getState().initialize();
+    await held.entered;
+    return { root, held, running };
+  }
+
+  it.each([
+    ['初始化', false],
+    ['更新', true],
+  ])('%s规划到一半换了项目：一个文件都不再写进旧项目', async (_label, update) => {
+    const { root, held, running } = await staleRoot(update);
+    const before = await dumpDir(root);
+    await useStore.getState().open(board('proj-B'));
+
+    held.release();
+    await running;
+
+    expect(await dumpDir(root)).toEqual(before);
+    expect(useStore.getState()).toMatchObject({ view: { name: 'board', projectName: 'proj-B' }, notice: null, error: null, busy: false });
+  });
+
+  it.each([
+    ['初始化', false],
+    ['更新', true],
+  ])('%s规划到一半换了项目，随后规划出错：错不挂到新项目上', async (_label, update) => {
+    const { held, running } = await staleRoot(update, 'denied');
+    await useStore.getState().open(board('proj-B'));
+
+    held.release();
+    await running;
+    expect(useStore.getState()).toMatchObject({ view: { name: 'board', projectName: 'proj-B' }, error: null, busy: false });
+  });
+
+  it('旧项目停在「还差一步」，比对完框架文件才回来：不把它的「有更新」挂到新项目上', async () => {
+    const a = fakeDir('proj-A', { '.omt': {} }, { failOnWrite: true });
+    useStore.setState({ view: { name: 'missing-openspec', projectName: 'proj-A' }, root: a });
+    const omt = (await a.getDir('.omt'))!;
+    const held = hold(omt, 'getFile', 'AGENTS.md');
+    const polling = useStore.getState().refresh();
+    await held.entered;
+    await useStore.getState().open(fresh('proj-B'));
+    expect(useStore.getState().hasUpdate).toBe(false);
+
+    held.release();
+    await polling;
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+    expect(useStore.getState().hasUpdate).toBe(false);
+  });
+
+  it('重新打开一个记住的目录，它已经不在了：不把它再记回去', async () => {
+    const fsa = await import('./fs/fsAccess');
+    const toRaw = (await import('./test/fakeRaw')).toRaw;
+    const gone = fakeDir('proj-A', {});
+    gone.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    const remember = vi.spyOn(fsa, 'remember');
+    vi.spyOn(fsa, 'loadHandle').mockResolvedValue(toRaw('proj-A', gone));
+    vi.spyOn(fsa, 'hasPermission').mockResolvedValue(true);
+    await useStore.getState().reopen('proj-A');
+    expect(useStore.getState().error?.message).toContain('打不开了');
+    expect(remember).not.toHaveBeenCalled();
+  });
+
+  it('第一次没读出来（目录还在）：照样记住，之后点「重试」能打开', async () => {
+    const fsa = await import('./fs/fsAccess');
+    const toRaw = (await import('./test/fakeRaw')).toRaw;
+    const flaky = board('proj-A');
+    let failing = true;
+    flaky.entries = async () => {
+      if (failing) throw Object.assign(new Error('busy'), { name: 'NotReadableError' });
+      return board('proj-A').entries();
+    };
+    const remember = vi.spyOn(fsa, 'remember');
+    vi.spyOn(fsa, 'pickDirectory').mockResolvedValue(toRaw('proj-A', flaky));
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().view).toEqual({ name: 'error', projectName: 'proj-A' });
+    expect(remember).toHaveBeenCalledTimes(1);
+
+    failing = false;
+    await useStore.getState().retry();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+  });
+
+  it('重新打开时出了错：出错页带着项目名，点「重试」回到同一个项目', async () => {
+    const fsa = await import('./fs/fsAccess');
+    vi.spyOn(fsa, 'loadHandle').mockRejectedValue(new Error('db broken'));
+    await useStore.getState().reopen('proj-A');
+    expect(useStore.getState().view).toEqual({ name: 'error', projectName: 'proj-A' });
+    const reopen = vi.spyOn(useStore.getState(), 'reopen');
+    await useStore.getState().retry();
+    expect(reopen).toHaveBeenCalledWith('proj-A');
+  });
+
+  it('取目录记录时浏览器的存储一直不返回：等一小会儿就当没有这条记录', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const fsa = await import('./fs/fsAccess');
+      vi.spyOn(fsa, 'loadHandle').mockReturnValue(new Promise(() => {}));
+      useStore.setState({ view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
+      const reopening = useStore.getState().reopen('proj-A');
+      await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
+      await reopening;
+      expect(useStore.getState().view).toEqual({ name: 'error' });
+      expect(useStore.getState().error?.message).toContain('找不到「proj-A」的目录记录');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

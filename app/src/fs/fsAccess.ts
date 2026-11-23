@@ -33,7 +33,7 @@ async function transact<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore
         else resolve(req ? (req as IDBRequest<T>).result : undefined);
       };
       tx.oncomplete = () => finish(undefined);
-      tx.onerror = () => finish(tx.error);
+      tx.onerror = () => finish(tx.error ?? new Error('浏览器没能完成这次存储操作'));
       tx.onabort = () => finish(tx.error ?? new Error('浏览器中止了这次存储操作'));
     });
   } catch (err) {

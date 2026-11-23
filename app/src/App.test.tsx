@@ -108,6 +108,14 @@ describe('页面刚打开', () => {
     expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
   });
 
+  it('存过目录：页面是「继续打开」那一页，没有页眉', async () => {
+    vi.mocked(fsa.lastHandleName).mockResolvedValueOnce('proj-A');
+    mount();
+    expect(await screen.findByRole('button', { name: '继续打开 proj-A' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /刷 ?新/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /重 ?试/ })).toBeNull();
+  });
+
   it('读不到浏览器里存了什么：照样是入口页，不停在空白', async () => {
     vi.mocked(fsa.lastHandleName).mockRejectedValueOnce(new Error('IndexedDB blocked'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

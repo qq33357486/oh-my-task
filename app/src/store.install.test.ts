@@ -140,6 +140,18 @@ describe('初始化', () => {
     for (const file of FRAMEWORK_FILES) expect(await textAt(root, file.path), file.path).not.toContain('\r');
   });
 
+  it('「认不出编码」的下一步不带句号：看板会在提示后面自己加一个', async () => {
+    await at('uninitialized', { 'AGENTS.md': { text: 'x', mtime: 0, bytes: GBK_RULES } });
+    await useStore.getState().initialize();
+    expect(useStore.getState().error?.next).not.toMatch(/。$/);
+    // 更新的那句显示在看板上，看板会在提示后面自己加一个句号
+    const tree = projectTree();
+    tree['AGENTS.md'] = { text: 'x', mtime: 0, bytes: GBK_RULES };
+    await at('board', tree);
+    await useStore.getState().applyUpdate();
+    expect(useStore.getState().error?.next).not.toMatch(/。$/);
+  });
+
   it('初始化不去要权限：选目录的时候已经一次要完了', async () => {
     const requestPermission = vi.spyOn(fsa, 'requestPermission');
     await at('uninitialized');
