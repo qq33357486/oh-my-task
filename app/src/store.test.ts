@@ -29,7 +29,8 @@ const hasPermission = vi.mocked(fsa.hasPermission);
 const requestPermission = vi.mocked(fsa.requestPermission);
 
 function project(name: string, tree: Parameters<typeof fakeDir>[1] = {}) {
-  return toRaw(name, fakeDir(name, tree));
+  // 一旦有写操作就报错：这些测试只走展示路径。
+  return toRaw(name, fakeDir(name, tree, { failOnWrite: true }));
 }
 
 beforeEach(() => {
@@ -146,7 +147,7 @@ describe('refresh', () => {
   });
 
   it('看板每调一次重读一次', async () => {
-    useStore.setState({ view: { name: 'board', projectName: 'x' }, root: fakeDir('x', { openspec: {} }) });
+    useStore.setState({ view: { name: 'board', projectName: 'x' }, root: fakeDir('x', { openspec: {} }, { failOnWrite: true }) });
     await useStore.getState().refresh();
     await useStore.getState().refresh();
     expect(useStore.getState().refreshCount).toBe(2);

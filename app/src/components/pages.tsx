@@ -79,6 +79,7 @@ export function OldVersionPage() {
 export function MissingOpenSpecPage() {
   return (
     <div className="page">
+      <ErrorAlert />
       <Alert
         type="warning"
         title="还差一步：这个目录还没有 OpenSpec"

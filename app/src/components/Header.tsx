@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Dropdown, Modal, Space, Typography, type MenuProps } from 'antd';
 import { FRAMEWORK_FILES } from '../framework/manifest';
 import { useStore } from '../store';
@@ -11,7 +12,6 @@ const RECENT_PREFIX = 'recent:';
 export default function Header() {
   const view = useStore((s) => s.view);
   const recents = useStore((s) => s.recents);
-  const refreshing = useStore((s) => s.refreshing);
   const refresh = useStore((s) => s.refresh);
   const retry = useStore((s) => s.retry);
   const switchTo = useStore((s) => s.switchTo);
@@ -21,6 +21,8 @@ export default function Header() {
   const busy = useStore((s) => s.busy);
   const applyUpdate = useStore((s) => s.applyUpdate);
   const [modal, contextHolder] = Modal.useModal();
+  // 只有人点了「刷新」才转圈。轮询每 5 秒读一次，不转。
+  const [manual, setManual] = useState(false);
 
   // 菜单列出全部最近项目，最近用的在最前；当前项目标出来，点了也不动。
   const items: MenuProps['items'] = [
@@ -38,7 +40,14 @@ export default function Header() {
   };
 
   const onBoard = view.name === 'board' || view.name === 'missing-openspec';
-  const onRefresh = () => void (onBoard ? refresh() : retry());
+  const onRefresh = async () => {
+    setManual(true);
+    try {
+      await (onBoard ? refresh() : retry());
+    } finally {
+      setManual(false);
+    }
+  };
 
   // 点了更新先确认。常开的旧标签页会把旧文件覆盖回去，所以提醒一句。
   const confirmUpdate = () => {
@@ -65,12 +74,13 @@ export default function Header() {
       </Typography.Title>
       <Typography.Text className="app-header__project">{view.projectName}</Typography.Text>
       <Space className="app-header__actions">
-        {hasUpdate && (
+        {/* 更新只在这两种页面上有：初始化的三道检查只有初始化才做，别的页面上不能绕过去。 */}
+        {hasUpdate && onBoard && (
           <Button type="primary" loading={busy} onClick={confirmUpdate}>
             有更新
           </Button>
         )}
-        <Button onClick={onRefresh} loading={refreshing}>
+        <Button onClick={() => void onRefresh()} loading={manual}>
           刷新
         </Button>
         <Dropdown menu={{ items, onClick }} trigger={['click']}>

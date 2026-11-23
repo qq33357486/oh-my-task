@@ -77,10 +77,17 @@ describe('初始化', () => {
     expect(state.busy).toBe(false);
   });
 
-  it('有 openspec/：进看板', async () => {
-    await at('uninitialized', { openspec: {} });
+  it('有 openspec/：进看板，OpenSpec 自己的文件一个字不变', async () => {
+    const before = {
+      'config.yaml': 'schema: spec-driven\n',
+      changes: { archive: {}, 'add-login': { 'tasks.md': '- [ ] 1.1' } },
+      specs: { cap: { 'spec.md': '# 规格' } },
+    };
+    const root = await at('uninitialized', { openspec: before });
     await useStore.getState().initialize();
     expect(useStore.getState().view.name).toBe('board');
+    expect((await dumpDir(root)).openspec).toEqual(before);
+    expect(Object.keys(await dumpDir(root)).sort()).toEqual(['.agents', '.omt', 'AGENTS.md', 'openspec']);
     expect(useStore.getState().notice).toBe(`已置入 ${FRAMEWORK_FILES.length} 个文件。`);
   });
 

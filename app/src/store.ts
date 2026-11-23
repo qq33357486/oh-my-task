@@ -27,12 +27,16 @@ export interface View {
 export interface State {
   view: View;
   recents: string[];
-  /** 正在重读文件。上一次没读完就不开始下一次。 */
+  /** 正在重读文件。同一个项目上，上一次没读完就不开始下一次。 */
   refreshing: boolean;
+  /** 正在读的那一轮属于第几次打开（见 session）。 */
+  refreshSession: number | null;
   /** 实际发起过多少次重读，测试用。 */
   refreshCount: number;
   error: Friendly | null;
   root: FsDir | null;
+  /** 每打开一个目录加一。读到一半换了项目，靠它认出手里这一轮的结果已经过期。 */
+  session: number;
   /** 看板数据，每次重读整份换掉。 */
   changes: ChangeInfo[];
   archived: ChangeInfo[];
@@ -68,16 +72,35 @@ export interface State {
 
 type Data = Pick<
   State,
-  'view' | 'recents' | 'refreshing' | 'refreshCount' | 'error' | 'root' | 'changes' | 'archived' | 'archivedTotal' | 'selected' | 'detail' | 'detailLoading' | 'hasUpdate' | 'updateCount' | 'busy' | 'notice'
+  | 'view'
+  | 'recents'
+  | 'refreshing'
+  | 'refreshSession'
+  | 'refreshCount'
+  | 'error'
+  | 'root'
+  | 'session'
+  | 'changes'
+  | 'archived'
+  | 'archivedTotal'
+  | 'selected'
+  | 'detail'
+  | 'detailLoading'
+  | 'hasUpdate'
+  | 'updateCount'
+  | 'busy'
+  | 'notice'
 >;
 
 export const initialState: Data = {
   view: { name: 'no-project' },
   recents: [],
   refreshing: false,
+  refreshSession: null,
   refreshCount: 0,
   error: null,
   root: null,
+  session: 0,
   changes: [],
   archived: [],
   archivedTotal: 0,
@@ -90,21 +113,46 @@ export const initialState: Data = {
   notice: null,
 };
 
+/** 换项目的时候，属于上一个项目的东西一样不留。 */
+const FORGET_PROJECT: Partial<Data> = {
+  error: null,
+  notice: null,
+  changes: [],
+  archived: [],
+  archivedTotal: 0,
+  selected: null,
+  detail: null,
+  detailLoading: false,
+  hasUpdate: false,
+  updateCount: 0,
+};
+
+const onBoardLike = (name: ViewName) => name === 'board' || name === 'missing-openspec';
+
 export const useStore = create<State>()((set, get) => ({
   ...initialState,
 
   /** 打开一个目录：先只看它有哪几个目录，再决定显示哪一页。 */
   open: async (root) => {
     const projectName = root.name;
-    set({ view: { name: 'loading', projectName }, root, error: null, changes: [], archived: [], archivedTotal: 0, selected: null, detail: null });
+    const session = get().session + 1;
+    set({
+      ...FORGET_PROJECT,
+      view: { name: 'loading', projectName },
+      root,
+      session,
+    });
     try {
       const state = await detectProject(root);
+      // 看目录的时候又换了项目：这一回的结果不要了。
+      if (get().session !== session) return;
       const recents = pushRecent(get().recents, projectName);
       saveRecent(localStorage, recents);
       set({ view: { name: state.kind, projectName }, recents });
       // 进看板和停在「还差一步」都要读一次：前者读任务夹，两者都比对框架文件。
-      if (state.kind === 'board' || state.kind === 'missing-openspec') await get().refresh();
+      if (onBoardLike(state.kind)) await get().refresh();
     } catch (err) {
+      if (get().session !== session) return;
       set({ view: { name: 'error', projectName }, error: humanize(err, '打开这个目录') });
     }
   },
@@ -136,7 +184,8 @@ export const useStore = create<State>()((set, get) => ({
 
   /** 重新打开一个记住的目录。权限还在就直接开；不在就向用户要（必须由点击触发）。 */
   reopen: async (name) => {
-    set({ root: null });
+    // 先放下手里的项目：失败以后「重试」该重新打开要去的那个，而不是回到原来这个。
+    set({ ...FORGET_PROJECT, root: null, session: get().session + 1 });
     if (!name) {
       set({ view: { name: 'no-project' } });
       return;
@@ -167,24 +216,28 @@ export const useStore = create<State>()((set, get) => ({
 
   /**
    * 重读当前项目：看板的数据，以及项目里的框架文件和内置的还对不对得上。
-   * 只读，不写。上一次没读完就不开始下一次。
+   * 只读，不写。同一个项目上，上一次没读完就不开始下一次。
+   * 换了项目就不用等：上一轮读到一半的结果会按 session 认出来、丢掉。
    */
   refresh: async () => {
-    if (get().refreshing) return;
-    const viewName = get().view.name;
-    if (viewName !== 'board' && viewName !== 'missing-openspec') return;
+    const session = get().session;
+    if (get().refreshing && get().refreshSession === session) return;
+    if (!onBoardLike(get().view.name)) return;
     const root = get().root;
     if (!root) return;
-    set({ refreshing: true, refreshCount: get().refreshCount + 1 });
+    set({ refreshing: true, refreshSession: session, refreshCount: get().refreshCount + 1 });
     try {
       const openspec = await root.getDir('openspec');
       const { changed } = await compareFramework(FRAMEWORK_FILES, targetOf(root));
+      // 读的时候换项目了：这一轮的结果已经过期，丢掉。
+      if (get().session !== session) return;
       const freshness = { hasUpdate: changed > 0, updateCount: changed };
       if (!openspec) {
         set({ ...freshness, view: { name: 'missing-openspec', projectName: get().view.projectName }, error: null });
         return;
       }
       const { active, archived, archivedTotal } = await readChanges(openspec);
+      if (get().session !== session) return;
       // 停在「还差一步」的时候 OpenSpec 装好了：切到看板。
       const view =
         get().view.name === 'missing-openspec'
@@ -192,14 +245,16 @@ export const useStore = create<State>()((set, get) => ({
           : get().view;
       set({ ...freshness, view, changes: active, archived, archivedTotal, error: null });
     } catch (err) {
-      set({ error: humanize(err, '读取看板') });
+      if (get().session === session) set({ error: humanize(err, '读取看板') });
     } finally {
-      set({ refreshing: false });
+      // 只收回自己这一轮的「正在读」，别把新项目那一轮的清掉。
+      if (get().refreshSession === session) set({ refreshing: false });
     }
   },
 
   /** 点开一张卡：读这个任务夹的文件。只读。 */
   openDetail: async (info) => {
+    const session = get().session;
     set({ selected: info.dirName, detail: null, detailLoading: true });
     try {
       const root = get().root;
@@ -208,12 +263,12 @@ export const useStore = create<State>()((set, get) => ({
       const dir = base ? await base.getDir(info.dirName) : null;
       if (!dir) throw Object.assign(new Error('任务夹不在了'), { name: 'NotFoundError' });
       const detail = await readChangeDetail(dir);
-      // 读的期间人可能已经关掉了卡片。
-      if (get().selected === info.dirName) set({ detail });
+      // 读的期间人可能已经关掉了卡片，或者换了项目。
+      if (get().session === session && get().selected === info.dirName) set({ detail });
     } catch (err) {
-      set({ error: humanize(err, '读取这个任务夹') });
+      if (get().session === session) set({ error: humanize(err, '读取这个任务夹') });
     } finally {
-      set({ detailLoading: false });
+      if (get().session === session) set({ detailLoading: false });
     }
   },
 
@@ -237,13 +292,15 @@ export const useStore = create<State>()((set, get) => ({
     set({ view: { name: 'no-project' }, error: null });
   },
 
-  /** 初始化此目录。被拒绝时一个文件都不写。 */
+  /** 初始化此目录。只在「还没有任务系统」那一页生效。被拒绝时一个文件都不写。 */
   initialize: async () => {
     const root = get().root;
-    if (!root || get().busy) return;
+    if (!root || get().busy || get().view.name !== 'uninitialized') return;
+    const session = get().session;
     set({ busy: true, error: null, notice: null });
     try {
       const result = await planInstall(FRAMEWORK_FILES, targetOf(root), 'init');
+      if (get().session !== session) return;
       if (!result.ok) {
         const next =
           result.reason === 'conflict'
@@ -258,48 +315,62 @@ export const useStore = create<State>()((set, get) => ({
         await applyInstall(root, result.plan);
       } catch (err) {
         // 写到一半失败会留下部分文件，再点初始化会被判成「已初始化过」。所以指一条走得通的路。
-        set({
-          error: {
-            ...humanize(err, '写入文件'),
-            next: '可能已经写进去一部分。点页眉的「刷新」，页面会认出写进去的部分；再点「有更新」把剩下的补齐。',
-          },
-        });
+        if (get().session === session) {
+          set({
+            error: {
+              ...humanize(err, '写入文件'),
+              next: '可能已经写进去一部分。点页眉的「刷新」，页面会认出写进去的部分；再点「有更新」把剩下的补齐。',
+            },
+          });
+        }
         return;
       }
+      const openspec = await root.getDir('openspec');
+      // 写的时候换了项目：回话不给新项目看。
+      if (get().session !== session) return;
       const projectName = get().view.projectName ?? root.name;
       const notice = `已置入 ${result.plan.files.length} 个文件。`;
-      const openspec = await root.getDir('openspec');
       if (openspec) {
         set({ view: { name: 'board', projectName }, notice });
         await get().refresh();
       } else {
         set({ view: { name: 'missing-openspec', projectName }, notice });
+        await get().refresh();
       }
     } catch (err) {
-      set({ error: humanize(err, '初始化') });
+      if (get().session === session) set({ error: humanize(err, '初始化') });
     } finally {
       set({ busy: false });
     }
   },
 
-  /** 更新：名单上的文件全部写进项目，同名覆盖，缺的补上。不备份，不删除。 */
+  /**
+   * 更新：名单上的文件全部写进项目，同名覆盖，缺的补上。不备份，不删除。
+   * 只在看板和「还差一步」两页生效。初始化的三道检查（旧版、已初始化、同名文件）只有初始化才做，
+   * 所以更新不能在别的页面上被触发。
+   */
   applyUpdate: async () => {
     const root = get().root;
-    if (!root || get().busy) return;
+    if (!root || get().busy || !onBoardLike(get().view.name)) return;
+    const session = get().session;
     set({ busy: true, error: null, notice: null });
     try {
       const result = await planInstall(FRAMEWORK_FILES, targetOf(root), 'update');
+      if (get().session !== session) return;
       if (!result.ok) return;
       try {
         await applyInstall(root, result.plan);
       } catch (err) {
-        set({ error: { ...humanize(err, '写入文件'), next: '点页眉的「刷新」，再点「有更新」重试。' } });
+        if (get().session === session) {
+          set({ error: { ...humanize(err, '写入文件'), next: '点页眉的「刷新」，再点「有更新」重试。' } });
+        }
         return;
       }
+      if (get().session !== session) return;
       set({ notice: '已更新。' });
       await get().refresh();
     } catch (err) {
-      set({ error: humanize(err, '更新') });
+      if (get().session === session) set({ error: humanize(err, '更新') });
     } finally {
       set({ busy: false });
     }

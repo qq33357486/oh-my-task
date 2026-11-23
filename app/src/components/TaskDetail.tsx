@@ -1,8 +1,22 @@
-import { useMemo, type ReactNode } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import { Alert, Collapse, Drawer, Spin } from 'antd';
 import { deriveColumn } from '../lib/stage';
 import { parseGrillingRecord, parseProvenance } from '../lib/provenance';
 import { useStore } from '../store';
+
+/** 拷问记录的格子里用 <br> 表示换行（表格里放不了真的换行）。 */
+function Cell({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/<br\s*\/?>/i).map((line, i) => (
+        <Fragment key={i}>
+          {i > 0 && <br />}
+          {line}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 function Raw({ text }: { text: string }) {
   return <pre className="detail__raw">{text}</pre>;
@@ -51,24 +65,32 @@ export default function TaskDetail() {
         <div className="detail">
           <section className="detail__section">
             <h4>你说过的话</h4>
-            {withSource.length === 0 ? (
+            {sources.length === 0 ? (
               <p className="detail__empty">这个任务夹还没写出处</p>
             ) : (
-              <ul className="detail__sources">
-                {withSource.map((s) => (
-                  <li key={`${s.file}:${s.requirement}`}>
-                    <span className="detail__requirement">{s.requirement}</span>
-                    <span className="detail__source">{s.source}</span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {/* 一条出处都没有：给一句提示。有几条缺：列出来，标上「没写出处」。 */}
+                {withSource.length === 0 && <p className="detail__empty">这个任务夹还没写出处</p>}
+                <ul className="detail__sources">
+                  {sources.map((s) => (
+                    <li key={`${s.file}:${s.requirement}`}>
+                      <span className="detail__requirement">{s.requirement}</span>
+                      <span className={s.source === null ? 'detail__source detail__source--missing' : 'detail__source'}>
+                        {s.source ?? '没写出处'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
             {recordHead ? (
               <table className="detail__record">
                 <thead>
                   <tr>
                     {recordHead.map((cell, j) => (
-                      <th key={j}>{cell}</th>
+                      <th key={j}>
+                        <Cell text={cell} />
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -77,7 +99,9 @@ export default function TaskDetail() {
                     replies.map((row, i) => (
                       <tr key={i}>
                         {row.map((cell, j) => (
-                          <td key={j}>{cell}</td>
+                          <td key={j}>
+                            <Cell text={cell} />
+                          </td>
                         ))}
                       </tr>
                     ))

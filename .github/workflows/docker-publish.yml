@@ -7,7 +7,29 @@ on:
     branches: [master]
 
 jobs:
+  # 先跑测试和类型检查，过了才构建发布。框架名单、待办的数法这些规矩都靠测试守着。
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: 测试和类型检查
+        working-directory: app
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read

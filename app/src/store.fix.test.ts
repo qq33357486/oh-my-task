@@ -23,14 +23,14 @@ describe('装好 OpenSpec 以后', () => {
     useStore.setState({
       ...initialState,
       view: { name: 'missing-openspec', projectName: 'p' },
-      root: fakeDir('p', { '.omt': {} }),
+      root: fakeDir('p', { '.omt': {} }, { failOnWrite: true }),
     });
     await useStore.getState().refresh();
     expect(useStore.getState().view.name).toBe('missing-openspec');
 
     // 人在这个目录里跑了 openspec init
     useStore.setState({
-      root: fakeDir('p', { '.omt': {}, openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1' } } } }),
+      root: fakeDir('p', { '.omt': {}, openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1' } } } }, { failOnWrite: true }),
     });
     await useStore.getState().refresh();
     expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'p' });
@@ -41,9 +41,9 @@ describe('装好 OpenSpec 以后', () => {
     useStore.setState({
       ...initialState,
       view: { name: 'board', projectName: 'p' },
-      root: fakeDir('p', { '.omt': {}, openspec: {} }),
+      root: fakeDir('p', { '.omt': {}, openspec: {} }, { failOnWrite: true }),
     });
-    useStore.setState({ root: fakeDir('p', { '.omt': {} }) });
+    useStore.setState({ root: fakeDir('p', { '.omt': {} }, { failOnWrite: true }) });
     await useStore.getState().refresh();
     expect(useStore.getState().view.name).toBe('missing-openspec');
   });
@@ -54,7 +54,7 @@ describe('再探一次当前目录（retry）', () => {
     useStore.setState({
       ...initialState,
       view: { name: 'uninitialized', projectName: 'p' },
-      root: fakeDir('p', { '.omt': {}, openspec: {} }),
+      root: fakeDir('p', { '.omt': {}, openspec: {} }, { failOnWrite: true }),
     });
     await useStore.getState().retry();
     expect(useStore.getState().view.name).toBe('board');
@@ -64,7 +64,7 @@ describe('再探一次当前目录（retry）', () => {
     useStore.setState({
       ...initialState,
       view: { name: 'old-version', projectName: 'p' },
-      root: fakeDir('p', {}),
+      root: fakeDir('p', {}, { failOnWrite: true }),
     });
     await useStore.getState().retry();
     expect(useStore.getState().view.name).toBe('uninitialized');
@@ -76,7 +76,7 @@ describe('再探一次当前目录（retry）', () => {
       ...initialState,
       view: { name: 'error', projectName: 'p' },
       error: { message: '读取看板没成功', next: '' },
-      root: fakeDir('p', { '.omt': {}, openspec: {} }),
+      root: fakeDir('p', { '.omt': {}, openspec: {} }, { failOnWrite: true }),
     });
     await useStore.getState().retry();
     expect(useStore.getState().view.name).toBe('board');
@@ -117,7 +117,7 @@ describe('再探一次当前目录（retry）', () => {
   });
 
   it('切换项目失败以后，手里不再攥着上一个项目的目录', async () => {
-    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'a' }, root: fakeDir('a', {}) });
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'a' }, root: fakeDir('a', {}, { failOnWrite: true }) });
     await useStore.getState().reopen('no-such-project');
     expect(useStore.getState().root).toBeNull();
   });
@@ -130,7 +130,7 @@ describe('没有日期前缀的归档目录', () => {
       view: { name: 'board', projectName: 'p' },
       root: fakeDir('p', {
         openspec: { changes: { archive: { '2026-01-01-a': {}, 'hand-moved': { 'tasks.md': '- [x] 1.1', 'proposal.md': '# P' } } } },
-      }),
+      }, { failOnWrite: true }),
     });
     await useStore.getState().refresh();
     const item = useStore.getState().archived.find((c) => c.dirName === 'hand-moved');
