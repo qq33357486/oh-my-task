@@ -492,17 +492,21 @@ describe('第七轮补的', () => {
     expect(reopen).toHaveBeenCalledWith('proj-A');
   });
 
-  it('取目录记录时浏览器的存储一直不返回：等一小会儿就当没有这条记录', async () => {
+  it('取目录记录时浏览器的存储一直不返回：等一小会儿就报「没成功」，不动目录记录', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       const fsa = await import('./fs/fsAccess');
       vi.spyOn(fsa, 'loadHandle').mockReturnValue(new Promise(() => {}));
+      const forget = vi.spyOn(fsa, 'forgetHandle');
       useStore.setState({ view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
       const reopening = useStore.getState().reopen('proj-A');
       await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
       await reopening;
-      expect(useStore.getState().view).toEqual({ name: 'error' });
-      expect(useStore.getState().error?.message).toContain('找不到「proj-A」的目录记录');
+      // 只是没读到，不是记录没了：不说「找不到目录记录」，不把它从最近项目里拿掉，也不删记录。
+      expect(useStore.getState().view).toEqual({ name: 'error', projectName: 'proj-A' });
+      expect(useStore.getState().error?.message).not.toContain('目录记录');
+      expect(useStore.getState().recents).toEqual(['proj-A']);
+      expect(forget).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

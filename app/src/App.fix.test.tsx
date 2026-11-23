@@ -153,6 +153,20 @@ describe('卡片跟着文件变', () => {
   });
 });
 
+describe('看板上的出错提示', () => {
+  it('提示语不带句号，看板补一个：不出现两个句号', async () => {
+    useStore.setState({
+      ...initialState,
+      view: { name: 'board', projectName: 'proj' },
+      root: fakeDir('proj', { '.omt': {}, openspec: {} }),
+      error: { message: '根 AGENTS.md 不是 UTF-8 编码。为了不写坏它，这次没有动它', next: '把根 AGENTS.md 另存成 UTF-8' },
+    });
+    renderApp();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('根 AGENTS.md 不是 UTF-8 编码。为了不写坏它，这次没有动它。把根 AGENTS.md 另存成 UTF-8');
+  });
+});
+
 describe('目录不在了', () => {
   it('项目文件夹被移走了：说出是哪个目录，按钮是「选择目录」，点了直接去选别的', async () => {
     const gone = fakeDir('proj-A', { '.omt': {}, openspec: {} });

@@ -149,6 +149,8 @@ describe('初始化', () => {
     tree['AGENTS.md'] = { text: 'x', mtime: 0, bytes: GBK_RULES };
     await at('board', tree);
     await useStore.getState().applyUpdate();
+    // 看板会在提示语和下一步后面各加一个句号，这两句自己都不带。
+    expect(useStore.getState().error?.message).not.toMatch(/。$/);
     expect(useStore.getState().error?.next).not.toMatch(/。$/);
   });
 

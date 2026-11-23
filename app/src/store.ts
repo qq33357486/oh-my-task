@@ -130,12 +130,12 @@ const FORGET_PROJECT: Partial<Data> = {
   updateCount: 0,
 };
 
-/** 启动时最多等浏览器存储这么久。等不到就当没存过：页面不能一直停在「正在启动」。 */
+/** 最多等浏览器存储这么久。启动时等不到就当没存过（页面不能一直停在「正在启动」）；别的场合等不到按出错处理。 */
 export const BOOT_STORAGE_MS = 2000;
 
-function giveUpAfter<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+function giveUpAfter<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve(null), ms);
+    const timer = setTimeout(() => reject(new Error(`等浏览器存储超过 ${ms} 毫秒，没有返回`)), ms);
     promise.then(
       (value) => {
         clearTimeout(timer);

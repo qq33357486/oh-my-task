@@ -113,7 +113,7 @@ export async function planInstall(
     return {
       ok: false,
       reason: 'encoding',
-      message: '根 AGENTS.md 不是 UTF-8 编码。为了不写坏它，这次没有动它。',
+      message: '根 AGENTS.md 不是 UTF-8 编码。为了不写坏它，这次没有动它',
     };
   }
 
