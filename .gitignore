@@ -1,0 +1,9 @@
+# 本机的 MCP 配置，带密钥，不进仓库
+.zcode/config.json
+
+# 依赖与构建产物
+app/node_modules
+app/dist
+
+# 日志
+*.log

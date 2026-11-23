@@ -1,0 +1,2 @@
+# 文本文件一律 LF，不随构建机器变
+* text=auto eol=lf
