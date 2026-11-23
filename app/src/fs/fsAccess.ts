@@ -106,6 +106,7 @@ export function wrapDir(handle: FileSystemDirectoryHandle): FsDir {
         const fh = await handle.getFileHandle(name);
         return {
           readText: async () => (await fh.getFile()).text(),
+          readBytes: async () => new Uint8Array(await (await fh.getFile()).arrayBuffer()),
           lastModified: async () => (await fh.getFile()).lastModified,
         };
       } catch (e) {

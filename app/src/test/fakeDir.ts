@@ -4,6 +4,11 @@ import type { FsDir, FsEntry } from '../fs/types';
 export interface MemFileSpec {
   text: string;
   mtime: number;
+  /**
+   * 文件在磁盘上的真实字节，readBytes 返回它。不给就按 UTF-8 编码 text。
+   * 用来造带 BOM 的、或者根本不是 UTF-8 的文件。
+   */
+  bytes?: Uint8Array;
 }
 
 /** 用一个对象描述目录树：字符串是文件内容，带 text 的对象是文件，别的对象是子目录。 */
@@ -12,6 +17,7 @@ export type Tree = { [name: string]: Tree | string | MemFileSpec };
 interface MemFile {
   content: string;
   mtime: number;
+  bytes?: Uint8Array;
 }
 
 interface MemDir {
@@ -37,7 +43,7 @@ function build(tree: Tree, dir: MemDir): void {
     if (typeof value === 'string') {
       dir.files.set(name, { content: value, mtime: 0 });
     } else if (isFileSpec(value)) {
-      dir.files.set(name, { content: value.text, mtime: value.mtime });
+      dir.files.set(name, { content: value.text, mtime: value.mtime, bytes: value.bytes });
     } else {
       const sub = empty();
       build(value, sub);
@@ -53,42 +59,53 @@ export function fakeDir(name: string, tree: Tree = {}, opts: FakeOptions = {}): 
 
   const join = (base: string, part: string) => (base ? `${base}/${part}` : part);
 
-  const wrap = (dir: MemDir, dirName: string, path: string): FsDir => ({
-    name: dirName,
-    async getDir(n) {
-      const sub = dir.dirs.get(n);
-      return sub ? wrap(sub, n, join(path, n)) : null;
-    },
-    async getFile(n) {
-      const file = dir.files.get(n);
-      if (!file) return null;
-      return {
-        readText: async () => file.content,
-        lastModified: async () => file.mtime,
-      };
-    },
-    async entries(): Promise<FsEntry[]> {
-      return [
-        ...[...dir.dirs.keys()].map((k) => ({ name: k, kind: 'dir' as const })),
-        ...[...dir.files.keys()].map((k) => ({ name: k, kind: 'file' as const })),
-      ];
-    },
-    async ensureDir(n) {
-      if (opts.failOnWrite) throw new Error('展示路径不该建目录');
-      let sub = dir.dirs.get(n);
-      if (!sub) {
-        sub = empty();
-        dir.dirs.set(n, sub);
-      }
-      return wrap(sub, n, join(path, n));
-    },
-    async writeText(n, content) {
-      const full = join(path, n);
-      if (opts.failOnWrite) throw new Error('展示路径不该写文件');
-      if (opts.failWrite?.(full)) throw Object.assign(new Error(`写不进去：${full}`), { name: 'WriteError' });
-      dir.files.set(n, { content, mtime: Date.now() });
-    },
-  });
+  // 同一个子目录每次取到的是同一个对象，和浏览器的句柄一样。
+  // 这样测试可以先取到某个目录，再在它上面装「读不了」之类的替身。
+  const wrapped = new WeakMap<MemDir, FsDir>();
+
+  const wrap = (dir: MemDir, dirName: string, path: string): FsDir => {
+    const existing = wrapped.get(dir);
+    if (existing) return existing;
+    const created: FsDir = {
+      name: dirName,
+      async getDir(n) {
+        const sub = dir.dirs.get(n);
+        return sub ? wrap(sub, n, join(path, n)) : null;
+      },
+      async getFile(n) {
+        const file = dir.files.get(n);
+        if (!file) return null;
+        return {
+          readText: async () => file.content,
+          readBytes: async () => file.bytes ?? new TextEncoder().encode(file.content),
+          lastModified: async () => file.mtime,
+        };
+      },
+      async entries(): Promise<FsEntry[]> {
+        return [
+          ...[...dir.dirs.keys()].map((k) => ({ name: k, kind: 'dir' as const })),
+          ...[...dir.files.keys()].map((k) => ({ name: k, kind: 'file' as const })),
+        ];
+      },
+      async ensureDir(n) {
+        if (opts.failOnWrite) throw new Error('展示路径不该建目录');
+        let sub = dir.dirs.get(n);
+        if (!sub) {
+          sub = empty();
+          dir.dirs.set(n, sub);
+        }
+        return wrap(sub, n, join(path, n));
+      },
+      async writeText(n, content) {
+        const full = join(path, n);
+        if (opts.failOnWrite) throw new Error('展示路径不该写文件');
+        if (opts.failWrite?.(full)) throw Object.assign(new Error(`写不进去：${full}`), { name: 'WriteError' });
+        dir.files.set(n, { content, mtime: Date.now() });
+      },
+    };
+    wrapped.set(dir, created);
+    return created;
+  };
 
   return wrap(root, name, '');
 }

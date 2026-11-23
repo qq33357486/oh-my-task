@@ -6,6 +6,7 @@ import { POLL_MS } from './App';
 import * as fsa from './fs/fsAccess';
 import { getDirByPath } from './fs/types';
 import { fakeDir, type Tree } from './test/fakeDir';
+import { toRaw } from './test/fakeRaw';
 import App from './App';
 import { initialState, useStore } from './store';
 
@@ -23,6 +24,8 @@ vi.mock('./fs/fsAccess', async (importOriginal) => {
   };
 });
 
+const picker = vi.mocked(fsa.pickDirectory);
+
 function renderApp() {
   return render(
     <AntApp>
@@ -33,8 +36,8 @@ function renderApp() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // 这几个测试直接摆好页面状态，不让 App 启动时把它改回入口页。
-  useStore.setState({ ...initialState, boot: async () => {} });
+  // 这几个测试直接摆好页面状态，不让 App 启动时把它改回入口页；入口页本身由这里摆出来。
+  useStore.setState({ ...initialState, view: { name: 'no-project' }, boot: async () => {} });
 });
 
 afterEach(() => {
@@ -120,6 +123,55 @@ describe('卡片跟着文件变', () => {
     });
     expect(within(column('等你验收')).getByRole('button', { name: 't' }).textContent).toMatch(/1\/1/);
     expect(within(column('需求')).queryByRole('button', { name: 't' })).toBeNull();
+  });
+
+  it('抽屉开着，AI 改了需求的出处：5 秒内抽屉里的出处跟着变', async () => {
+    // 同上，这个测试要替 AI 改文件。
+    const root = fakeDir('proj-A', {
+      '.omt': {},
+      openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1', specs: { cap: { 'spec.md': '### Requirement: 甲\n> 出处：第一版\n' } } } } },
+    });
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj-A' }, root });
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    renderApp();
+    await act(async () => {
+      await useStore.getState().refresh();
+    });
+    await userEvent.setup().click(screen.getByRole('button', { name: 't' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('第一版')).toBeInTheDocument();
+
+    await (await getDirByPath(root, 'openspec/changes/t/specs/cap'))!.writeText('spec.md', '### Requirement: 甲\n> 出处：第二版\n');
+    expect(within(dialog).queryByText('第二版')).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_MS);
+    });
+    expect(await within(dialog).findByText('第二版')).toBeInTheDocument();
+    expect(within(dialog).queryByText('第一版')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+
+describe('目录不在了', () => {
+  it('项目文件夹被移走了：说出是哪个目录，按钮是「选择目录」，点了直接去选别的', async () => {
+    const gone = fakeDir('proj-A', { '.omt': {}, openspec: {} });
+    // 句柄失效了：浏览器说找不到。
+    gone.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    picker.mockResolvedValueOnce(toRaw('proj-A', gone));
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '选择目录' }));
+
+    expect(await screen.findByText('「proj-A」这个目录打不开了，可能被移动、改名或删除了。')).toBeInTheDocument();
+    expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
+
+    picker.mockResolvedValueOnce(toRaw('proj-B', fakeDir('proj-B', { '.omt': {}, openspec: {} })));
+    await user.click(screen.getByRole('button', { name: '选择目录' }));
+    await waitFor(() => expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' }));
+    expect(screen.queryByText(/打不开了/)).toBeNull();
   });
 });
 

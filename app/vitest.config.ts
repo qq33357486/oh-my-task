@@ -1,5 +1,6 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
-import viteConfig from './vite.config';
+// 带上扩展名：以后 Vite 换成原生的配置加载方式以后，不带扩展名的导入会不认。
+import viteConfig from './vite.config.ts';
 
 export default mergeConfig(
   viteConfig,

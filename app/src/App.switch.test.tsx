@@ -66,7 +66,8 @@ async function actRefresh() {
 beforeEach(() => {
   vi.clearAllMocks();
   handles.clear();
-  useStore.setState({ ...initialState, boot: async () => {} });
+  // 不让 App 启动时去读浏览器存了什么；入口页由这里直接摆出来，其余页面各测试自己摆。
+  useStore.setState({ ...initialState, view: { name: 'no-project' }, boot: async () => {} });
 });
 
 afterEach(() => {
@@ -99,7 +100,7 @@ describe('页面上切换目录', () => {
     renderApp();
     const user = userEvent.setup();
     picker.mockResolvedValueOnce(toRaw('proj-A', fakeDir('proj-A', frameworkTree(false))));
-    await user.click(screen.getByRole('button', { name: '选择目录' }));
+    await user.click(await screen.findByRole('button', { name: '选择目录' }));
     await waitFor(() => expect(useStore.getState().view.projectName).toBe('proj-A'));
 
     picker.mockResolvedValueOnce(toRaw('proj-B', fakeDir('proj-B', frameworkTree(false))));

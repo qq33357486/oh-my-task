@@ -150,6 +150,24 @@ describe('继续打开和切换目录', () => {
     expect(state.error?.message).toContain('权限');
   });
 
+  it('目录记录没了（浏览器清过数据）：说清楚是哪个项目，从最近项目里拿掉', async () => {
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj-A' }, recents: ['proj-A', 'proj-B'] });
+    localStorage.setItem('omt.recentProjects', JSON.stringify(['proj-A', 'proj-B']));
+    vi.mocked(fsa.loadHandle).mockResolvedValueOnce(null);
+    await useStore.getState().reopen('proj-A');
+
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error).toEqual({
+      message: '找不到「proj-A」的目录记录，浏览器可能清过数据。',
+      next: '重新选一次目录',
+      sticky: true,
+      pick: true,
+    });
+    expect(useStore.getState().root).toBeNull();
+    expect(useStore.getState().recents).toEqual(['proj-B']);
+    expect(JSON.parse(localStorage.getItem('omt.recentProjects')!)).toEqual(['proj-B']);
+  });
+
   it('从菜单切到另一个记住的项目', async () => {
     await rememberTwo();
     await useStore.getState().switchTo('proj-B');

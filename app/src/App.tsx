@@ -47,11 +47,18 @@ function renderView(view: View) {
 /** 还没选定目录的几态不显示页眉：入口页，或者出错时连目录都没有。 */
 function isBare(view: View): boolean {
   return (
+    view.name === 'booting' ||
     view.name === 'unsupported' ||
     view.name === 'no-project' ||
     view.name === 'restore' ||
     (view.name === 'error' && !view.projectName)
   );
+}
+
+/** 页面刚打开、还没看完浏览器存了什么：什么都不画，免得先画一个入口页再换掉。 */
+function content(view: View) {
+  if (view.name === 'booting') return null;
+  return isBare(view) ? <EntryPage /> : renderView(view);
 }
 
 export default function App() {
@@ -80,7 +87,7 @@ export default function App() {
   return (
     <Layout className="app">
       {!bare && <Header />}
-      <Layout.Content className="app__content">{bare ? <EntryPage /> : renderView(view)}</Layout.Content>
+      <Layout.Content className="app__content">{content(view)}</Layout.Content>
       <BusyMask />
     </Layout>
   );

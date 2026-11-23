@@ -6,6 +6,8 @@ export interface FsEntry {
 
 export interface FsFile {
   readText(): Promise<string>;
+  /** 原始字节。管编码的时候走这里：readText 会去掉 BOM，编码不对也不报错。 */
+  readBytes(): Promise<Uint8Array>;
   lastModified(): Promise<number>;
 }
 

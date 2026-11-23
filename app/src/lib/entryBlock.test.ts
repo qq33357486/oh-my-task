@@ -28,4 +28,19 @@ describe('planEntryBlock', () => {
     expect(planEntryBlock(`${ENTRY_BLOCK}\n\n# x`)).toEqual({ action: 'none', content: '' });
     expect(planEntryBlock('随便写的，提到了 .omt/AGENTS.md')).toEqual({ action: 'none', content: '' });
   });
+
+  // 根 AGENTS.md 是唯一会被改写的已有文件，又不备份。带 BOM 的文件 BOM 必须还在最前面，否则有的工具认不出编码。
+  describe('原文件带 UTF-8 的 BOM', () => {
+    it('开头插入口块：BOM 留在最前面', () => {
+      expect(planEntryBlock('# 我的规则', true)).toEqual({ action: 'prepend', content: `\uFEFF${ENTRY_BLOCK}\n\n# 我的规则` });
+    });
+
+    it('原内容是空的：BOM 也留着', () => {
+      expect(planEntryBlock('', true)).toEqual({ action: 'prepend', content: `\uFEFF${ENTRY_BLOCK}\n\n` });
+    });
+
+    it('已有入口：照样不动', () => {
+      expect(planEntryBlock(`\uFEFF${ENTRY_BLOCK}\n\n# x`, true)).toEqual({ action: 'none', content: '' });
+    });
+  });
 });

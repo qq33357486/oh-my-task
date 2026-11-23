@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as fsa from './fs/fsAccess';
 import { FRAMEWORK_FILES } from './framework/manifest';
 import { getDirByPath, type FsDir } from './fs/types';
-import { ENTRY_BLOCK } from './lib/entryBlock';
+import { GBK_RULES, decodeKeepingBom, utf16, utf8 } from './test/encodings';
 import { dumpDir, fakeDir, type Tree } from './test/fakeDir';
+import { ENTRY_BLOCK } from './lib/entryBlock';
 import { initialState, useStore } from './store';
 
 const BUILTIN: Record<string, string> = Object.fromEntries(FRAMEWORK_FILES.map((f) => [f.path, f.content]));
@@ -137,6 +139,82 @@ describe('初始化', () => {
     await useStore.getState().initialize();
     for (const file of FRAMEWORK_FILES) expect(await textAt(root, file.path), file.path).not.toContain('\r');
   });
+
+  it('初始化不去要权限：选目录的时候已经一次要完了', async () => {
+    const requestPermission = vi.spyOn(fsa, 'requestPermission');
+    await at('uninitialized');
+    await useStore.getState().initialize();
+    expect(requestPermission).not.toHaveBeenCalled();
+    requestPermission.mockRestore();
+  });
+});
+
+// 根 AGENTS.md 是初始化、更新唯一会改写的已有文件，又不备份。按字节读：认得出 UTF-8 才动。
+describe('根 AGENTS.md 的编码', () => {
+  const RULES = '# 我的规则';
+  const raw = (bytes: Uint8Array): Tree => ({ 'AGENTS.md': { text: '（按字节读的文件）', mtime: 0, bytes } });
+
+  async function bytesAt(root: FsDir, path: string): Promise<Uint8Array | null> {
+    const parts = path.split('/');
+    const name = parts.pop()!;
+    const dir = await getDirByPath(root, parts.join('/'));
+    const file = dir ? await dir.getFile(name) : null;
+    return file ? file.readBytes() : null;
+  }
+
+  it('初始化：UTF-8 带 BOM：入口块插在后面，BOM 还在文件最前面', async () => {
+    const root = await at('uninitialized', raw(utf8(RULES, true)));
+    await useStore.getState().initialize();
+    expect(decodeKeepingBom((await bytesAt(root, 'AGENTS.md'))!)).toBe(`\uFEFF${ENTRY_BLOCK}\n\n${RULES}`);
+  });
+
+  it('更新：UTF-8 带 BOM、入口被人删了：补上入口块，BOM 还在文件最前面', async () => {
+    const tree = projectTree();
+    tree['AGENTS.md'] = { text: '（按字节读的文件）', mtime: 0, bytes: utf8(RULES, true) };
+    const root = await at('board', tree);
+    await useStore.getState().applyUpdate();
+    expect(decodeKeepingBom((await bytesAt(root, 'AGENTS.md'))!)).toBe(`\uFEFF${ENTRY_BLOCK}\n\n${RULES}`);
+  });
+
+  const unreadable: Array<[string, Uint8Array]> = [
+    ['UTF-16 LE', utf16(RULES, 'le')],
+    ['UTF-16 BE', utf16(RULES, 'be')],
+    ['GBK', GBK_RULES],
+  ];
+
+  it.each(unreadable)('初始化：%s：拒绝，目录一个字节都不变', async (_label, bytes) => {
+    const root = await at('uninitialized', raw(bytes));
+    const before = await dumpDir(root);
+    await useStore.getState().initialize();
+    expect(await dumpDir(root)).toEqual(before);
+    expect(await bytesAt(root, 'AGENTS.md')).toEqual(bytes);
+    expect(useStore.getState().error).toMatchObject({ message: expect.stringContaining('UTF-8'), next: expect.stringContaining('UTF-8'), sticky: true });
+    expect(useStore.getState().view.name).toBe('uninitialized');
+    expect(useStore.getState().busy).toBe(false);
+  });
+
+  it.each(unreadable)('更新：%s：同样拒绝，目录一个字节都不变', async (_label, bytes) => {
+    const tree = projectTree();
+    setPath(tree, WORKFLOW, '# 被人改过的工作流');
+    tree['AGENTS.md'] = { text: '（按字节读的文件）', mtime: 0, bytes };
+    const root = await at('board', tree);
+    const before = await dumpDir(root);
+    await useStore.getState().applyUpdate();
+    expect(await dumpDir(root)).toEqual(before);
+    expect(await bytesAt(root, 'AGENTS.md')).toEqual(bytes);
+    expect(useStore.getState().error).toMatchObject({ message: expect.stringContaining('UTF-8'), sticky: true });
+    expect(useStore.getState().notice).toBeNull();
+  });
+
+  it('存回 UTF-8 以后再点：照常', async () => {
+    const root = await at('uninitialized', raw(GBK_RULES));
+    await useStore.getState().initialize();
+    expect(useStore.getState().error).not.toBeNull();
+    await root.writeText('AGENTS.md', RULES);
+    await useStore.getState().initialize();
+    expect(useStore.getState().error).toBeNull();
+    expect(await textAt(root, 'AGENTS.md')).toBe(`${ENTRY_BLOCK}\n\n${RULES}`);
+  });
 });
 
 describe('更新', () => {
@@ -166,6 +244,7 @@ describe('更新', () => {
   it('更新后：被改过的框架文件恢复成内置的，项目文件逐字不变，没有备份', async () => {
     const tree = projectTree();
     setPath(tree, WORKFLOW, '# 被人改过的工作流');
+    setPath(tree, '.omt/工作流/工具开发.md', '# 业务自己的工作流\n');
     setPath(tree, 'AGENTS.md', '# 入口被人删了\n\n# 项目自己的规则');
     const root = await at('board', tree);
     const glossaryBefore = await textAt(root, '.omt/术语/GLOSSARY.md');
@@ -180,10 +259,33 @@ describe('更新', () => {
     expect(await textAt(root, '.omt/术语/GLOSSARY.md')).toBe(glossaryBefore);
     expect(await textAt(root, '.omt/知识库/a.md')).toBe(knowledgeBefore);
     expect(await textAt(root, 'openspec/changes/t/tasks.md')).toBe('- [ ] 1.1');
+    // 业务自己的工作流和默认工作流放在一个目录里：不在名单上，更新不碰它
+    expect(await textAt(root, '.omt/工作流/工具开发.md')).toBe('# 业务自己的工作流\n');
     // 更新只写了名单上的文件和根 AGENTS.md：目录里没有多出任何东西
     expect(Object.keys(await dumpDir(root)).sort()).toEqual(['.agents', '.omt', 'AGENTS.md', 'openspec']);
     expect(Object.keys(await dumpDir((await root.getDir('.omt'))!)).sort()).toEqual(['AGENTS.md', '工作流', '术语', '知识库'].sort());
     expect(useStore.getState()).toMatchObject({ hasUpdate: false, notice: '已更新。', error: null, busy: false });
+  });
+
+  it('两个项目目录缺了：更新时补回来，已有的原样留着', async () => {
+    const tree = projectTree();
+    setPath(tree, WORKFLOW, '旧');
+    const omt = tree['.omt'] as Tree;
+    delete omt['知识库'];
+    (omt['术语'] as Tree)['ADR'] = { '0001.md': '# 决定' };
+    const root = await at('board', tree);
+    await useStore.getState().applyUpdate();
+    const after = (await dumpDir(root))['.omt'] as Record<string, unknown>;
+    expect(after['知识库']).toEqual({});
+    expect(after['术语']).toEqual({ 'GLOSSARY.md': '# 术语', ADR: { '0001.md': '# 决定' } });
+  });
+
+  it('更新不去要权限', async () => {
+    const requestPermission = vi.spyOn(fsa, 'requestPermission');
+    await at('board', projectTree());
+    await useStore.getState().applyUpdate();
+    expect(requestPermission).not.toHaveBeenCalled();
+    requestPermission.mockRestore();
   });
 
   it('入口块还在：根 AGENTS.md 一个字节都不变', async () => {

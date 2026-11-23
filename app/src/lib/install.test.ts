@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { BLOCKED_EXTENSIONS } from '../framework/blocklist';
 import type { FrameworkFile } from '../framework/manifest';
-import { dumpDir, fakeDir } from '../test/fakeDir';
+import { GBK_RULES, decodeKeepingBom, utf16, utf8 } from '../test/encodings';
+import { dumpDir, fakeDir, type Tree } from '../test/fakeDir';
 import { ENTRY_BLOCK } from './entryBlock';
 import { applyInstall, compareFramework, planInstall, targetOf } from './install';
 
@@ -74,12 +76,12 @@ describe('planInstall：初始化模式', () => {
 });
 
 describe('planInstall：更新模式', () => {
-  it('不查冲突，名单上的全部都写，不建目录', async () => {
+  it('不查冲突，名单上的全部都写；两个项目目录缺了就补', async () => {
     const { plan } = await okPlan(
-      { '.omt': {}, '.oht': {}, '.agents': { skills: { x: { 'SKILL.md': '旧' } } } },
+      { '.omt': { 术语: {} }, '.oht': {}, '.agents': { skills: { x: { 'SKILL.md': '旧' } } } },
       'update',
     );
-    expect(plan).toEqual({ files, dirs: [], agentsMd: { action: 'create', content: `${ENTRY_BLOCK}\n` } });
+    expect(plan).toEqual({ files, dirs: ['.omt/术语', '.omt/知识库'], agentsMd: { action: 'create', content: `${ENTRY_BLOCK}\n` } });
   });
 
   it('根 AGENTS.md 缺入口块就补，原内容逐字跟在后面', async () => {
@@ -94,6 +96,64 @@ describe('planInstall：更新模式', () => {
       action: 'none',
       content: '',
     });
+  });
+});
+
+// 根 AGENTS.md 是唯一会被改写的已有文件，又不备份：认不出编码就停，不写坏它。
+describe('根 AGENTS.md 的编码', () => {
+  const RULES = '# 我的规则';
+  const raw = (bytes: Uint8Array): Tree => ({ 'AGENTS.md': { text: '（按字节读的文件）', mtime: 0, bytes } });
+
+  it.each(['init', 'update'] as const)('%s：UTF-8 带 BOM：认得出，写回去时 BOM 还在最前面', async (mode) => {
+    const { root, plan } = await okPlan(raw(utf8(RULES, true)), mode);
+    await applyInstall(root, plan);
+    const written = await (await root.getFile('AGENTS.md'))!.readBytes();
+    expect([...written.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(decodeKeepingBom(written)).toBe(`\uFEFF${ENTRY_BLOCK}\n\n${RULES}`);
+  });
+
+  it.each(['init', 'update'] as const)('%s：不带 BOM 的 UTF-8：写回去也不带 BOM', async (mode) => {
+    const { root, plan } = await okPlan(raw(utf8(RULES)), mode);
+    await applyInstall(root, plan);
+    const written = await (await root.getFile('AGENTS.md'))!.readBytes();
+    expect(decodeKeepingBom(written)).toBe(`${ENTRY_BLOCK}\n\n${RULES}`);
+  });
+
+  const unreadable: Array<[string, Uint8Array]> = [
+    ['UTF-16 LE', utf16(RULES, 'le')],
+    ['UTF-16 BE', utf16(RULES, 'be')],
+    ['GBK', GBK_RULES],
+  ];
+
+  it.each(unreadable)('初始化：%s：拒绝，说出该怎么做', async (_label, bytes) => {
+    const result = await planInstall(files, targetOf(fakeDir('p', raw(bytes))), 'init');
+    expect(result).toMatchObject({ ok: false, reason: 'encoding' });
+    expect(result.ok ? '' : result.message).toContain('UTF-8');
+  });
+
+  it.each(unreadable)('更新：%s：同样拒绝', async (_label, bytes) => {
+    const result = await planInstall(files, targetOf(fakeDir('p', { '.omt': {}, ...raw(bytes) })), 'update');
+    expect(result).toMatchObject({ ok: false, reason: 'encoding' });
+  });
+
+  it('空的 AGENTS.md（0 个字节）：认得出，照样在开头放入口块', async () => {
+    expect((await okPlan(raw(new Uint8Array()), 'init')).plan.agentsMd).toEqual({
+      action: 'prepend',
+      content: `${ENTRY_BLOCK}\n\n`,
+    });
+  });
+
+  it('已有入口、带 BOM：这个文件不动', async () => {
+    const withBom = fakeDir('p', raw(utf8(`${ENTRY_BLOCK}\n\n# x`, true)));
+    expect(await planInstall(files, targetOf(withBom), 'update')).toMatchObject({
+      ok: true,
+      plan: { agentsMd: { action: 'none', content: '' } },
+    });
+  });
+
+  it('初始化的三道检查排在编码前面：同名文件和编码都有问题时，先说同名文件', async () => {
+    const both = fakeDir('p', { '.agents': { skills: { x: { 'SKILL.md': '别人的文件' } } }, ...raw(GBK_RULES) });
+    expect(await planInstall(files, targetOf(both), 'init')).toMatchObject({ ok: false, reason: 'conflict' });
   });
 });
 
@@ -113,6 +173,14 @@ describe('applyInstall', () => {
     expect(await (await (await root.getDir('tools'))!.getFile('run.py'))!.readText()).toBe('print("hi")\n');
   });
 
+  it('更新时项目里的两个目录缺了一个：补回来，已有的原样留着', async () => {
+    const { root, plan } = await okPlan({ '.omt': { 术语: { 'GLOSSARY.md': '# 术语' } } }, 'update');
+    await applyInstall(root, plan);
+    const omt = (await dumpDir(root))['.omt'] as Record<string, unknown>;
+    expect(omt['术语']).toEqual({ 'GLOSSARY.md': '# 术语' });
+    expect(omt['知识库']).toEqual({});
+  });
+
   it('不删除任何东西：已有的别的文件原样留着，也不留备份', async () => {
     const { root, plan } = await okPlan({ notes: { 'a.txt': '别删我' } }, 'update');
     await applyInstall(root, plan);
@@ -123,7 +191,10 @@ describe('applyInstall', () => {
 
   it('写入的文件名里没有被 Chromium 拦的扩展名', async () => {
     const { plan } = await okPlan({}, 'init');
-    for (const file of plan.files) expect(file.path).not.toMatch(/\.(bak|cfg|dll|ini|lnk|scf|url|manifest|dng)$/i);
+    for (const file of plan.files) {
+      const extension = file.path.split('/').pop()!.split('.').pop()!.toLowerCase();
+      expect(BLOCKED_EXTENSIONS, file.path).not.toContain(extension);
+    }
   });
 });
 

@@ -38,9 +38,16 @@ export default function EntryPage() {
           title={error.message}
           description={error.next}
           action={
-            <Button size="small" onClick={backToEntry}>
-              换一个目录
-            </Button>
+            // 目录记录丢了、目录被移走了：直接重选。别的错先回到入口页。
+            error.pick ? (
+              <Button size="small" onClick={() => void chooseDirectory()}>
+                选择目录
+              </Button>
+            ) : (
+              <Button size="small" onClick={backToEntry}>
+                换一个目录
+              </Button>
+            )
           }
         />
       )}

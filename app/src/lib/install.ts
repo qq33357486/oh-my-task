@@ -2,6 +2,7 @@ import type { FsDir } from '../fs/types';
 import { getDirByPath, readTextByPath, writeTextByPath } from '../fs/types';
 import { toLf, type FrameworkFile } from '../framework/manifest';
 import { findUnsafeFileNames } from '../framework/blocklist';
+import { decodeAgentsMd, type DecodedAgentsMd } from './agentsMd';
 import { planEntryBlock, type EntryBlockPlan } from './entryBlock';
 
 /** 读目标目录的接口。真实实现包着 FsDir，测试里换成内存里的假目录。 */
@@ -11,6 +12,8 @@ export interface TargetReader {
   /** 有没有这个目录 */
   existsDir(path: string): Promise<boolean>;
   readText(path: string): Promise<string | null>;
+  /** 根 AGENTS.md，按字节读。认得出 UTF-8 才返回，认不出会抛错。 */
+  readAgentsMd(): Promise<DecodedAgentsMd | null>;
 }
 
 export function targetOf(root: FsDir): TargetReader {
@@ -26,12 +29,16 @@ export function targetOf(root: FsDir): TargetReader {
       return (await getDirByPath(root, path)) !== null;
     },
     readText: (path) => readTextByPath(root, path),
+    async readAgentsMd() {
+      const file = await root.getFile('AGENTS.md');
+      return file ? decodeAgentsMd(await file.readBytes()) : null;
+    },
   };
 }
 
 export interface InstallPlan {
   files: FrameworkFile[];
-  /** 要建的空目录 */
+  /** 要确保存在的目录，缺了就建 */
   dirs: string[];
   agentsMd: EntryBlockPlan;
 }
@@ -39,9 +46,13 @@ export interface InstallPlan {
 export type Refusal =
   | { reason: 'old-version'; message: string }
   | { reason: 'already-initialized'; message: string }
-  | { reason: 'conflict'; message: string; conflicts: string[] };
+  | { reason: 'conflict'; message: string; conflicts: string[] }
+  | { reason: 'encoding'; message: string };
 
 export type InstallResult = { ok: true; plan: InstallPlan } | ({ ok: false } & Refusal);
+
+/** 初始化时建、更新时补的两个空目录。初始化要是失败在建目录那一步，更新能把它们补回来。 */
+const PROJECT_DIRS = ['.omt/术语', '.omt/知识库'];
 
 /**
  * 置入和覆盖共用一个规划函数，是纯函数（读目标目录的接口通过参数注入）。
@@ -51,7 +62,7 @@ export type InstallResult = { ok: true; plan: InstallPlan } | ({ ok: false } & R
  *   2. 目标已有 .omt/（已初始化过，该用更新）。
  *   3. 名单上的文件在目标里已存在。不论内容是否相同都算，因为正常情况下不该出现同名文件。
  * 更新模式不查冲突，名单上的全部都写。
- * 两种模式都按同一规则处理根 AGENTS.md 的入口块。
+ * 两种模式都按同一规则处理根 AGENTS.md 的入口块。根 AGENTS.md 认不出编码时两种模式都拒绝。
  */
 export async function planInstall(
   files: ReadonlyArray<FrameworkFile>,
@@ -92,12 +103,24 @@ export async function planInstall(
     throw new Error(`框架名单上有浏览器拦着不让建的文件：${unsafe.map((u) => u.path).join('、')}`);
   }
 
+  // 根 AGENTS.md 是唯一会被改写的已有文件。编码认不出来就停下，不写坏它。
+  let agents: DecodedAgentsMd | null = null;
+  try {
+    agents = await target.readAgentsMd();
+  } catch {
+    return {
+      ok: false,
+      reason: 'encoding',
+      message: '根 AGENTS.md 不是 UTF-8 编码。为了不写坏它，这次没有动它。',
+    };
+  }
+
   return {
     ok: true,
     plan: {
       files: [...files],
-      dirs: mode === 'init' ? ['.omt/术语', '.omt/知识库'] : [],
-      agentsMd: planEntryBlock(await target.readText('AGENTS.md')),
+      dirs: [...PROJECT_DIRS],
+      agentsMd: planEntryBlock(agents?.text ?? null, agents?.bom ?? false),
     },
   };
 }

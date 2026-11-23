@@ -12,9 +12,14 @@ export interface EntryBlockPlan {
   content: string;
 }
 
-/** existing 为 null 表示根 AGENTS.md 不存在。 */
-export function planEntryBlock(existing: string | null): EntryBlockPlan {
+export const UTF8_BOM = '\uFEFF';
+
+/**
+ * existing 为 null 表示根 AGENTS.md 不存在，这时新建的文件不带 BOM。
+ * bom 为真表示原文件带 UTF-8 的 BOM。BOM 必须留在文件最前面，所以放在入口块前面。
+ */
+export function planEntryBlock(existing: string | null, bom = false): EntryBlockPlan {
   if (existing === null) return { action: 'create', content: `${ENTRY_BLOCK}\n` };
   if (existing.includes(ENTRY_MARK)) return { action: 'none', content: '' };
-  return { action: 'prepend', content: `${ENTRY_BLOCK}\n\n${existing}` };
+  return { action: 'prepend', content: `${bom ? UTF8_BOM : ''}${ENTRY_BLOCK}\n\n${existing}` };
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FRAMEWORK_FILES } from './framework/manifest';
 import { getDirByPath, type FsDir } from './fs/types';
 import { dumpDir, fakeDir, type Tree } from './test/fakeDir';
@@ -14,8 +14,41 @@ async function textAt(root: FsDir, path: string): Promise<string | null> {
   return file ? file.readText() : null;
 }
 
+function setPath(tree: Tree, path: string, value: string): void {
+  const parts = path.split('/');
+  const name = parts.pop()!;
+  let cur = tree;
+  for (const part of parts) {
+    cur[part] ??= {};
+    cur = cur[part] as Tree;
+  }
+  cur[name] = value;
+}
+
+/** 10 个框架文件都是旧的项目：和内置的对不上，所以会亮「有更新」。 */
+function staleTree(): Tree {
+  const tree: Tree = { openspec: { changes: {} } };
+  for (const file of FRAMEWORK_FILES) setPath(tree, file.path, '旧');
+  return tree;
+}
+
+/** 往内存目录上装一个「被占用」的错：name 这个子目录取不到，直到 failing 变成 false。 */
+function occupy(dir: FsDir, name: string, failing: { now: boolean }): void {
+  const getDir = dir.getDir.bind(dir);
+  dir.getDir = async (child) => {
+    if (failing.now && child === name) throw Object.assign(new Error('被占用'), { name: 'NoModificationAllowedError' });
+    return getDir(child);
+  };
+}
+
 beforeEach(() => {
+  // 这些测试都会故意出错，原始错误会打进控制台。
+  vi.spyOn(console, 'error').mockImplementation(() => {});
   useStore.setState({ ...initialState });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('装好 OpenSpec 以后', () => {
@@ -123,6 +156,89 @@ describe('再探一次当前目录（retry）', () => {
   });
 });
 
+describe('目录不在了、记录没了', () => {
+  function rememberRecents(names: string[]) {
+    localStorage.setItem('omt.recentProjects', JSON.stringify(names));
+    useStore.setState({ recents: names });
+  }
+
+  it('项目文件夹被移动、改名或删除：说出是哪个目录，手里不再攥着它，从最近项目里拿掉', async () => {
+    rememberRecents(['proj-A', 'proj-B']);
+    const root = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    // 句柄失效了：浏览器说找不到。
+    root.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    await useStore.getState().open(root);
+
+    const state = useStore.getState();
+    expect(state.view).toEqual({ name: 'error' });
+    expect(state.error).toEqual({
+      message: '「proj-A」这个目录打不开了，可能被移动、改名或删除了。',
+      next: '重新选一次目录',
+      sticky: true,
+      pick: true,
+    });
+    expect(state.root).toBeNull();
+    expect(state.changes).toEqual([]);
+    expect(state.recents).toEqual(['proj-B']);
+    expect(JSON.parse(localStorage.getItem('omt.recentProjects')!)).toEqual(['proj-B']);
+  });
+
+  it('页面开着的时候项目文件夹被移走了：下一次重读发现，说出是哪个目录，不当成「还差一步」', async () => {
+    rememberRecents(['proj-A', 'proj-B']);
+    const root = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root });
+    await useStore.getState().refresh();
+
+    // 人在资源管理器里把这个文件夹改名了：句柄失效，列不出它
+    root.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    await useStore.getState().refresh();
+
+    const state = useStore.getState();
+    expect(state.view).toEqual({ name: 'error' });
+    expect(state.error).toMatchObject({ message: '「proj-A」这个目录打不开了，可能被移动、改名或删除了。', sticky: true, pick: true });
+    expect(state).toMatchObject({ root: null, changes: [], refreshing: false });
+    expect(state.recents).toEqual(['proj-B']);
+  });
+
+  it('任务夹在读到一半时被人删了：也报「找不到」，但这不是目录打不开，下一轮重读就好', async () => {
+    const root = fakeDir('proj-A', { '.omt': {}, openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1' } } } }, { failOnWrite: true });
+    const changes = (await getDirByPath(root, 'openspec/changes'))!;
+    const entries = changes.entries.bind(changes);
+    const failing = { now: true };
+    changes.entries = async () => {
+      if (failing.now) throw Object.assign(new Error('vanished'), { name: 'NotFoundError' });
+      return entries();
+    };
+    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root, recents: ['proj-A'] });
+    await useStore.getState().refresh();
+    expect(useStore.getState()).toMatchObject({
+      view: { name: 'board', projectName: 'proj-A' },
+      root,
+      recents: ['proj-A'],
+      error: { message: '找不到读取看板需要的文件' },
+    });
+
+    failing.now = false;
+    await useStore.getState().refresh();
+    expect(useStore.getState().error).toBeNull();
+  });
+
+  it('换成别的错（不是「找不到」）：照原样报出来，最近项目不动', async () => {
+    rememberRecents(['proj-A']);
+    const root = fakeDir('proj-A', {}, { failOnWrite: true });
+    root.entries = async () => {
+      throw Object.assign(new Error('denied'), { name: 'NotAllowedError' });
+    };
+    await useStore.getState().open(root);
+    expect(useStore.getState().error).toMatchObject({ message: '没有这个目录的读写权限' });
+    expect(useStore.getState().recents).toEqual(['proj-A']);
+  });
+});
+
 describe('没有日期前缀的归档目录', () => {
   it('也算已归档，点开能读到详情', async () => {
     useStore.setState({
@@ -144,12 +260,11 @@ describe('没有日期前缀的归档目录', () => {
 
 describe('初始化写到一半失败', () => {
   it('留下部分文件时，提示一条走得通的路：刷新，再点有更新', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
     const fifth = FRAMEWORK_FILES[4].path;
     // 模拟磁盘上有一阵子写不进去；重试之前它会恢复。
     let broken = true;
     const root = fakeDir('p', {}, { failWrite: (path) => broken && path === fifth });
-    useStore.setState({ ...initialState, view: { name: 'uninitialized', projectName: 'p' }, root });
+    useStore.setState({ view: { name: 'uninitialized', projectName: 'p' }, root });
 
     await useStore.getState().initialize();
 
@@ -172,30 +287,99 @@ describe('初始化写到一半失败', () => {
     for (const file of FRAMEWORK_FILES) expect(await textAt(root, file.path), file.path).toBe(file.content);
     expect(useStore.getState()).toMatchObject({ hasUpdate: false, notice: '已更新。', error: null });
     expect(Object.keys(await dumpDir(root)).sort()).toEqual(['.agents', '.omt', 'AGENTS.md']);
-    vi.restoreAllMocks();
   });
 
   it('更新写到一半失败：提示刷新后重试', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    const tree: Tree = {};
-    const setPath = (path: string, value: string) => {
-      const parts = path.split('/');
-      const name = parts.pop()!;
-      let cur = tree;
-      for (const part of parts) {
-        cur[part] ??= {};
-        cur = cur[part] as Tree;
-      }
-      cur[name] = value;
-    };
-    for (const file of FRAMEWORK_FILES) setPath(file.path, '旧');
-    setPath('.omt/AGENTS.md', '入口');
     const target = FRAMEWORK_FILES[6].path;
-    const root = fakeDir('p', tree, { failWrite: (path) => path === target });
-    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'p' }, root });
+    const root = fakeDir('p', staleTree(), { failWrite: (path) => path === target });
+    useStore.setState({ view: { name: 'board', projectName: 'p' }, root });
     await useStore.getState().applyUpdate();
     expect(useStore.getState().error?.next).toContain('有更新');
     expect(useStore.getState().notice).toBeNull();
-    vi.restoreAllMocks();
+  });
+});
+
+// 第三轮独立验收抓出来的：页面每 5 秒读一次，读成功就把错清了，写失败的提示活不过 5 秒。
+describe('写文件的错留到人处理为止', () => {
+  it('更新写失败：之后每一次轮询读成功，这条提示都还在；照提示做通了才没了', async () => {
+    const broken = { now: true };
+    const root = fakeDir('p', staleTree(), { failWrite: () => broken.now });
+    useStore.setState({ view: { name: 'board', projectName: 'p' }, root });
+    await useStore.getState().applyUpdate();
+    const error = useStore.getState().error;
+    expect(error?.next).toContain('有更新');
+    expect(useStore.getState().notice).toBeNull();
+
+    // 轮询读了三次，都成功
+    for (let i = 0; i < 3; i++) await useStore.getState().refresh();
+    expect(useStore.getState()).toMatchObject({ error, refreshing: false });
+
+    broken.now = false;
+    await useStore.getState().applyUpdate();
+    expect(useStore.getState()).toMatchObject({ error: null, notice: '已更新。' });
+  });
+
+  it('读文件的错不是这种：下一次读成功就清掉', async () => {
+    const root = fakeDir('p', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    const failing = { now: true };
+    occupy(root, 'openspec', failing);
+    useStore.setState({ view: { name: 'board', projectName: 'p' }, root });
+    await useStore.getState().refresh();
+    expect(useStore.getState().error?.message).toBe('读取看板没成功');
+
+    failing.now = false;
+    await useStore.getState().refresh();
+    expect(useStore.getState().error).toBeNull();
+  });
+
+  it('读出错的时候已经挂着一条写失败的提示：写失败的那条要紧，留着', async () => {
+    const broken = { now: true };
+    const root = fakeDir('p', staleTree(), { failWrite: () => broken.now });
+    useStore.setState({ view: { name: 'board', projectName: 'p' }, root });
+    await useStore.getState().applyUpdate();
+    const writeError = useStore.getState().error;
+
+    const failing = { now: true };
+    occupy((await root.getDir('openspec'))!, 'changes', failing);
+    await useStore.getState().refresh();
+    expect(useStore.getState().error).toEqual(writeError);
+
+    failing.now = false;
+    await useStore.getState().refresh();
+    expect(useStore.getState().error).toEqual(writeError);
+  });
+});
+
+// 第三轮独立验收抓出来的：轮询读到一半时点了更新，那一轮读到的是写以前的文件，更新完反而亮「有更新」。
+describe('轮询读到一半时更新', () => {
+  it('更新等那一轮读完再读一遍：更新完不亮「有更新」', async () => {
+    const root = fakeDir('p', staleTree());
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const openspec = (await root.getDir('openspec'))!;
+    const getDir = openspec.getDir.bind(openspec);
+    openspec.getDir = async (name) => {
+      // 取 changes/ 在比对框架文件之后：卡在这里，就是「已经看见文件是旧的，还没读完」。
+      if (name === 'changes') await gate;
+      return getDir(name);
+    };
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'p' }, root, hasUpdate: true, updateCount: FRAMEWORK_FILES.length });
+
+    const polling = useStore.getState().refresh();
+    await vi.waitFor(() => expect(useStore.getState().refreshing).toBe(true));
+
+    let updated = false;
+    const updating = useStore.getState().applyUpdate().then(() => {
+      updated = true;
+    });
+    // 文件已经写完，但那一轮还没读完：更新先不收尾
+    await vi.waitFor(async () => expect(await textAt(root, FRAMEWORK_FILES[0].path)).toBe(BUILTIN[FRAMEWORK_FILES[0].path]));
+    expect(updated).toBe(false);
+
+    release();
+    await Promise.all([polling, updating]);
+    expect(useStore.getState()).toMatchObject({ hasUpdate: false, updateCount: 0, notice: '已更新。', error: null, refreshing: false, busy: false });
   });
 });

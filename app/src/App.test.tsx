@@ -48,7 +48,8 @@ async function openProject(tree: Tree, options: { fake?: boolean } = {}) {
       <App />
     </AntApp>,
   );
-  await userEvent.click(screen.getByRole('button', { name: '选择目录' }));
+  // 页面一打开先什么都不画，看完浏览器存了什么才画入口页。
+  await userEvent.click(await screen.findByRole('button', { name: '选择目录' }));
   await waitFor(() => expect(useStore.getState().view.name).not.toBe('loading'));
 }
 
@@ -62,6 +63,48 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('页面刚打开', () => {
+  function mount() {
+    return render(
+      <AntApp>
+        <App />
+      </AntApp>,
+    );
+  }
+
+  it('还没看完浏览器存了什么：什么都不画，不先闪一下入口页', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(fsa.lastHandleName).mockImplementationOnce(async () => {
+      await gate;
+      return null;
+    });
+    const utils = mount();
+    // 启动卡在「上次打开的是哪个目录」这一步
+    expect(useStore.getState().view.name).toBe('booting');
+    expect(utils.container.querySelector('.app__content')).toBeEmptyDOMElement();
+    expect(screen.queryByRole('button')).toBeNull();
+
+    release();
+    expect(await screen.findByRole('button', { name: '选择目录' })).toBeInTheDocument();
+  });
+
+  it('别的浏览器：直接是那句提示，中间不经过入口页', async () => {
+    const seen: string[] = [];
+    const unsubscribe = useStore.subscribe((state) => seen.push(state.view.name));
+    vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
+    mount();
+    expect(await screen.findByText('请用 Chrome 或 Edge 打开')).toBeInTheDocument();
+    unsubscribe();
+
+    expect(seen).toEqual(['unsupported']);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
+  });
 });
 
 describe('选定目录后分流', () => {
