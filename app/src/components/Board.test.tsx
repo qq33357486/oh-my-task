@@ -17,8 +17,8 @@ function info(
   return { name, dirName: name, archived: false, archivedOn: null, progress, lastModified: NOW - minutesAgo * 60_000, ...extra };
 }
 
-function setup(changes: ChangeInfo[], archived: ChangeInfo[] = []) {
-  useStore.setState({ ...initialState, changes, archived });
+function setup(changes: ChangeInfo[], archived: ChangeInfo[] = [], archivedTotal = archived.length) {
+  useStore.setState({ ...initialState, changes, archived, archivedTotal });
   const utils = render(
     <AntApp>
       <Board />

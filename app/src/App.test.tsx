@@ -41,7 +41,8 @@ function setVisibility(value: 'visible' | 'hidden') {
  */
 async function openProject(tree: Tree, options: { fake?: boolean } = {}) {
   if (options.fake) vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
-  picker.mockResolvedValue(toRaw('proj-A', fakeDir('proj-A', tree)));
+  // 一旦有写操作就报错：展示路径只许读。
+  picker.mockResolvedValue(toRaw('proj-A', fakeDir('proj-A', tree, { failOnWrite: true })));
   render(
     <AntApp>
       <App />
@@ -146,8 +147,9 @@ describe('页眉', () => {
     expect(await screen.findByText('proj-B')).toBeInTheDocument();
     expect(screen.getByText('proj-C')).toBeInTheDocument();
     expect(screen.getByText('选别的目录')).toBeInTheDocument();
-    // 当前项目不出现在菜单里：页面上叫 proj-A 的只有页眉那一处。
-    expect(screen.getAllByText('proj-A')).toHaveLength(1);
+    // 当前项目也在菜单里，标了「当前」，排在最前。
+    expect(await screen.findByText('proj-A（当前）')).toBeInTheDocument();
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['proj-A（当前）', 'proj-B', 'proj-C', '选别的目录']);
   });
 
   it('点一个最近的项目，当前项目跟着变', async () => {

@@ -3,7 +3,11 @@
  * 名单的来源和查法见工程 1 知识库「浏览器拦截的文件名」。单测里的内存目录复现不了，所以在这里自己查。
  */
 
-/** 被拦的扩展名：源码表加旧版真机证据的并集。 */
+/**
+ * 被拦的扩展名：源码表加旧版真机证据的并集。
+ * 这里从严，不分平台都拦：表里 cfg、dll、ini、manifest、scf 只在 Windows 上算危险，dng 只在 Android 上；
+ * bak 是旧版真机上遇到过的，当前表里没有。
+ */
 export const BLOCKED_EXTENSIONS: readonly string[] = [
   // 固定封
   'lnk',

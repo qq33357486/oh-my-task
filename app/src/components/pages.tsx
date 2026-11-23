@@ -9,7 +9,7 @@ export function ErrorAlert() {
     <Alert
       type="error"
       showIcon
-      message={error.message}
+      title={error.message}
       description={
         <>
           {error.next && <p>{error.next}</p>}
@@ -46,7 +46,7 @@ export function UninitializedPage() {
       <ErrorAlert />
       <Alert
         type="info"
-        message="这个目录还没有任务系统"
+        title="这个目录还没有任务系统"
         description={
           <>
             可以先在这个目录里运行 <code>openspec init</code> 装好 OpenSpec，再回来初始化。
@@ -68,7 +68,7 @@ export function OldVersionPage() {
     <div className="page">
       <Alert
         type="error"
-        message="这个目录装的是旧版 oh my task"
+        title="这个目录装的是旧版 oh my task"
         description="先把目录里的 .oht/ 删掉，再回来初始化。"
       />
     </div>
@@ -81,7 +81,7 @@ export function MissingOpenSpecPage() {
     <div className="page">
       <Alert
         type="warning"
-        message="还差一步：这个目录还没有 OpenSpec"
+        title="还差一步：这个目录还没有 OpenSpec"
         description={
           <>
             请自己初始化 OpenSpec，在这个目录里运行 <code>openspec init</code>，装好以后刷新。
@@ -93,11 +93,11 @@ export function MissingOpenSpecPage() {
 }
 
 export function ErrorView() {
-  const refresh = useStore((s) => s.refresh);
+  const retry = useStore((s) => s.retry);
   return (
     <div className="page">
       <ErrorAlert />
-      <Button size="small" danger onClick={() => void refresh()}>
+      <Button size="small" danger onClick={() => void retry()}>
         重试
       </Button>
     </div>
@@ -109,7 +109,7 @@ export function Notice() {
   const notice = useStore((s) => s.notice);
   if (!notice) return null;
   return (
-    <Alert type="success" showIcon message={notice} closable onClose={() => useStore.setState({ notice: null })} />
+    <Alert type="success" showIcon title={notice} closable onClose={() => useStore.setState({ notice: null })} />
   );
 }
 

@@ -40,7 +40,7 @@ export default function TaskDetail() {
   const withSource = sources.filter((s) => s.source !== null);
 
   return (
-    <Drawer open={selected !== null} onClose={closeDetail} title={info?.name} width={720} destroyOnHidden>
+    <Drawer open={selected !== null} onClose={closeDetail} title={info?.name} size={720} destroyOnHidden>
       {loading && (
         <div className="page">
           <Spin />
@@ -95,7 +95,7 @@ export default function TaskDetail() {
             )}
           </section>
 
-          {waiting && <Alert type="info" message="去会话里告诉 AI：通过，还是不通过。" />}
+          {waiting && <Alert type="info" title="去会话里告诉 AI：通过，还是不通过。" />}
 
           {folded.length > 0 && <Collapse className="detail__folded" items={folded} />}
         </div>

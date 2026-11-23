@@ -8,6 +8,12 @@
 
 纯前端静态网页，没有后端。读写目录靠浏览器的 File System Access API，只能在 Chrome、Edge 里用。
 
+## 用之前
+
+- **用 Chrome 或 Edge 打开。** 地址必须是 `https://` 或 `localhost`，否则浏览器不给出选目录的能力，页面只会显示「请用 Chrome 或 Edge 打开」。
+- **OpenSpec 自己装。** 在业务项目里运行 `openspec init`。oh my task 不替你装，只在你没装的时候提示。
+- **两个项目的文件夹不能同名。** 最近项目和目录授权都按文件夹名记，同名会互相覆盖。这是浏览器的限制，它不告诉网页目录的完整路径。
+
 ## 内置的框架文件
 
 正本就是本仓库里的文件，打包时直接内置。名单在 `app/src/framework/manifest.ts`：
@@ -16,7 +22,9 @@
 - `.omt/工作流/默认工作流.md`
 - `.agents/skills/` 下的 grill-with-docs、grilling、domain-modeling
 
-改了这些文件，要重新构建、重新部署网页，各业务项目再点一次「更新」。
+改了这些文件，要重新构建、重新部署网页，各业务项目再点一次「有更新」。
+
+新模块只有被页面引用了才会进构建包。内置内容变了以后，跑 `npm run check:bundle` 确认生产包里真有这些内容。
 
 ## 构建
 
@@ -28,6 +36,7 @@ npm run dev        # 开发服务器
 npm test           # 单元测试
 npm run typecheck  # 类型检查
 npm run build      # 构建静态产物到 app/dist
+npm run check:bundle   # 确认构建包里有全部 10 个框架文件（先 build）
 ```
 
 ## 部署

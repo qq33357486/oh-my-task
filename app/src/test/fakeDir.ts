@@ -22,6 +22,8 @@ interface MemDir {
 export interface FakeOptions {
   /** 一旦写文件就报错，用来证明展示路径不写任何东西 */
   failOnWrite?: boolean;
+  /** 写到这个路径时报错，用来模拟写到一半失败。路径相对根目录，如 `.omt/AGENTS.md` */
+  failWrite?: (path: string) => boolean;
 }
 
 const empty = (): MemDir => ({ files: new Map(), dirs: new Map() });
@@ -49,11 +51,13 @@ export function fakeDir(name: string, tree: Tree = {}, opts: FakeOptions = {}): 
   const root = empty();
   build(tree, root);
 
-  const wrap = (dir: MemDir, dirName: string): FsDir => ({
+  const join = (base: string, part: string) => (base ? `${base}/${part}` : part);
+
+  const wrap = (dir: MemDir, dirName: string, path: string): FsDir => ({
     name: dirName,
     async getDir(n) {
       const sub = dir.dirs.get(n);
-      return sub ? wrap(sub, n) : null;
+      return sub ? wrap(sub, n, join(path, n)) : null;
     },
     async getFile(n) {
       const file = dir.files.get(n);
@@ -76,15 +80,17 @@ export function fakeDir(name: string, tree: Tree = {}, opts: FakeOptions = {}): 
         sub = empty();
         dir.dirs.set(n, sub);
       }
-      return wrap(sub, n);
+      return wrap(sub, n, join(path, n));
     },
     async writeText(n, content) {
+      const full = join(path, n);
       if (opts.failOnWrite) throw new Error('展示路径不该写文件');
+      if (opts.failWrite?.(full)) throw Object.assign(new Error(`写不进去：${full}`), { name: 'WriteError' });
       dir.files.set(n, { content, mtime: Date.now() });
     },
   });
 
-  return wrap(root, name);
+  return wrap(root, name, '');
 }
 
 /** 把目录读成一个普通对象：目录是对象，文件是它的内容。用来比对写入前后的差别。 */

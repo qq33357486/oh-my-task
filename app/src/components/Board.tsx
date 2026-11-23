@@ -6,17 +6,25 @@ import { useStore } from '../store';
 import TaskCard from './TaskCard';
 import TaskDetail from './TaskDetail';
 
-function ArchivedColumn({ items }: { items: ChangeInfo[] }) {
+interface ArchivedProps {
+  /** 已经读出来的，最多 50 个 */
+  items: ChangeInfo[];
+  /** 归档目录下的总数 */
+  total: number;
+}
+
+/** 已归档一列：默认收起；点开后显示最新的 50 个，超出时提示还有多少个没显示。 */
+function ArchivedColumn({ items, total }: ArchivedProps) {
   const [expanded, setExpanded] = useState(false);
   const openDetail = useStore((s) => s.openDetail);
+  const hidden = Math.max(0, total - Math.min(items.length, ARCHIVED_LIMIT));
   if (!expanded) {
     return (
       <Button className="board__archived-toggle" onClick={() => setExpanded(true)}>
-        已归档（{items.length}）· 展开
+        已归档（{total}）· 展开
       </Button>
     );
   }
-  const hidden = items.length - ARCHIVED_LIMIT;
   return (
     <>
       {items.slice(0, ARCHIVED_LIMIT).map((info) => (
@@ -34,6 +42,7 @@ function ArchivedColumn({ items }: { items: ChangeInfo[] }) {
 export default function Board() {
   const changes = useStore((s) => s.changes);
   const archived = useStore((s) => s.archived);
+  const archivedTotal = useStore((s) => s.archivedTotal);
   const error = useStore((s) => s.error);
   const openDetail = useStore((s) => s.openDetail);
 
@@ -45,6 +54,7 @@ export default function Board() {
       {error && (
         <div className="board__error" role="alert">
           {error.message}。{error.next}
+          {error.details && error.details.length > 0 ? `（${error.details.join('、')}）` : ''}
         </div>
       )}
       {COLUMNS.map((column) => (
@@ -58,7 +68,7 @@ export default function Board() {
             {column !== '已归档' && groups[column].length > 0 && <span className="board__count">{groups[column].length}</span>}
           </header>
           {column === '已归档' ? (
-            <ArchivedColumn items={groups[column]} />
+            <ArchivedColumn items={archived} total={archivedTotal} />
           ) : (
             <>
               {groups[column].map((info) => (

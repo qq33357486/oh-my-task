@@ -12,7 +12,7 @@ export default function EntryPage() {
   return (
     <div className="entry">
       <h1 className="entry__title">oh my task</h1>
-      {view.name === 'unsupported' && <Alert type="warning" message="请用 Chrome 或 Edge 打开" />}
+      {view.name === 'unsupported' && <Alert type="warning" title="请用 Chrome 或 Edge 打开" />}
       {view.name === 'no-project' && (
         <>
           <p>选一个业务项目的目录，开始用任务系统。</p>
@@ -35,7 +35,7 @@ export default function EntryPage() {
       {view.name === 'error' && error && (
         <Alert
           type="error"
-          message={error.message}
+          title={error.message}
           description={error.next}
           action={
             <Button size="small" onClick={backToEntry}>

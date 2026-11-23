@@ -9,7 +9,7 @@ Actively build and sharpen the project's domain model as you design. This is the
 
 ## File structure
 
-<!-- Local convention (2026-11-23): files owned by this system live under `.omt/` at the repo root, so they never mix with the project's own folders. Upstream default is a root GLOSSARY.md plus docs/adr/; the untouched original is kept at ~/.agents/skills-backup/domain-modeling-upstream-20261123/. -->
+<!-- Local convention (2026-11-23): files owned by this system live under `.omt/` at the repo root, so they never mix with the project's own folders. Upstream default is a root GLOSSARY.md plus docs/adr/. -->
 
 Most repos have a single context:
 

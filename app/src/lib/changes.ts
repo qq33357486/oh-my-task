@@ -6,8 +6,9 @@ export interface ChangeInfo {
   name: string;
   /** 目录名 */
   dirName: string;
+  /** 在 archive/ 目录下的都算已归档，目录名带不带日期都一样 */
   archived: boolean;
-  /** 归档日期 YYYY-MM-DD，在办的任务夹为 null */
+  /** 归档日期 YYYY-MM-DD；目录名没有日期前缀时为 null */
   archivedOn: string | null;
   /** 没有 tasks.md 时为 null */
   progress: TaskProgress | null;
@@ -15,7 +16,15 @@ export interface ChangeInfo {
   lastModified: number | null;
 }
 
-/** 已归档一列最多读多少个（也正好是最多显示多少个） */
+export interface BoardData {
+  active: ChangeInfo[];
+  /** 已归档里最新的若干个，最多 ARCHIVED_LIMIT 个 */
+  archived: ChangeInfo[];
+  /** 归档目录下一共有多少个任务夹 */
+  archivedTotal: number;
+}
+
+/** 已归档一列最多读、最多显示多少个 */
 export const ARCHIVED_LIMIT = 50;
 
 const ARCHIVED_NAME = /^(\d{4}-\d{2}-\d{2})-(.+)$/;
@@ -47,11 +56,12 @@ async function describe(dir: FsDir, dirName: string, name: string, archivedOn: s
 /**
  * 读 openspec/ 下的任务夹。在办的在 changes/ 下，已归档的在 changes/archive/ 下。
  * 只读，不写。changes/ 下的非目录项、archive 目录本身都不算任务夹。
- * 已归档按日期从新到旧排，只读最新的 50 个；在办的按最后修改时间从新到旧排。
+ * 已归档按日期从新到旧排，只读最新的 50 个，但总数（archivedTotal）是全部的个数；
+ * 在办的按最后修改时间从新到旧排。
  */
-export async function readChanges(openspec: FsDir): Promise<{ active: ChangeInfo[]; archived: ChangeInfo[] }> {
+export async function readChanges(openspec: FsDir): Promise<BoardData> {
   const changes = await openspec.getDir('changes');
-  if (!changes) return { active: [], archived: [] };
+  if (!changes) return { active: [], archived: [], archivedTotal: 0 };
 
   const active: ChangeInfo[] = [];
   for (const entry of await changes.entries()) {
@@ -73,10 +83,13 @@ export async function readChanges(openspec: FsDir): Promise<{ active: ChangeInfo
     found.sort((a, b) => b.on.localeCompare(a.on) || b.name.localeCompare(a.name));
     for (const item of found.slice(0, ARCHIVED_LIMIT)) {
       const dir = await archive.getDir(item.dirName);
-      if (dir) archived.push(await describe(dir, item.dirName, item.name, item.on || null));
+      if (!dir) continue;
+      // 在 archive/ 底下的都是已归档，哪怕目录名没有日期前缀。
+      archived.push({ ...(await describe(dir, item.dirName, item.name, item.on || null)), archived: true });
     }
+    return { active, archived, archivedTotal: found.length };
   }
-  return { active, archived };
+  return { active, archived, archivedTotal: 0 };
 }
 
 export interface ChangeDetail {

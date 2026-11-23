@@ -11,11 +11,11 @@ async function openspec(tree: Tree) {
 
 describe('readChanges', () => {
   it('没有 changes/ 目录：两列都空', async () => {
-    expect(await readChanges(fakeDir('openspec', {}, { failOnWrite: true }))).toEqual({ active: [], archived: [] });
+    expect(await readChanges(fakeDir('openspec', {}, { failOnWrite: true }))).toEqual({ active: [], archived: [], archivedTotal: 0 });
   });
 
   it('changes/ 是空的：两列都空', async () => {
-    expect(await readChanges(await openspec({}))).toEqual({ active: [], archived: [] });
+    expect(await readChanges(await openspec({}))).toEqual({ active: [], archived: [], archivedTotal: 0 });
   });
 
   it('在办的任务夹：读待办进度', async () => {
@@ -44,6 +44,7 @@ describe('readChanges', () => {
     );
     expect(active.map((c) => c.name)).toEqual(['real']);
     expect(archived.map((c) => c.name)).toEqual(['a']);
+    expect((await readChanges(await openspec({ archive: { '2026-11-01-a': {} } }))).archivedTotal).toBe(1);
   });
 
   it('已归档的去掉开头的日期，按日期从新到旧排', async () => {
@@ -56,15 +57,16 @@ describe('readChanges', () => {
       ['zeta', '2026-11-20', true],
       ['newer', '2026-11-20', true],
       ['old', '2026-11-01', true],
-      ['no-date', null, false],
+      ['no-date', null, true],
     ]);
   });
 
-  it('已归档的最多只读最新的 50 个', async () => {
+  it('已归档的最多只读最新的 50 个，但总数是全部的个数', async () => {
     const archive: Tree = {};
     for (let i = 1; i <= 80; i++) archive[`2026-01-${String((i % 28) + 1).padStart(2, '0')}-t${String(i).padStart(2, '0')}`] = {};
-    const { archived } = await readChanges(await openspec({ archive }));
+    const { archived, archivedTotal } = await readChanges(await openspec({ archive }));
     expect(archived).toHaveLength(ARCHIVED_LIMIT);
+    expect(archivedTotal).toBe(80);
   });
 
   it('多久没动取任务夹里最新的那个文件，嵌在 specs/ 里的也算', async () => {
