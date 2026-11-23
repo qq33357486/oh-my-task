@@ -224,3 +224,22 @@ body {
   background: #f7f8fa;
   border-radius: 6px;
 }
+
+.error-details {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.busy {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+}

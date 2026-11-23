@@ -86,3 +86,18 @@ export function fakeDir(name: string, tree: Tree = {}, opts: FakeOptions = {}): 
 
   return wrap(root, name);
 }
+
+/** 把目录读成一个普通对象：目录是对象，文件是它的内容。用来比对写入前后的差别。 */
+export async function dumpDir(dir: FsDir): Promise<Record<string, string | Record<string, unknown> | null>> {
+  const out: Record<string, string | Record<string, unknown> | null> = {};
+  for (const entry of await dir.entries()) {
+    if (entry.kind === 'dir') {
+      const sub = await dir.getDir(entry.name);
+      out[entry.name] = sub ? await dumpDir(sub) : null;
+    } else {
+      const file = await dir.getFile(entry.name);
+      out[entry.name] = file ? await file.readText() : null;
+    }
+  }
+  return out;
+}

@@ -1,6 +1,33 @@
 import { Alert, Button, Spin } from 'antd';
 import { useStore } from '../store';
 
+/** 一条出错提示，带要逐条给人看的细节（比如冲突文件的名单）。 */
+export function ErrorAlert() {
+  const error = useStore((s) => s.error);
+  if (!error) return null;
+  return (
+    <Alert
+      type="error"
+      showIcon
+      message={error.message}
+      description={
+        <>
+          {error.next && <p>{error.next}</p>}
+          {error.details && error.details.length > 0 && (
+            <ul className="error-details">
+              {error.details.map((item) => (
+                <li key={item}>
+                  <code>{item}</code>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      }
+    />
+  );
+}
+
 export function Loading() {
   return (
     <div className="page">
@@ -10,10 +37,13 @@ export function Loading() {
   );
 }
 
-/** 目录里既没有 .omt/ 也没有 .oht/：请他初始化。初始化按钮在第 5 组接上。 */
+/** 目录里既没有 .omt/ 也没有 .oht/：请他初始化。 */
 export function UninitializedPage() {
+  const busy = useStore((s) => s.busy);
+  const initialize = useStore((s) => s.initialize);
   return (
     <div className="page">
+      <ErrorAlert />
       <Alert
         type="info"
         message="这个目录还没有任务系统"
@@ -24,7 +54,7 @@ export function UninitializedPage() {
         }
       />
       <div className="page__actions">
-        <Button type="primary" disabled>
+        <Button type="primary" loading={busy} onClick={() => void initialize()}>
           初始化此目录
         </Button>
       </div>
@@ -51,10 +81,10 @@ export function MissingOpenSpecPage() {
     <div className="page">
       <Alert
         type="warning"
-        message="这个目录还没有 OpenSpec"
+        message="还差一步：这个目录还没有 OpenSpec"
         description={
           <>
-            在这个目录里运行 <code>openspec init</code>，装好以后刷新。
+            请自己初始化 OpenSpec，在这个目录里运行 <code>openspec init</code>，装好以后刷新。
           </>
         }
       />
@@ -63,20 +93,34 @@ export function MissingOpenSpecPage() {
 }
 
 export function ErrorView() {
-  const error = useStore((s) => s.error);
   const refresh = useStore((s) => s.refresh);
   return (
     <div className="page">
-      <Alert
-        type="error"
-        message={error?.message ?? '出了点问题'}
-        description={error?.next}
-        action={
-          <Button size="small" danger onClick={() => void refresh()}>
-            重试
-          </Button>
-        }
-      />
+      <ErrorAlert />
+      <Button size="small" danger onClick={() => void refresh()}>
+        重试
+      </Button>
+    </div>
+  );
+}
+
+/** 刚做完一件事的回话，比如「已置入 10 个文件。」 */
+export function Notice() {
+  const notice = useStore((s) => s.notice);
+  if (!notice) return null;
+  return (
+    <Alert type="success" showIcon message={notice} closable onClose={() => useStore.setState({ notice: null })} />
+  );
+}
+
+/** 页面正忙着初始化或更新。 */
+export function BusyMask() {
+  const busy = useStore((s) => s.busy);
+  if (!busy) return null;
+  return (
+    <div className="busy" role="status">
+      <Spin />
+      <span>正在写入，请稍候…</span>
     </div>
   );
 }

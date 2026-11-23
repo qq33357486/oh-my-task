@@ -85,7 +85,7 @@ describe('选定目录后分流', () => {
 
   it('有 .omt/ 没有 openspec/：提示去装 OpenSpec', async () => {
     await openProject({ '.omt': {} });
-    expect(screen.getByText('这个目录还没有 OpenSpec')).toBeInTheDocument();
+    expect(screen.getByText('还差一步：这个目录还没有 OpenSpec')).toBeInTheDocument();
   });
 });
 

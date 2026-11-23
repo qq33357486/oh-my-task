@@ -2,6 +2,8 @@
 export interface Friendly {
   message: string;
   next: string;
+  /** 要逐条给人看的细节，比如冲突文件的名单 */
+  details?: string[];
 }
 
 /** 用户自己取消了选目录，不算错 */

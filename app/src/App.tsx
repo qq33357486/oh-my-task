@@ -4,9 +4,11 @@ import Board from './components/Board';
 import EntryPage from './components/EntryPage';
 import Header from './components/Header';
 import {
+  BusyMask,
   ErrorView,
   Loading,
   MissingOpenSpecPage,
+  Notice,
   OldVersionPage,
   UninitializedPage,
 } from './components/pages';
@@ -24,9 +26,19 @@ function renderView(view: View) {
     case 'old-version':
       return <OldVersionPage />;
     case 'missing-openspec':
-      return <MissingOpenSpecPage />;
+      return (
+        <>
+          <Notice />
+          <MissingOpenSpecPage />
+        </>
+      );
     case 'board':
-      return <Board />;
+      return (
+        <>
+          <Notice />
+          <Board />
+        </>
+      );
     default:
       return <ErrorView />;
   }
@@ -69,6 +81,7 @@ export default function App() {
     <Layout className="app">
       {!bare && <Header />}
       <Layout.Content className="app__content">{bare ? <EntryPage /> : renderView(view)}</Layout.Content>
+      <BusyMask />
     </Layout>
   );
 }
