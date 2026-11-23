@@ -354,7 +354,7 @@ export const useStore = create<State>()((set, get) => {
         return;
       }
       try {
-        // 浏览器的存储要是一直不返回，等一小会儿就当没有这条记录：点了「继续打开」不能没有任何反应。
+        // 浏览器的存储要是一直不返回，等一小会儿就按出错处理（不去猜记录没了）：点了「继续打开」不能没有任何反应。
         const handle = await giveUpAfter(fsa.loadHandle(name), BOOT_STORAGE_MS);
         if (!handle) {
           // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页；

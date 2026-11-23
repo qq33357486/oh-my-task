@@ -507,6 +507,10 @@ describe('第七轮补的', () => {
       expect(useStore.getState().error?.message).not.toContain('目录记录');
       expect(useStore.getState().recents).toEqual(['proj-A']);
       expect(forget).not.toHaveBeenCalled();
+      // 点「重试」会再取一次
+      const reopen = vi.spyOn(useStore.getState(), 'reopen');
+      await useStore.getState().retry();
+      expect(reopen).toHaveBeenCalledWith('proj-A');
     } finally {
       vi.useRealTimers();
     }
