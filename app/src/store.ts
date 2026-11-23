@@ -143,6 +143,18 @@ const saveQuietly = (recents: string[]) => {
   }
 };
 
+/**
+ * 读最近项目。浏览器不让这个站点存数据时，连 localStorage 本身都取不到，一取就抛错：那就当没有。
+ */
+const readRecentsQuietly = (): string[] => {
+  try {
+    return loadRecent(localStorage);
+  } catch (err) {
+    console.warn('[oh-my-task] 读不到最近项目：', err);
+    return [];
+  }
+};
+
 const removeFromRecents = (name: string) => {
   const recents = useStore.getState().recents.filter((n) => n !== name);
   saveQuietly(recents);
@@ -187,11 +199,14 @@ export const useStore = create<State>()((set, get) => {
    * 「继续打开」也不再提它。
    * 句柄失效以后取什么都是「找不到」，会被当成一个空目录，所以打开和每次重读都先看目录本身还读不读得了。
    * 页面先更新，存储的事放到后台：它要走一趟浏览器的数据库，不该让页面等它。
+   * 会话编号也加一：这个项目还没做完的事（比如正在写的更新）回来一看编号变了，结果就丢掉，不会盖掉这句话。
    */
   const forgetGone = (session: number, projectName: string) => {
     if (get().session !== session) return;
     set({
       ...FORGET_PROJECT,
+      refreshing: false,
+      session: get().session + 1,
       root: null,
       recents: removeFromRecents(projectName),
       view: { name: 'error' },
@@ -283,7 +298,7 @@ export const useStore = create<State>()((set, get) => {
         return;
       }
       // 读浏览器存的东西。读不了就当没存过，照样给入口页：不能让页面一直停在「正在启动」。
-      const recents = loadRecent(localStorage);
+      const recents = readRecentsQuietly();
       const last = await fsa.lastHandleName().catch((err: unknown) => {
         console.warn('[oh-my-task] 没读到上次打开的是哪个目录：', err);
         return null;
@@ -296,7 +311,8 @@ export const useStore = create<State>()((set, get) => {
     chooseDirectory: async () => {
       try {
         const handle = await fsa.pickDirectory();
-        await rememberQuietly(handle);
+        // 先打开目录，记住它的事放到后台：存储要是卡住（磁盘满），不能连选好的目录都打不开。
+        void rememberQuietly(handle);
         await get().open(fsa.wrapDir(handle));
       } catch (err) {
         if (isCancelled(err)) return;
@@ -342,7 +358,7 @@ export const useStore = create<State>()((set, get) => {
           });
           return;
         }
-        await rememberQuietly(handle);
+        void rememberQuietly(handle);
         await get().open(fsa.wrapDir(handle));
       } catch (err) {
         if (isCancelled(err)) return;

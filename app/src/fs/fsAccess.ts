@@ -30,6 +30,11 @@ async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStor
       db.close();
       reject(tx.error);
     };
+    // 事务被中止时只发 abort，不发 error。不接的话，等它的函数永远不返回（磁盘满时会这样）。
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error('浏览器中止了这次存储操作'));
+    };
   });
 }
 
@@ -105,6 +110,11 @@ export async function forgetHandle(name: string): Promise<void> {
     tx.onerror = () => {
       db.close();
       reject(tx.error);
+    };
+    // 事务被中止时只发 abort，不发 error。不接的话，等它的函数永远不返回（磁盘满时会这样）。
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error('浏览器中止了这次存储操作'));
     };
   });
 }

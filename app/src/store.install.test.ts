@@ -179,7 +179,8 @@ describe('根 AGENTS.md 的编码', () => {
   const unreadable: Array<[string, Uint8Array]> = [
     ['UTF-16 LE', utf16(RULES, 'le')],
     ['UTF-16 BE', utf16(RULES, 'be')],
-    ['不带 BOM 的 UTF-16', utf16(RULES, 'le', false)],
+    // 「的」的两个字节本来就不是合法 UTF-8，靠严格解码就拦下；要试零字节那一道，得用「规」。
+    ['不带 BOM 的 UTF-16', utf16('# 规则', 'le', false)],
     ['GBK', GBK_RULES],
   ];
 

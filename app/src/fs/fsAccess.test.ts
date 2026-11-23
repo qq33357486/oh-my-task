@@ -73,8 +73,39 @@ describe('记住目录', () => {
   });
 
   it('忘掉一个没记住的名字：不出错', async () => {
+    await remember(handle('proj-C'));
     await forgetHandle('nope');
+    expect(await lastHandleName()).toBe('proj-C');
+    await forgetHandle('proj-C');
     expect(await lastHandleName()).toBeNull();
+  });
+
+  // 磁盘满时 Chromium 在提交阶段中止事务，只发 abort，不发 error。不接 abort 的话，等它的函数永远不返回。
+  // 这里连打开数据库也换成假的：不去动真的数据库和原型的全局方法，免得影响别的用例。
+  it('事务被中止：记住、忘掉都要返回（报错），不能一直挂着', async () => {
+    const abortSoon = () => {
+      const objectStore = { put: () => ({}), get: () => ({}), delete: () => ({}) };
+      const tx = {
+        objectStore: () => objectStore,
+        error: new DOMException('存满了', 'QuotaExceededError'),
+        onabort: null as null | ((ev: Event) => void),
+      };
+      const db = { transaction: () => tx, close: vi.fn() };
+      const request = { result: db, onupgradeneeded: null, onsuccess: null as null | ((ev: Event) => void), onerror: null };
+      vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+        // 处理器是拿到事务之后才接上的，所以等这一轮同步代码走完再中止。
+        queueMicrotask(() => {
+          request.onsuccess?.(new Event('success'));
+          queueMicrotask(() => tx.onabort?.(new Event('abort')));
+        });
+        return request as unknown as IDBOpenDBRequest;
+      });
+    };
+    abortSoon();
+    await expect(remember(handle('proj-A'))).rejects.toThrow('存满了');
+    abortSoon();
+    await expect(forgetHandle('proj-A')).rejects.toThrow('存满了');
+    vi.restoreAllMocks();
   });
 });
 
