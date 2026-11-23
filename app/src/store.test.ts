@@ -61,6 +61,24 @@ describe('boot', () => {
   });
 });
 
+  it('还没判断完上次打开的是哪个目录，人就选了目录：页面不会被改回入口页', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(fsa.lastHandleName).mockImplementationOnce(async () => {
+      await gate;
+      return 'old-project';
+    });
+    const booting = useStore.getState().boot();
+    picker.mockResolvedValue(project('proj-A', { '.omt': {}, openspec: {} }));
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().view.name).toBe('board');
+    release();
+    await booting;
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+  });
+
 describe('chooseDirectory', () => {
   it('选了已初始化的目录：进看板，并记进最近项目', async () => {
     picker.mockResolvedValue(project('proj-A', { '.omt': {}, openspec: {} }));

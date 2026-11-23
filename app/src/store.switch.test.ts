@@ -198,3 +198,34 @@ describe('「还差一步」页面上读出错', () => {
     vi.restoreAllMocks();
   });
 });
+
+// 送第三轮验收之前，顺着「换项目时状态残留」自查出来的三处。
+describe('同类问题的另外三处', () => {
+  it('看板开着的时候 .omt/ 被人删了：点更新不会把文件写回去，而是重新判断该显示哪一页', async () => {
+    const root = outdatedProject('proj-a');
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj-a' }, root, hasUpdate: true });
+    // 页面开着，目录里的 .omt/ 没了
+    const now = fakeDir('proj-a', { openspec: {} });
+    useStore.setState({ root: now });
+    await useStore.getState().applyUpdate();
+    expect(await dumpDir(now)).toEqual({ openspec: {} });
+    expect(useStore.getState().view.name).toBe('uninitialized');
+    expect(useStore.getState().hasUpdate).toBe(false);
+  });
+
+  it('已经初始化的项目里留着旧版 .oht/：更新照常，不碰 .oht/', async () => {
+    const tree: Tree = { '.oht': { tasks: {} }, openspec: { changes: {} } };
+    for (const file of FRAMEWORK_FILES) setPath(tree, file.path, file.content);
+    setPath(tree, WORKFLOW, '旧');
+    const now = fakeDir('proj-a', tree);
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj-a' }, root: now, hasUpdate: true });
+    await useStore.getState().applyUpdate();
+    const after = await dumpDir(now);
+    expect(after['.oht']).toEqual({ tasks: {} });
+    expect((after['.omt'] as Record<string, unknown>)['工作流']).toEqual({
+      '默认工作流.md': FRAMEWORK_FILES.find((f) => f.path === WORKFLOW)!.content,
+    });
+    expect(useStore.getState().notice).toBe('已更新。');
+  });
+
+});

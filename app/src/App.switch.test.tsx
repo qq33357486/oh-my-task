@@ -196,3 +196,28 @@ describe('从目录读到卡片详情', () => {
     expect(within(dialog).getByText('甲')).toBeInTheDocument();
   });
 });
+
+describe('更新的确认框', () => {
+  it('确认框开着的时候换了项目：点「更新」不会更新新项目', async () => {
+    // 盯住真的更新函数有没有被调用（不替换它）。
+    const applyUpdate = vi.spyOn(useStore.getState(), 'applyUpdate');
+    useStore.setState({
+      ...initialState,
+      view: { name: 'board', projectName: 'proj-a' },
+      root: fakeDir('proj-a', frameworkTree(true)),
+      hasUpdate: true,
+      updateCount: 1,
+    });
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /有 ?更 ?新/ }));
+    const dialog = await screen.findByRole('dialog');
+
+    // 这时候换了项目：每打开一个项目记一次的那个编号变了。
+    useStore.setState({ session: useStore.getState().session + 1, view: { name: 'board', projectName: 'proj-b' } });
+    await user.click(within(dialog).getByRole('button', { name: /^更 ?新$/ }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(applyUpdate).not.toHaveBeenCalled();
+    applyUpdate.mockRestore();
+  });
+});

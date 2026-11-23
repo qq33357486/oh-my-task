@@ -158,12 +158,15 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   boot: async () => {
+    const session = get().session;
     if (!fsa.isSupported()) {
       set({ view: { name: 'unsupported' } });
       return;
     }
     const recents = loadRecent(localStorage);
     const last = await fsa.lastHandleName();
+    // 等的这一会儿里人已经选了目录：别把页面改回入口页。
+    if (get().session !== session) return;
     set({ recents, view: last ? { name: 'restore', projectName: last } : { name: 'no-project' } });
   },
 
@@ -353,6 +356,12 @@ export const useStore = create<State>()((set, get) => ({
     const root = get().root;
     if (!root || get().busy || !onBoardLike(get().view.name)) return;
     const session = get().session;
+    // 更新只对「已经初始化」的项目。页面开着的时候 .omt/ 没了，就回去重新判断该显示哪一页。
+    // 目录里留着旧版的 .oht/ 不拦更新：更新只写名单上的文件和根 AGENTS.md 的入口块，不碰 .oht/。
+    if (!(await targetOf(root).existsDir('.omt'))) {
+      await get().retry();
+      return;
+    }
     set({ busy: true, error: null, notice: null });
     try {
       const result = await planInstall(FRAMEWORK_FILES, targetOf(root), 'update');

@@ -51,6 +51,8 @@ export default function Header() {
 
   // 点了更新先确认。常开的旧标签页会把旧文件覆盖回去，所以提醒一句。
   const confirmUpdate = () => {
+    // 确认框是给当时那个项目开的。开着的时候换了项目，确认就不算数。
+    const session = useStore.getState().session;
     modal.confirm({
       title: '更新',
       content: (
@@ -63,7 +65,9 @@ export default function Header() {
       ),
       okText: '更新',
       cancelText: '取消',
-      onOk: () => applyUpdate(),
+      onOk: () => {
+        if (useStore.getState().session === session) return applyUpdate();
+      },
     });
   };
 
