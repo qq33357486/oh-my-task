@@ -146,7 +146,7 @@ describe('refresh', () => {
   });
 
   it('看板每调一次重读一次', async () => {
-    useStore.setState({ view: { name: 'board', projectName: 'x' } });
+    useStore.setState({ view: { name: 'board', projectName: 'x' }, root: fakeDir('x', { openspec: {} }) });
     await useStore.getState().refresh();
     await useStore.getState().refresh();
     expect(useStore.getState().refreshCount).toBe(2);

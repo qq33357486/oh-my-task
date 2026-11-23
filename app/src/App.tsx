@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
 import { Layout } from 'antd';
+import Board from './components/Board';
 import EntryPage from './components/EntryPage';
 import Header from './components/Header';
 import {
-  BoardPlaceholder,
   ErrorView,
   Loading,
   MissingOpenSpecPage,
@@ -26,7 +26,7 @@ function renderView(view: View) {
     case 'missing-openspec':
       return <MissingOpenSpecPage />;
     case 'board':
-      return <BoardPlaceholder />;
+      return <Board />;
     default:
       return <ErrorView />;
   }

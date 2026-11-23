@@ -67,7 +67,7 @@ describe('选定目录后分流', () => {
   it('有 .omt/ 和 openspec/：显示页眉和看板', async () => {
     await openProject({ '.omt': {}, openspec: {} });
     expect(screen.getByText('proj-A')).toBeInTheDocument();
-    expect(screen.getByText('看板')).toBeInTheDocument();
+    expect(screen.getByText('等你验收')).toBeInTheDocument();
   });
 
   it('两个都没有：进未初始化页面，有初始化按钮', async () => {
@@ -97,10 +97,25 @@ describe('轮询', () => {
       vi.advanceTimersByTime(POLL_MS);
     });
     expect(useStore.getState().refreshCount).toBe(before + 1);
-    act(() => {
-      vi.advanceTimersByTime(POLL_MS * 10);
-    });
+    await act(async () => {});
+    // 每过 5 秒等上一轮读完再走下一步，10 轮就是 10 次。
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        vi.advanceTimersByTime(POLL_MS);
+      });
+    }
     expect(useStore.getState().refreshCount).toBe(before + 11);
+  });
+
+  it('两轮间隔一起到，而上一轮还没读完：不叠加，只多读一次', async () => {
+    await openProject({ '.omt': {}, openspec: {} }, { fake: true });
+    const before = useStore.getState().refreshCount;
+    act(() => {
+      vi.advanceTimersByTime(POLL_MS * 2);
+    });
+    expect(useStore.getState().refreshCount).toBe(before + 1);
+    await act(async () => {});
+    expect(useStore.getState().refreshing).toBe(false);
   });
 
   it('页面不可见时不重读', async () => {

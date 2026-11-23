@@ -1,7 +1,13 @@
 import type { FsDir, FsEntry } from '../fs/types';
 
-/** 用一个对象描述目录树：字符串是文件内容，对象是子目录。 */
-export type Tree = { [name: string]: Tree | string };
+/** 文件可以只给内容（字符串），也可以连同修改时间一起给（毫秒时间戳）。 */
+export interface MemFileSpec {
+  text: string;
+  mtime: number;
+}
+
+/** 用一个对象描述目录树：字符串是文件内容，带 text 的对象是文件，别的对象是子目录。 */
+export type Tree = { [name: string]: Tree | string | MemFileSpec };
 
 interface MemFile {
   content: string;
@@ -20,10 +26,16 @@ export interface FakeOptions {
 
 const empty = (): MemDir => ({ files: new Map(), dirs: new Map() });
 
+function isFileSpec(value: Tree | string | MemFileSpec): value is MemFileSpec {
+  return typeof value === 'object' && value !== null && typeof (value as MemFileSpec).text === 'string';
+}
+
 function build(tree: Tree, dir: MemDir): void {
   for (const [name, value] of Object.entries(tree)) {
     if (typeof value === 'string') {
       dir.files.set(name, { content: value, mtime: 0 });
+    } else if (isFileSpec(value)) {
+      dir.files.set(name, { content: value.text, mtime: value.mtime });
     } else {
       const sub = empty();
       build(value, sub);

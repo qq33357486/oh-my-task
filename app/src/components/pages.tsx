@@ -80,8 +80,3 @@ export function ErrorView() {
     </div>
   );
 }
-
-/** 看板在第 3 组实现。 */
-export function BoardPlaceholder() {
-  return <div className="page">看板</div>;
-}
