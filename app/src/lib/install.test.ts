@@ -122,6 +122,7 @@ describe('根 AGENTS.md 的编码', () => {
   const unreadable: Array<[string, Uint8Array]> = [
     ['UTF-16 LE', utf16(RULES, 'le')],
     ['UTF-16 BE', utf16(RULES, 'be')],
+    ['不带 BOM 的 UTF-16', utf16(RULES, 'le', false)],
     ['GBK', GBK_RULES],
   ];
 

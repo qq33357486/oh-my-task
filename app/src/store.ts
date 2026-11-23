@@ -132,9 +132,20 @@ const FORGET_PROJECT: Partial<Data> = {
 
 const onBoardLike = (name: ViewName) => name === 'board' || name === 'missing-openspec';
 
+/**
+ * 存最近项目。存不进去（浏览器不让存、存满了）不算出错：它只是让菜单好点，不该挡住打开目录。
+ */
+const saveQuietly = (recents: string[]) => {
+  try {
+    saveRecent(localStorage, recents);
+  } catch (err) {
+    console.warn('[oh-my-task] 没存住最近项目，下次打开菜单里可能少了它：', err);
+  }
+};
+
 const removeFromRecents = (name: string) => {
   const recents = useStore.getState().recents.filter((n) => n !== name);
-  saveRecent(localStorage, recents);
+  saveQuietly(recents);
   return recents;
 };
 
@@ -152,8 +163,30 @@ export const useStore = create<State>()((set, get) => {
   const isGone = (err: unknown) => (err as { name?: string } | null)?.name === 'NotFoundError';
 
   /**
-   * 这个目录打不开了（项目文件夹被移动、改名或删除）：放下它，说清楚是哪个目录，从最近项目里拿掉。
+   * 记住目录、忘掉目录记录，只是为了下次能「继续打开」。
+   * 浏览器的存储出问题时不该挡住这次打开，所以失败只记进控制台。
+   */
+  const rememberQuietly = async (handle: FileSystemDirectoryHandle) => {
+    try {
+      await fsa.remember(handle);
+    } catch (err) {
+      console.warn('[oh-my-task] 没记住这个目录，下次打开要重新选：', err);
+    }
+  };
+
+  const forgetQuietly = async (name: string) => {
+    try {
+      await fsa.forgetHandle(name);
+    } catch (err) {
+      console.warn('[oh-my-task] 没能忘掉这个目录的记录：', err);
+    }
+  };
+
+  /**
+   * 这个目录打不开了（项目文件夹被移动、改名或删除）：放下它，说清楚是哪个目录，从最近项目里拿掉，
+   * 「继续打开」也不再提它。
    * 句柄失效以后取什么都是「找不到」，会被当成一个空目录，所以打开和每次重读都先看目录本身还读不读得了。
+   * 页面先更新，存储的事放到后台：它要走一趟浏览器的数据库，不该让页面等它。
    */
   const forgetGone = (session: number, projectName: string) => {
     if (get().session !== session) return;
@@ -169,6 +202,7 @@ export const useStore = create<State>()((set, get) => {
         pick: true,
       },
     });
+    void forgetQuietly(projectName);
   };
 
   /**
@@ -203,6 +237,8 @@ export const useStore = create<State>()((set, get) => {
       if (current() && get().selected === info.dirName) set({ detail });
     } catch (err) {
       if (!current()) return;
+      // 人已经把抽屉关了：这一轮的结果和错都不用给他看。
+      if (get().selected !== info.dirName) return;
       // 读不出来就不留一个空抽屉；错显示在页面上。写文件的错（sticky）比读的错要紧，留着。
       const { error } = get();
       set({ selected: null, detail: null, error: error?.sticky ? error : humanize(err, '读取这个任务夹') });
@@ -230,7 +266,7 @@ export const useStore = create<State>()((set, get) => {
         // 看目录的时候又换了项目：这一回的结果不要了。
         if (get().session !== session) return;
         const recents = pushRecent(get().recents, projectName);
-        saveRecent(localStorage, recents);
+        saveQuietly(recents);
         set({ view: { name: state.kind, projectName }, recents });
         // 进看板和停在「还差一步」都要读一次：前者读任务夹，两者都比对框架文件。
         if (onBoardLike(state.kind)) await get().refresh();
@@ -246,8 +282,12 @@ export const useStore = create<State>()((set, get) => {
         set({ view: { name: 'unsupported' } });
         return;
       }
+      // 读浏览器存的东西。读不了就当没存过，照样给入口页：不能让页面一直停在「正在启动」。
       const recents = loadRecent(localStorage);
-      const last = await fsa.lastHandleName();
+      const last = await fsa.lastHandleName().catch((err: unknown) => {
+        console.warn('[oh-my-task] 没读到上次打开的是哪个目录：', err);
+        return null;
+      });
       // 等的这一会儿里人已经选了目录：别把页面改回入口页。
       if (get().session !== session) return;
       set({ recents, view: last ? { name: 'restore', projectName: last } : { name: 'no-project' } });
@@ -256,7 +296,7 @@ export const useStore = create<State>()((set, get) => {
     chooseDirectory: async () => {
       try {
         const handle = await fsa.pickDirectory();
-        await fsa.remember(handle);
+        await rememberQuietly(handle);
         await get().open(fsa.wrapDir(handle));
       } catch (err) {
         if (isCancelled(err)) return;
@@ -279,7 +319,8 @@ export const useStore = create<State>()((set, get) => {
       try {
         const handle = await fsa.loadHandle(name);
         if (!handle) {
-          // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页。
+          // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页；
+          // 「上次打开的」要是它，也一起去掉（放到后台做，页面先更新）。
           set({
             recents: removeFromRecents(name),
             view: { name: 'error' },
@@ -290,6 +331,7 @@ export const useStore = create<State>()((set, get) => {
               pick: true,
             },
           });
+          void forgetQuietly(name);
           return;
         }
         const granted = (await fsa.hasPermission(handle)) || (await fsa.requestPermission(handle));
@@ -300,7 +342,7 @@ export const useStore = create<State>()((set, get) => {
           });
           return;
         }
-        await fsa.remember(handle);
+        await rememberQuietly(handle);
         await get().open(fsa.wrapDir(handle));
       } catch (err) {
         if (isCancelled(err)) return;

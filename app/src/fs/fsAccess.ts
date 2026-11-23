@@ -87,6 +87,28 @@ export async function loadHandle(name: string): Promise<FileSystemDirectoryHandl
   return (await withStore<FileSystemDirectoryHandle | undefined>('readonly', (store) => store.get(name))) ?? null;
 }
 
+/** 忘掉一个记住的目录。它要是「上次打开的」，那条也一起去掉，下次不再提示「继续打开」它。 */
+export async function forgetHandle(name: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    store.delete(name);
+    const last = store.get(LAST_KEY);
+    last.onsuccess = () => {
+      if (last.result === name) store.delete(LAST_KEY);
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
 const notFound = (e: unknown) => (e as { name?: string } | null)?.name === 'NotFoundError';
 
 /** 把浏览器的目录句柄包成页面用的 FsDir */

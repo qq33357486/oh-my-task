@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as fsa from './fs/fsAccess';
 import { FRAMEWORK_FILES } from './framework/manifest';
 import { getDirByPath, type FsDir } from './fs/types';
 import { dumpDir, fakeDir, type Tree } from './test/fakeDir';
+import { toRaw } from './test/fakeRaw';
 import { initialState, useStore } from './store';
 
 const BUILTIN: Record<string, string> = Object.fromEntries(FRAMEWORK_FILES.map((f) => [f.path, f.content]));
@@ -187,9 +189,11 @@ describe('目录不在了、记录没了', () => {
 
   it('页面开着的时候项目文件夹被移走了：下一次重读发现，说出是哪个目录，不当成「还差一步」', async () => {
     rememberRecents(['proj-A', 'proj-B']);
-    const root = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
-    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root });
+    const root = fakeDir('proj-A', { '.omt': {}, openspec: { changes: { t: { 'tasks.md': '- [ ] 1.1' } } } }, { failOnWrite: true });
+    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root, hasUpdate: true, notice: '已更新。' });
     await useStore.getState().refresh();
+    expect(useStore.getState().changes.map((c) => c.name)).toEqual(['t']);
+    expect(useStore.getState().hasUpdate).toBe(true);
 
     // 人在资源管理器里把这个文件夹改名了：句柄失效，列不出它
     root.entries = async () => {
@@ -200,8 +204,39 @@ describe('目录不在了、记录没了', () => {
     const state = useStore.getState();
     expect(state.view).toEqual({ name: 'error' });
     expect(state.error).toMatchObject({ message: '「proj-A」这个目录打不开了，可能被移动、改名或删除了。', sticky: true, pick: true });
-    expect(state).toMatchObject({ root: null, changes: [], refreshing: false });
+    // 这个项目的东西一样不留
+    expect(state).toMatchObject({ root: null, changes: [], archived: [], refreshing: false, hasUpdate: false, notice: null });
     expect(state.recents).toEqual(['proj-B']);
+  });
+
+  it('目录打不开了：「上次打开的」那条记录也清掉，下次打开不再提示「继续打开」它', async () => {
+    await fsa.remember({ name: 'proj-A' } as unknown as FileSystemDirectoryHandle);
+    expect(await fsa.lastHandleName()).toBe('proj-A');
+
+    const root = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    root.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    await useStore.getState().open(root);
+
+    // 记录是在后台清的（要走一趟浏览器的数据库），等它一下。
+    await vi.waitFor(async () => expect(await fsa.lastHandleName()).toBeNull());
+    expect(await fsa.loadHandle('proj-A')).toBeNull();
+    // 下次打开页面：不再提示「继续打开」它
+    vi.spyOn(fsa, 'isSupported').mockReturnValue(true);
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+  });
+
+  it('目录记录没了，只剩「上次打开的」那一条：这一条也清掉', async () => {
+    await fsa.remember({ name: 'proj-A' } as unknown as FileSystemDirectoryHandle);
+    vi.spyOn(fsa, 'loadHandle').mockResolvedValue(null);
+    useStore.setState({ ...initialState, view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
+
+    await useStore.getState().continueDirectory();
+
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    await vi.waitFor(async () => expect(await fsa.lastHandleName()).toBeNull());
   });
 
   it('任务夹在读到一半时被人删了：也报「找不到」，但这不是目录打不开，下一轮重读就好', async () => {
@@ -236,6 +271,69 @@ describe('目录不在了、记录没了', () => {
     await useStore.getState().open(root);
     expect(useStore.getState().error).toMatchObject({ message: '没有这个目录的读写权限' });
     expect(useStore.getState().recents).toEqual(['proj-A']);
+  });
+});
+
+// 第四轮独立验收抓出来的：浏览器自己的存储出问题时，页面停在空白，或者把打开成功的目录说成没成功。
+describe('浏览器的存储出问题', () => {
+  const projectA = () => fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+
+  it('启动时读不到上次打开的是哪个目录：照样是入口页，不停在「正在启动」', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(fsa, 'isSupported').mockReturnValue(true);
+    vi.spyOn(fsa, 'lastHandleName').mockRejectedValue(new Error('IndexedDB blocked'));
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().error).toBeNull();
+  });
+
+  it('最近项目存不进去：目录照样打开，不算出错', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('存满了', 'QuotaExceededError');
+    });
+    const root = projectA();
+    useStore.setState({ view: { name: 'error', projectName: 'proj-A' }, root });
+
+    await useStore.getState().retry();
+
+    expect(useStore.getState()).toMatchObject({ view: { name: 'board', projectName: 'proj-A' }, error: null, recents: ['proj-A'] });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('刚选的目录记不住（下次没法「继续打开」）：这次照样打开', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(fsa, 'pickDirectory').mockResolvedValue(toRaw('proj-A', projectA()));
+    vi.spyOn(fsa, 'remember').mockRejectedValue(new Error('IndexedDB blocked'));
+
+    await useStore.getState().chooseDirectory();
+
+    expect(useStore.getState()).toMatchObject({ view: { name: 'board', projectName: 'proj-A' }, error: null });
+  });
+
+  it('重新打开一个记住的目录，这回没记住成：也照样打开', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(fsa, 'loadHandle').mockResolvedValue(toRaw('proj-A', projectA()));
+    vi.spyOn(fsa, 'hasPermission').mockResolvedValue(true);
+    vi.spyOn(fsa, 'remember').mockRejectedValue(new Error('IndexedDB blocked'));
+
+    await useStore.getState().reopen('proj-A');
+
+    expect(useStore.getState()).toMatchObject({ view: { name: 'board', projectName: 'proj-A' }, error: null });
+  });
+
+  it('目录打不开了，记录又没能忘掉：页面照样放下它', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(fsa, 'forgetHandle').mockRejectedValue(new Error('IndexedDB blocked'));
+    const root = projectA();
+    root.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+
+    await useStore.getState().open(root);
+
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error?.message).toContain('打不开了');
   });
 });
 

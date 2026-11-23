@@ -16,12 +16,13 @@ export function utf8(text: string, withBom = false): Uint8Array {
   return withBom ? new Uint8Array([0xef, 0xbb, 0xbf, ...body]) : body;
 }
 
-/** UTF-16 的字节，开头带 BOM。记事本的「UTF-16 LE」「UTF-16 BE」存出来的样子。 */
-export function utf16(text: string, order: 'le' | 'be' = 'le'): Uint8Array {
+/** UTF-16 的字节。withBom 为真时开头带 BOM，就是记事本的「UTF-16 LE」「UTF-16 BE」存出来的样子。 */
+export function utf16(text: string, order: 'le' | 'be' = 'le', withBom = true): Uint8Array {
   const body = [...text].flatMap((ch) => {
     const code = ch.charCodeAt(0);
     return order === 'le' ? [code & 0xff, code >> 8] : [code >> 8, code & 0xff];
   });
+  if (!withBom) return new Uint8Array(body);
   return new Uint8Array(order === 'le' ? [0xff, 0xfe, ...body] : [0xfe, 0xff, ...body]);
 }
 

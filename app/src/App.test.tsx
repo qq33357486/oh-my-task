@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App as AntApp } from 'antd';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fsa from './fs/fsAccess';
 import App, { POLL_MS } from './App';
@@ -66,11 +67,9 @@ afterEach(() => {
 });
 
 describe('页面刚打开', () => {
-  function mount() {
+  function mount(child?: ReactNode) {
     return render(
-      <AntApp>
-        <App />
-      </AntApp>,
+      <AntApp>{child ?? <App />}</AntApp>,
     );
   }
 
@@ -94,16 +93,29 @@ describe('页面刚打开', () => {
   });
 
   it('别的浏览器：直接是那句提示，中间不经过入口页', async () => {
-    const seen: string[] = [];
-    const unsubscribe = useStore.subscribe((state) => seen.push(state.view.name));
+    // 第一次渲染的时候页面是哪个状态：包一层，在 App 渲染之前记下来。
+    const firstPaint: string[] = [];
+    function Probe() {
+      firstPaint.push(useStore.getState().view.name);
+      return <App />;
+    }
     vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
-    mount();
+    mount(<Probe />);
     expect(await screen.findByText('请用 Chrome 或 Edge 打开')).toBeInTheDocument();
-    unsubscribe();
 
-    expect(seen).toEqual(['unsupported']);
+    expect(firstPaint[0]).toBe('booting');
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
+  });
+
+  it('读不到浏览器里存了什么：照样是入口页，不停在空白', async () => {
+    vi.mocked(fsa.lastHandleName).mockRejectedValueOnce(new Error('IndexedDB blocked'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount();
+    expect(await screen.findByRole('button', { name: '选择目录' })).toBeInTheDocument();
+    expect(useStore.getState().view.name).toBe('no-project');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 

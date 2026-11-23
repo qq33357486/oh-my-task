@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { GBK_RULES, utf16, utf8 } from '../test/encodings';
 import { fakeDir } from '../test/fakeDir';
 import { toRaw } from '../test/fakeRaw';
 import {
+  forgetHandle,
   hasPermission,
   isSupported,
   lastHandleName,
@@ -46,12 +48,33 @@ describe('选目录和权限', () => {
 });
 
 describe('记住目录', () => {
+  const handle = (name: string) => ({ name }) as unknown as FileSystemDirectoryHandle;
+
   it('记住以后能按名字取回，并记成上次打开的', async () => {
-    const handle = { name: 'proj-A' } as unknown as FileSystemDirectoryHandle;
-    await remember(handle);
+    await remember(handle('proj-A'));
     expect(await lastHandleName()).toBe('proj-A');
     expect((await loadHandle('proj-A'))?.name).toBe('proj-A');
     expect(await loadHandle('nope')).toBeNull();
+  });
+
+  it('忘掉一个目录：按名字取不回了；「上次打开的」不是它，就不动', async () => {
+    await remember(handle('proj-A'));
+    await remember(handle('proj-B'));
+    await forgetHandle('proj-A');
+    expect(await loadHandle('proj-A')).toBeNull();
+    expect(await lastHandleName()).toBe('proj-B');
+  });
+
+  it('忘掉的正是「上次打开的」：下次打开不再提示继续打开它', async () => {
+    await remember(handle('proj-B'));
+    await forgetHandle('proj-B');
+    expect(await loadHandle('proj-B')).toBeNull();
+    expect(await lastHandleName()).toBeNull();
+  });
+
+  it('忘掉一个没记住的名字：不出错', async () => {
+    await forgetHandle('nope');
+    expect(await lastHandleName()).toBeNull();
   });
 });
 
@@ -89,6 +112,16 @@ describe('wrapDir', () => {
     await dir.writeText('new.md', '# 建');
     expect(await (await dir.getFile('AGENTS.md'))?.readText()).toBe('# 新');
     expect(await (await dir.getFile('new.md'))?.readText()).toBe('# 建');
+  });
+
+  // 根 AGENTS.md 认不认得出编码，靠的就是这几个字节是原样的。
+  it('readBytes 是文件在磁盘上的原始字节，不经过解码：带 BOM 的 UTF-8、UTF-16、GBK 都原样交出来', async () => {
+    for (const bytes of [utf8('# 我的规则', true), utf16('# 我的规则'), utf16('# My rules', 'le', false), GBK_RULES]) {
+      const fileHandle = { kind: 'file', name: 'AGENTS.md', getFile: async () => new File([new Uint8Array(bytes)], 'AGENTS.md') } as unknown as FileSystemFileHandle;
+      const dir = wrapDir({ kind: 'directory', name: 'p', getFileHandle: async () => fileHandle } as unknown as FileSystemDirectoryHandle);
+      const file = (await dir.getFile('AGENTS.md'))!;
+      expect([...(await file.readBytes())]).toEqual([...bytes]);
+    }
   });
 
   it('不是「不存在」的异常原样抛出', async () => {

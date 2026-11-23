@@ -59,6 +59,17 @@ function gate() {
   return { promise, release };
 }
 
+/** 让 dirName 的详情读到一半停住，直到放行；读失败为真时，那时候它读失败。 */
+async function holdDetail(root: FsDir, dirName: string, boardReadsFirst: number, readFails: boolean) {
+  const held = gate();
+  await sabotageDetail(root, dirName, boardReadsFirst, async (file) => {
+    await held.promise;
+    if (readFails) throw locked();
+    return file;
+  });
+  return held.release;
+}
+
 beforeEach(() => {
   // 有的测试会故意让读失败，原始错误会打进控制台。
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -119,6 +130,17 @@ describe('抽屉跟着文件变', () => {
     expect(useStore.getState().error?.message).toBe('读取这个任务夹没成功');
   });
 
+  it('详情读不出来，而页面上挂着一条写失败的提示：写失败的那条要紧，留着', async () => {
+    const root = await openWithDetail({ t: change('原话') }, 't');
+    const writeError = { message: '写入文件没成功', next: '点页眉的「刷新」，再点「有更新」重试。', sticky: true };
+    useStore.setState({ error: writeError });
+    await sabotageDetail(root, 't', 1, async (file) => ({ ...file, readText: async () => Promise.reject(locked()) }));
+    await useStore.getState().refresh();
+
+    expect(useStore.getState()).toMatchObject({ selected: null, detail: null });
+    expect(useStore.getState().error).toEqual(writeError);
+  });
+
   it('抽屉开着，页面切到「还差一步」：关掉抽屉', async () => {
     await openWithDetail({ t: change('原话') }, 't');
     useStore.setState({ root: fakeDir('proj', { '.omt': {} }, { failOnWrite: true }) });
@@ -138,6 +160,22 @@ describe('抽屉跟着文件变', () => {
 
     expect(useStore.getState().error).toBeNull();
   });
+
+  // 第四轮独立验收抓出来的：人已经不看了，页面上还冒出一条错。
+  it('人把抽屉关了，那一轮详情才读失败：不在页面上报错', async () => {
+    const root = project({ t: change('原话') });
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj' }, root });
+    await useStore.getState().refresh();
+    const release = await holdDetail(root, 't', 0, true);
+
+    const opening = useStore.getState().openDetail(useStore.getState().changes[0]);
+    expect(useStore.getState().detailLoading).toBe(true);
+    useStore.getState().closeDetail();
+    release();
+    await opening;
+
+    expect(useStore.getState()).toMatchObject({ selected: null, detail: null, detailLoading: false, error: null });
+  });
 });
 
 // 读详情是异步的：先后点开两张卡，先点的那一轮可能比后点的晚结束。
@@ -149,17 +187,6 @@ describe('先点甲、再点乙', () => {
     await useStore.getState().refresh();
     const { changes } = useStore.getState();
     return { root, card: (name: string) => changes.find((c) => c.dirName === name)! };
-  }
-
-  /** 甲的详情读到一半停住，直到放行；读失败为真时，那时候它读失败。 */
-  async function holdDetail(root: FsDir, dirName: string, boardReadsFirst: number, readFails: boolean) {
-    const held = gate();
-    await sabotageDetail(root, dirName, boardReadsFirst, async (file) => {
-      await held.promise;
-      if (readFails) throw locked();
-      return file;
-    });
-    return held.release;
   }
 
   it('甲读得慢：乙的内容不被甲的覆盖', async () => {
@@ -225,5 +252,39 @@ describe('先点甲、再点乙', () => {
     await polling;
     expect(useStore.getState()).toMatchObject({ selected: 'b', detailLoading: false, error: null, refreshing: false });
     expect(useStore.getState().detail?.specs[0].text).toContain('乙');
+  });
+});
+
+// 读详情是异步的：读的那一会儿里，人已经换了项目。
+// 这里有两道防线各自都能挡住：读完先核对是不是同一个项目；再看抽屉是不是还开在这张卡上（换项目时抽屉已关）。
+// 所以下面的测试把哪一道单独撤掉都还是绿的，两道一起撤才红。
+describe('读详情读到一半换了项目', () => {
+  /** 项目甲的 a 卡详情读到一半；然后打开项目乙。返回甲那一轮的约定和放行函数。 */
+  async function switchMidRead(readFails: boolean) {
+    const a = project({ a: change('甲') });
+    useStore.setState({ ...initialState, view: { name: 'board', projectName: 'proj' }, root: a });
+    await useStore.getState().refresh();
+    const release = await holdDetail(a, 'a', 0, readFails);
+    const openingA = useStore.getState().openDetail(useStore.getState().changes[0]);
+
+    await useStore.getState().open(fakeDir('proj-B', { '.omt': {}, openspec: { changes: { b: change('乙') } } }, { failOnWrite: true }));
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+    return { openingA, release };
+  }
+
+  const onB = { view: { name: 'board', projectName: 'proj-B' }, error: null, selected: null, detail: null, detailLoading: false };
+
+  it('甲那一轮后来读失败了：错不报到乙的页面上', async () => {
+    const { openingA, release } = await switchMidRead(true);
+    release();
+    await openingA;
+    expect(useStore.getState()).toMatchObject(onB);
+  });
+
+  it('甲那一轮后来读完了：内容不写到乙的看板上', async () => {
+    const { openingA, release } = await switchMidRead(false);
+    release();
+    await openingA;
+    expect(useStore.getState()).toMatchObject(onB);
   });
 });

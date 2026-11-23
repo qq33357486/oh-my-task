@@ -18,20 +18,18 @@ export interface DecodedAgentsMd {
 }
 
 export function decodeAgentsMd(bytes: Uint8Array): DecodedAgentsMd {
-  // UTF-16 的 BOM：认不出，停下。
-  if (
-    bytes.length >= 2 &&
-    ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff))
-  ) {
-    throw new AgentsMdEncodingError();
-  }
   // UTF-8 的 BOM：记下来，写回时放回去。
   const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-  const body = bom ? bytes.subarray(3) : bytes;
+  let text: string;
   try {
     // 严格解码：有一个字节不合 UTF-8 就抛错，不悄悄换成乱码。
-    return { text: new TextDecoder('utf-8', { fatal: true }).decode(body), bom };
+    // 带 BOM 的 UTF-16 头两个字节就不合，在这里被拦下。
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bom ? bytes.subarray(3) : bytes);
   } catch {
     throw new AgentsMdEncodingError();
   }
+  // 不带 BOM 的 UTF-16 漏得过严格解码：西文后面跟一个零字节，凑巧是合法的 UTF-8。
+  // 文本文件里不该有零字节，有就不是 UTF-8。
+  if (text.includes('\u0000')) throw new AgentsMdEncodingError();
+  return { text, bom };
 }

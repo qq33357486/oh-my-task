@@ -33,8 +33,9 @@ describe('开发服务器的拦截名单', () => {
 
   const viaFs = (relative: string) => `${base}@fs/${root}${relative}`;
 
-  it('名单上两项带目录的都写全了', () => {
-    expect(server.config.server.fs.deny).toEqual(expect.arrayContaining(['**/.git/**', '**/.zcode/**']));
+  it('名单是完整的这五项：Vite 默认的三项写回来了，另加 .git/ 和 .zcode/', () => {
+    // 写 deny 会把 Vite 的默认值整个换掉，少一项都不行。
+    expect(server.config.server.fs.deny).toEqual(['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.zcode/**']);
   });
 
   it('框架文件在 app/ 之外，开发服务器读得到', async () => {
