@@ -269,7 +269,7 @@ describe('目录不在了、记录没了', () => {
       throw Object.assign(new Error('denied'), { name: 'NotAllowedError' });
     };
     await useStore.getState().open(root);
-    expect(useStore.getState().error).toMatchObject({ message: '没有这个目录的读写权限' });
+    expect(useStore.getState().error).toMatchObject({ message: '没有这个目录的读写权限', sticky: true });
     expect(useStore.getState().recents).toEqual(['proj-A']);
   });
 });
@@ -323,7 +323,7 @@ describe('浏览器的存储出问题', () => {
   });
 
   it('目录打不开了，记录又没能忘掉：页面照样放下它', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(fsa, 'forgetHandle').mockRejectedValue(new Error('IndexedDB blocked'));
     const root = projectA();
     root.entries = async () => {
@@ -334,6 +334,7 @@ describe('浏览器的存储出问题', () => {
 
     expect(useStore.getState().view).toEqual({ name: 'error' });
     expect(useStore.getState().error?.message).toContain('打不开了');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('没能忘掉'), expect.anything());
   });
 });
 

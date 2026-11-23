@@ -107,6 +107,17 @@ describe('chooseDirectory', () => {
     expect(useStore.getState().error).toBeNull();
   });
 
+  it('选目录时出了错：出错页不带项目名（回到入口页那一侧）', async () => {
+    picker.mockRejectedValue(new Error('picker broken'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error?.message).toContain('选择目录');
+    vi.restoreAllMocks();
+    hasPermission.mockResolvedValue(true);
+    requestPermission.mockResolvedValue(true);
+  });
+
   it('最近项目去重置顶，最多 8 个', async () => {
     for (const name of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '2']) {
       picker.mockResolvedValue(project(name, {}));
@@ -146,8 +157,8 @@ describe('继续打开和切换目录', () => {
     requestPermission.mockResolvedValue(false);
     await useStore.getState().reopen('proj-A');
     const state = useStore.getState();
-    expect(state.view.name).toBe('error');
-    expect(state.error?.message).toContain('权限');
+    expect(state.view).toEqual({ name: 'error', projectName: 'proj-A' });
+    expect(state.error).toEqual({ message: '没有拿到这个目录的读写权限', next: '再点一次，并允许访问', sticky: true });
   });
 
   it('目录记录没了（浏览器清过数据）：说清楚是哪个项目，从最近项目里拿掉', async () => {

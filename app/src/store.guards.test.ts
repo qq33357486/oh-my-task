@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FRAMEWORK_FILES } from './framework/manifest';
 import type { FsDir } from './fs/types';
 import { dumpDir, fakeDir, type Tree } from './test/fakeDir';
-import { initialState, useStore } from './store';
+import { BOOT_STORAGE_MS, initialState, useStore } from './store';
 
 // 第五轮独立验收抓出来的：这些防护撤掉，全量测试照样全绿。每一条对着其中一处。
 
@@ -22,7 +22,7 @@ function gate() {
  * dir 的 method 第一次被用 name 调用时停住，直到放行；放行以后要么照常，要么抛 out。
  * 返回「到了这一步」和「放行」两个约定。
  */
-function hold(dir: FsDir, method: 'getDir' | 'getFile' | 'entries', name: string, out?: 'gone' | 'denied') {
+function hold(dir: FsDir, method: 'getDir' | 'getFile' | 'entries' | 'ensureDir', name: string, out?: 'gone' | 'denied') {
   const held = gate();
   const original = dir[method].bind(dir) as (n: string) => Promise<unknown>;
   let takes = 0;
@@ -91,9 +91,10 @@ describe('打开目录时先看它在不在', () => {
 });
 
 describe('初始化、更新进行到一半换了项目', () => {
-  async function heldInstall(update: boolean) {
+  /** 卡在第一次建目录（规划已通过，正要写）。那时: failAfter 为真，放行后写失败。 */
+  async function heldInstall(update: boolean, failAfter = false) {
     const root = fakeDir('proj-A', update ? stale() : {});
-    const held = hold(root, 'getFile', 'AGENTS.md');
+    const held = hold(root, 'ensureDir', '.omt');
     useStore.setState({
       view: { name: update ? 'board' : 'uninitialized', projectName: 'proj-A' },
       root,
@@ -101,17 +102,21 @@ describe('初始化、更新进行到一半换了项目', () => {
     });
     const running = update ? useStore.getState().applyUpdate() : useStore.getState().initialize();
     await held.entered;
+    if (failAfter) {
+      root.ensureDir = async () => {
+        throw Object.assign(new Error('disk full'), { name: 'NoModificationAllowedError' });
+      };
+    }
     return { root, held, running };
   }
 
   it.each([
     ['初始化', false],
     ['更新', true],
-  ])('%s写到一半换了项目：旧项目的结果不跟到新项目，也不再写旧项目', async (_label, update) => {
-    const { root, held, running } = await heldInstall(update);
-    const before = await dumpDir(root);
-    const other = board('proj-B');
-    await useStore.getState().open(other);
+  ])('%s写到一半换了项目：旧项目的回话和页面不跟到新项目来', async (_label, update) => {
+    // 已经开始的写入会写完：写一半停下更糟。要看的是新项目的页面和回话不受影响。
+    const { held, running } = await heldInstall(update);
+    await useStore.getState().open(board('proj-B'));
     expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
 
     held.release();
@@ -120,7 +125,122 @@ describe('初始化、更新进行到一半换了项目', () => {
     const state = useStore.getState();
     expect(state.view).toEqual({ name: 'board', projectName: 'proj-B' });
     expect(state).toMatchObject({ notice: null, error: null, changes: [{ dirName: 't' }], busy: false });
-    expect(await dumpDir(root)).toEqual(before);
+  });
+
+  it.each([
+    ['初始化', false],
+    ['更新', true],
+  ])('%s写到一半换了项目，随后写失败：写失败的提示不挂到新项目上', async (_label, update) => {
+    const { held, running } = await heldInstall(update, true);
+    await useStore.getState().open(board('proj-B'));
+
+    held.release();
+    await running;
+
+    const state = useStore.getState();
+    expect(state.view).toEqual({ name: 'board', projectName: 'proj-B' });
+    expect(state).toMatchObject({ error: null, notice: null, busy: false });
+  });
+
+  it('更新规划到一半换了项目：新项目的页面和回话不受影响', async () => {
+    const root = fakeDir('proj-A', stale());
+    const held = hold(root, 'getFile', 'AGENTS.md');
+    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root, hasUpdate: true });
+    const running = useStore.getState().applyUpdate();
+    await held.entered;
+    await useStore.getState().open(board('proj-B'));
+
+    held.release();
+    await running;
+    const state = useStore.getState();
+    expect(state.view).toEqual({ name: 'board', projectName: 'proj-B' });
+    expect(state).toMatchObject({ notice: null, error: null, busy: false });
+  });
+
+  it('打开目录时出了错，那时已经换了项目：错不挂到新项目上', async () => {
+    const a = board('proj-A');
+    const held = hold(a, 'getDir', '.omt', 'denied');
+    const openingA = useStore.getState().open(a);
+    await held.entered;
+    await useStore.getState().open(board('proj-B'));
+
+    held.release();
+    await openingA;
+    const state = useStore.getState();
+    expect(state.view).toEqual({ name: 'board', projectName: 'proj-B' });
+    expect(state.error).toBeNull();
+  });
+});
+
+describe('记住目录的时机', () => {
+  it('刚选的目录打不开：不记住它，下次不提示「继续打开」', async () => {
+    const fsa = await import('./fs/fsAccess');
+    const toRaw = (await import('./test/fakeRaw')).toRaw;
+    const gone = fakeDir('proj-A', {});
+    gone.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    vi.spyOn(fsa, 'pickDirectory').mockResolvedValue(toRaw('proj-A', gone));
+    const remember = vi.spyOn(fsa, 'remember');
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().error?.message).toContain('打不开了');
+    expect(remember).not.toHaveBeenCalled();
+  });
+
+  it('存储拒绝时不留未处理的拒绝，只进控制台', async () => {
+    const fsa = await import('./fs/fsAccess');
+    const toRaw = (await import('./test/fakeRaw')).toRaw;
+    vi.mocked(console.warn).mockClear();
+    vi.spyOn(fsa, 'remember').mockRejectedValue(new Error('blocked'));
+    vi.spyOn(fsa, 'pickDirectory').mockResolvedValue(toRaw('proj-A', board('proj-A')));
+    await useStore.getState().chooseDirectory();
+    await Promise.resolve();
+    expect(useStore.getState().view.name).toBe('board');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('没记住这个目录'), expect.anything());
+  });
+
+  it('清记录的操作卡住不返回：页面照样放下这个目录', async () => {
+    const fsa = await import('./fs/fsAccess');
+    vi.spyOn(fsa, 'forgetHandle').mockReturnValue(new Promise(() => {}));
+    const root = board('proj-A');
+    root.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root });
+    await useStore.getState().open(root);
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+  });
+
+  it('目录记录丢了，清「上次打开」的操作卡住不返回：页面照样说出是哪个项目', async () => {
+    const fsa = await import('./fs/fsAccess');
+    vi.spyOn(fsa, 'forgetHandle').mockReturnValue(new Promise(() => {}));
+    vi.spyOn(fsa, 'loadHandle').mockResolvedValue(null);
+    useStore.setState({ view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
+    await useStore.getState().continueDirectory();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error?.message).toContain('找不到「proj-A」的目录记录');
+  });
+
+  it('正在初始化的时候不会再启动一次初始化', async () => {
+    const root = fakeDir('p', {});
+    useStore.setState({ view: { name: 'uninitialized', projectName: 'p' }, root, busy: true });
+    await useStore.getState().initialize();
+    expect(await dumpDir(root)).toEqual({});
+  });
+
+  it('启动时浏览器的存储一直不返回：等一小会儿就当没存过，页面是入口页', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const fsa = await import('./fs/fsAccess');
+      vi.spyOn(fsa, 'isSupported').mockReturnValue(true);
+      vi.spyOn(fsa, 'lastHandleName').mockReturnValue(new Promise(() => {}));
+      const booting = useStore.getState().boot();
+      await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
+      await booting;
+      expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

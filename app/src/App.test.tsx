@@ -184,6 +184,21 @@ describe('轮询', () => {
     expect(useStore.getState().refreshCount).toBe(before);
   });
 
+  it('切回这个标签页时读一次', async () => {
+    await openProject({ '.omt': {}, openspec: {} }, { fake: true });
+    const before = useStore.getState().refreshCount;
+    setVisibility('hidden');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(useStore.getState().refreshCount).toBe(before);
+    setVisibility('visible');
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(useStore.getState().refreshCount).toBe(before + 1);
+  });
+
   it('点刷新立即重读', async () => {
     await openProject({ '.omt': {}, openspec: {} }, { fake: true });
     const before = useStore.getState().refreshCount;

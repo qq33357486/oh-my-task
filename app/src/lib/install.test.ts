@@ -4,7 +4,7 @@ import type { FrameworkFile } from '../framework/manifest';
 import { GBK_RULES, decodeKeepingBom, utf16, utf8 } from '../test/encodings';
 import { dumpDir, fakeDir, type Tree } from '../test/fakeDir';
 import { ENTRY_BLOCK } from './entryBlock';
-import { applyInstall, compareFramework, planInstall, targetOf } from './install';
+import { applyInstall, compareFramework, planInstall, targetOf, type TargetReader } from './install';
 
 const files: FrameworkFile[] = [
   { path: '.omt/AGENTS.md', content: '# 说明\n' },
@@ -151,6 +151,17 @@ describe('根 AGENTS.md 的编码', () => {
       ok: true,
       plan: { agentsMd: { action: 'none', content: '' } },
     });
+  });
+
+  it.each(['init', 'update'] as const)('%s：根 AGENTS.md 是别的错（没权限、它是个目录）：原样抛出，不说成编码不对', async (mode) => {
+    const denied = Object.assign(new Error('denied'), { name: 'NotAllowedError' });
+    const target: TargetReader = {
+      exists: async () => false,
+      existsDir: async () => false,
+      readText: async () => null,
+      readAgentsMd: async () => Promise.reject(denied),
+    };
+    await expect(planInstall(files, target, mode)).rejects.toBe(denied);
   });
 
   it('初始化的三道检查排在编码前面：同名文件和编码都有问题时，先说同名文件', async () => {

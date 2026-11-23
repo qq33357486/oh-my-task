@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -50,6 +51,14 @@ describe('开发服务器的拦截名单', () => {
     expect(res.status).toBe(403);
     // 就算哪天 Vite 改成回一个页面，也不能把文件内容带出来。
     expect(await res.text()).not.toContain('[core]');
+  });
+
+  // 只看状态码，不读正文。仓库里有这个文件才试（它不在 git 里，别人的检出可能没有）。
+  it('.zcode/ 里的文件读不到（仓库里有才试）', async () => {
+    const secret = fileURLToPath(new URL('../../.zcode/config.json', import.meta.url));
+    if (!existsSync(secret)) return;
+    const res = await fetch(viaFs('.zcode/config.json'));
+    expect([403, 404]).toContain(res.status);
   });
 
   it('不带 /@fs/ 直接要 .git/ 里的文件：读不到', async () => {

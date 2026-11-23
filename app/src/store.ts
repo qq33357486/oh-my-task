@@ -130,6 +130,25 @@ const FORGET_PROJECT: Partial<Data> = {
   updateCount: 0,
 };
 
+/** 启动时最多等浏览器存储这么久。等不到就当没存过：页面不能一直停在「正在启动」。 */
+export const BOOT_STORAGE_MS = 2000;
+
+function giveUpAfter<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 const onBoardLike = (name: ViewName) => name === 'board' || name === 'missing-openspec';
 
 /**
@@ -299,7 +318,7 @@ export const useStore = create<State>()((set, get) => {
       }
       // 读浏览器存的东西。读不了就当没存过，照样给入口页：不能让页面一直停在「正在启动」。
       const recents = readRecentsQuietly();
-      const last = await fsa.lastHandleName().catch((err: unknown) => {
+      const last = await giveUpAfter(fsa.lastHandleName(), BOOT_STORAGE_MS).catch((err: unknown) => {
         console.warn('[oh-my-task] 没读到上次打开的是哪个目录：', err);
         return null;
       });
@@ -311,9 +330,11 @@ export const useStore = create<State>()((set, get) => {
     chooseDirectory: async () => {
       try {
         const handle = await fsa.pickDirectory();
-        // 先打开目录，记住它的事放到后台：存储要是卡住（磁盘满），不能连选好的目录都打不开。
-        void rememberQuietly(handle);
+        // 先打开目录：存储要是卡住（磁盘满），不能连选好的目录都打不开；打不开的目录也不该被记住。
         await get().open(fsa.wrapDir(handle));
+        // 打不开的目录不记住（打开出错时页面停在出错页）。
+        if (get().view.name === 'error') return;
+        void rememberQuietly(handle);
       } catch (err) {
         if (isCancelled(err)) return;
         set({ view: { name: 'error' }, error: humanize(err, '选择目录') });
@@ -358,8 +379,9 @@ export const useStore = create<State>()((set, get) => {
           });
           return;
         }
-        void rememberQuietly(handle);
         await get().open(fsa.wrapDir(handle));
+        if (get().view.name === 'error') return;
+        void rememberQuietly(handle);
       } catch (err) {
         if (isCancelled(err)) return;
         set({ view: { name: 'error', projectName: name }, error: humanize(err, '打开这个目录') });
@@ -496,11 +518,10 @@ export const useStore = create<State>()((set, get) => {
           }
           return;
         }
-        // 写的时候换了项目：回话不给新项目看。
-        if (get().session !== session) return;
         const projectName = get().view.projectName ?? root.name;
         const notice = `已置入 ${result.plan.files.length} 个文件。`;
         const openspec = await root.getDir('openspec');
+        // 写的时候换了项目：回话和页面不给新项目看。
         if (get().session !== session) return;
         if (openspec) set({ view: { name: 'board', projectName }, notice });
         else set({ view: { name: 'missing-openspec', projectName }, notice });
@@ -529,7 +550,6 @@ export const useStore = create<State>()((set, get) => {
           await get().retry();
           return;
         }
-        if (get().session !== session) return;
         const result = await planInstall(FRAMEWORK_FILES, targetOf(root), 'update');
         if (get().session !== session) return;
         if (!result.ok) {

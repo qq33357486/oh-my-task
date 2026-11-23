@@ -17,25 +17,33 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-async function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+/**
+ * 跑一个存储事务，等它结束才返回。出错的几种都要接住并关掉连接，否则等它的函数永远不返回：
+ * 请求出错（error）、事务被中止（abort，磁盘满时只发这一样）、开事务时同步抛错。
+ */
+async function transact<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T> | void): Promise<T | undefined> {
   const db = await openDb();
-  return new Promise<T>((resolve, reject) => {
-    const tx = db.transaction(STORE, mode);
-    const req = run(tx.objectStore(STORE));
-    tx.oncomplete = () => {
-      db.close();
-      resolve(req.result);
-    };
-    tx.onerror = () => {
-      db.close();
-      reject(tx.error);
-    };
-    // 事务被中止时只发 abort，不发 error。不接的话，等它的函数永远不返回（磁盘满时会这样）。
-    tx.onabort = () => {
-      db.close();
-      reject(tx.error ?? new Error('浏览器中止了这次存储操作'));
-    };
-  });
+  try {
+    return await new Promise<T | undefined>((resolve, reject) => {
+      const tx = db.transaction(STORE, mode);
+      const req = run(tx.objectStore(STORE));
+      const finish = (err: unknown) => {
+        db.close();
+        if (err) reject(err);
+        else resolve(req ? (req as IDBRequest<T>).result : undefined);
+      };
+      tx.oncomplete = () => finish(undefined);
+      tx.onerror = () => finish(tx.error);
+      tx.onabort = () => finish(tx.error ?? new Error('浏览器中止了这次存储操作'));
+    });
+  } catch (err) {
+    db.close();
+    throw err;
+  }
+}
+
+function withStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return transact(mode, run) as Promise<T>;
 }
 
 type PickerWindow = Window & typeof globalThis & {
@@ -76,10 +84,12 @@ export async function requestPermission(handle: FileSystemDirectoryHandle): Prom
   return (await h.requestPermission(READWRITE)) === 'granted';
 }
 
-/** 记住这个目录，并记成「上次打开的」 */
+/** 记住这个目录，并记成「上次打开的」。两条写进同一个事务：要么都记上，要么都没记。 */
 export async function remember(handle: FileSystemDirectoryHandle): Promise<void> {
-  await withStore('readwrite', (store) => store.put(handle, handle.name));
-  await withStore('readwrite', (store) => store.put(handle.name, LAST_KEY));
+  await transact('readwrite', (store) => {
+    store.put(handle, handle.name);
+    store.put(handle.name, LAST_KEY);
+  });
 }
 
 /** 上次打开的目录叫什么；没打开过返回 null */
@@ -94,27 +104,11 @@ export async function loadHandle(name: string): Promise<FileSystemDirectoryHandl
 
 /** 忘掉一个记住的目录。它要是「上次打开的」，那条也一起去掉，下次不再提示「继续打开」它。 */
 export async function forgetHandle(name: string): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    const store = tx.objectStore(STORE);
+  await transact('readwrite', (store) => {
     store.delete(name);
     const last = store.get(LAST_KEY);
     last.onsuccess = () => {
       if (last.result === name) store.delete(LAST_KEY);
-    };
-    tx.oncomplete = () => {
-      db.close();
-      resolve();
-    };
-    tx.onerror = () => {
-      db.close();
-      reject(tx.error);
-    };
-    // 事务被中止时只发 abort，不发 error。不接的话，等它的函数永远不返回（磁盘满时会这样）。
-    tx.onabort = () => {
-      db.close();
-      reject(tx.error ?? new Error('浏览器中止了这次存储操作'));
     };
   });
 }

@@ -2,7 +2,7 @@ import type { FsDir } from '../fs/types';
 import { getDirByPath, readTextByPath, writeTextByPath } from '../fs/types';
 import { toLf, type FrameworkFile } from '../framework/manifest';
 import { findUnsafeFileNames } from '../framework/blocklist';
-import { decodeAgentsMd, type DecodedAgentsMd } from './agentsMd';
+import { AgentsMdEncodingError, decodeAgentsMd, type DecodedAgentsMd } from './agentsMd';
 import { planEntryBlock, type EntryBlockPlan } from './entryBlock';
 
 /** 读目标目录的接口。真实实现包着 FsDir，测试里换成内存里的假目录。 */
@@ -104,10 +104,12 @@ export async function planInstall(
   }
 
   // 根 AGENTS.md 是唯一会被改写的已有文件。编码认不出来就停下，不写坏它。
+  // 只认「编码不对」这一种错；别的错（没权限、它其实是个目录）原样抛出去，说成编码不对会让人白忙。
   let agents: DecodedAgentsMd | null = null;
   try {
     agents = await target.readAgentsMd();
-  } catch {
+  } catch (err) {
+    if (!(err instanceof AgentsMdEncodingError)) throw err;
     return {
       ok: false,
       reason: 'encoding',

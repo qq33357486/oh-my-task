@@ -44,6 +44,9 @@ describe('选目录和权限', () => {
     const handle = { name: 'h', queryPermission: vi.fn(async () => 'prompt'), requestPermission: vi.fn(async () => 'granted') } as unknown as FileSystemDirectoryHandle;
     expect(await hasPermission(handle)).toBe(false);
     expect(await requestPermission(handle)).toBe(true);
+    // 两个都查、都要读写，不是只读
+    expect((handle as unknown as { queryPermission: ReturnType<typeof vi.fn> }).queryPermission).toHaveBeenCalledWith({ mode: 'readwrite' });
+    expect((handle as unknown as { requestPermission: ReturnType<typeof vi.fn> }).requestPermission).toHaveBeenCalledWith({ mode: 'readwrite' });
   });
 });
 
@@ -105,6 +108,39 @@ describe('记住目录', () => {
     await expect(remember(handle('proj-A'))).rejects.toThrow('存满了');
     abortSoon();
     await expect(forgetHandle('proj-A')).rejects.toThrow('存满了');
+    vi.restoreAllMocks();
+  });
+
+  it('两条记录写进同一个事务：要么都记上，要么都没记', async () => {
+    const store = { put: vi.fn(() => ({})), get: () => ({}), delete: () => ({}) };
+    const tx = { objectStore: () => store, oncomplete: null as null | (() => void) };
+    const db = { transaction: vi.fn(() => tx), close: vi.fn() };
+    const request = { result: db, onupgradeneeded: null, onsuccess: null as null | ((ev: Event) => void), onerror: null };
+    vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+      queueMicrotask(() => {
+        request.onsuccess?.(new Event('success'));
+        queueMicrotask(() => tx.oncomplete?.());
+      });
+      return request as unknown as IDBOpenDBRequest;
+    });
+    await remember(handle('proj-A'));
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(store.put).toHaveBeenCalledTimes(2);
+    expect(db.close).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('开事务时同步抛错：关掉连接，把错抛出来', async () => {
+    const db = { transaction: () => {
+      throw new DOMException('连接已关', 'InvalidStateError');
+    }, close: vi.fn() };
+    const request = { result: db, onupgradeneeded: null, onsuccess: null as null | ((ev: Event) => void), onerror: null };
+    vi.spyOn(indexedDB, 'open').mockImplementationOnce(() => {
+      queueMicrotask(() => request.onsuccess?.(new Event('success')));
+      return request as unknown as IDBOpenDBRequest;
+    });
+    await expect(remember(handle('proj-A'))).rejects.toThrow('连接已关');
+    expect(db.close).toHaveBeenCalledTimes(1);
     vi.restoreAllMocks();
   });
 });
