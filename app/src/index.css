@@ -283,6 +283,8 @@ body {
 
 .detail__raw {
   max-height: 420px;
+  /* 必须显式写：只靠 max-height 隐式出来的裁剪，真机上不生效，长文档会画到框外面压住下面的标题。 */
+  overflow: auto;
   margin: 0;
   padding: 12px;
   font-size: 12px;
