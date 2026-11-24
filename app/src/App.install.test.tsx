@@ -95,7 +95,7 @@ describe('页面上初始化', () => {
   it('带旧版 .oht/ 的目录：没有可点的初始化按钮', async () => {
     useStore.setState({ ...initialState, view: { name: 'old-version', projectName: 'proj' }, root: fakeDir('proj', { '.oht': {} }) });
     renderApp();
-    expect(screen.getByText('这个目录装的是旧版 oh my task')).toBeInTheDocument();
+    expect(screen.getByText('这个目录装的是旧版 DJTASK')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '初始化此目录' })).toBeNull();
   });
 });

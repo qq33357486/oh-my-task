@@ -23,7 +23,7 @@ export function isCancelled(err: unknown): boolean {
 
 /** 把一个异常变成一句人话和下一步；原始错误进控制台 */
 export function humanize(err: unknown, what: string): Friendly {
-  console.error(`[oh-my-task] ${what}没成功：`, err);
+  console.error(`[djtask] ${what}没成功：`, err);
   const name = (err as { name?: string } | null)?.name ?? '';
   if (name === 'NotFoundError') {
     return { message: `找不到${what}需要的文件`, next: '这个目录可能被动过，刷新一下再试' };

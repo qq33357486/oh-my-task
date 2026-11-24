@@ -40,7 +40,7 @@
 /^\s*(?:[-*+]|\d{1,9}[.)])\s*\[(?:\s*([^\]\s]?)\s*\](?![([])|\s+\])\s*(.*)/
 ```
 
-待办文件默认只有 `tasks.md` 一个。schema 可以把它配成通配符，那时 OpenSpec 会数多个文件；oh my task 只读顶层的 `tasks.md`，默认 schema 下一样。
+待办文件默认只有 `tasks.md` 一个。schema 可以把它配成通配符，那时 OpenSpec 会数多个文件；DJTASK 只读顶层的 `tasks.md`，默认 schema 下一样。
 
 换成人话：
 

@@ -11,7 +11,7 @@ export default function EntryPage() {
 
   return (
     <div className="entry">
-      <h1 className="entry__title">oh my task</h1>
+      <h1 className="entry__title">djtask</h1>
       {view.name === 'unsupported' && <Alert type="warning" title="请用 Chrome 或 Edge 打开" />}
       {view.name === 'no-project' && (
         <>

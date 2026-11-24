@@ -4,6 +4,7 @@
  */
 import type { FsDir, FsEntry } from './types';
 
+// 库名保留旧称：改了会让老用户浏览器里已保存的目录授权记录失联，得重选一次目录。
 const DB_NAME = 'oh-my-task-fs';
 const STORE = 'handles';
 const LAST_KEY = '__last';

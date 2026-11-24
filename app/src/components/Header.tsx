@@ -74,7 +74,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <Typography.Title level={4} className="app-header__title">
-        oh my task
+        djtask
       </Typography.Title>
       <Typography.Text className="app-header__project">{view.projectName}</Typography.Text>
       <Space className="app-header__actions">

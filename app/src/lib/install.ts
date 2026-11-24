@@ -74,7 +74,7 @@ export async function planInstall(
       return {
         ok: false,
         reason: 'old-version',
-        message: '这个目录装的是旧版 oh my task。先把 .oht/ 删掉，再回来初始化。',
+        message: '这个目录装的是旧版 DJTASK。先把 .oht/ 删掉，再回来初始化。',
       };
     }
     if (await target.existsDir('.omt')) {

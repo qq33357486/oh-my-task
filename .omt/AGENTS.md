@@ -15,7 +15,7 @@
 
 ## 框架文件
 
-以下由 oh my task 的初始化置入、更新管理，业务项目里只读，不要改：本说明、`.omt/工作流/默认工作流.md`、`.agents/skills/` 下的三个拷问技能（grill-with-docs、grilling、domain-modeling）。以 oh my task 仓库的框架名单为准。要改，向 oh my task 提需求，由维护者在源头改。
+以下由 DJTASK 的初始化置入、更新管理，业务项目里只读，不要改：本说明、`.omt/工作流/默认工作流.md`、`.agents/skills/` 下的三个拷问技能（grill-with-docs、grilling、domain-modeling）。以 oh my task 仓库的框架名单为准。要改，向 DJTASK 提需求，由维护者在源头改。
 
 ## 目录约定
 

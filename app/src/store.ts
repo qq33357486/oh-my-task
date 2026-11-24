@@ -158,7 +158,7 @@ const saveQuietly = (recents: string[]) => {
   try {
     saveRecent(localStorage, recents);
   } catch (err) {
-    console.warn('[oh-my-task] 没存住最近项目，下次打开菜单里可能少了它：', err);
+    console.warn('[djtask] 没存住最近项目，下次打开菜单里可能少了它：', err);
   }
 };
 
@@ -169,7 +169,7 @@ const readRecentsQuietly = (): string[] => {
   try {
     return loadRecent(localStorage);
   } catch (err) {
-    console.warn('[oh-my-task] 读不到最近项目：', err);
+    console.warn('[djtask] 读不到最近项目：', err);
     return [];
   }
 };
@@ -201,7 +201,7 @@ export const useStore = create<State>()((set, get) => {
     try {
       await fsa.remember(handle);
     } catch (err) {
-      console.warn('[oh-my-task] 没记住这个目录，下次打开要重新选：', err);
+      console.warn('[djtask] 没记住这个目录，下次打开要重新选：', err);
     }
   };
 
@@ -209,7 +209,7 @@ export const useStore = create<State>()((set, get) => {
     try {
       await fsa.forgetHandle(name);
     } catch (err) {
-      console.warn('[oh-my-task] 没能忘掉这个目录的记录：', err);
+      console.warn('[djtask] 没能忘掉这个目录的记录：', err);
     }
   };
 
@@ -319,7 +319,7 @@ export const useStore = create<State>()((set, get) => {
       // 读浏览器存的东西。读不了就当没存过，照样给入口页：不能让页面一直停在「正在启动」。
       const recents = readRecentsQuietly();
       const last = await giveUpAfter(fsa.lastHandleName(), BOOT_STORAGE_MS).catch((err: unknown) => {
-        console.warn('[oh-my-task] 没读到上次打开的是哪个目录：', err);
+        console.warn('[djtask] 没读到上次打开的是哪个目录：', err);
         return null;
       });
       // 等的这一会儿里人已经选了目录：别把页面改回入口页。
