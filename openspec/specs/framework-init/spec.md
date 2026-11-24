@@ -59,7 +59,7 @@
 - **WHEN** 初始化在一个已有 `.omt/` 的目录上被触发（测试里直接调用）
 - **THEN** 返回这句话，目录没有任何变化
 
-### Requirement: 旧版 oh my task
+### Requirement: 旧版 DJ Task
 
 目标含 `.oht/` 时，初始化 SHALL 被拒绝，返回「先删除旧版」。系统自己 SHALL 不删除任何文件。页面上对这种目录显示什么，见 project-switching。
 
