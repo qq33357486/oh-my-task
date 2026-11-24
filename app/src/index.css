@@ -22,8 +22,73 @@ body {
   border-bottom: 1px solid #e8e9ec;
 }
 
-.app-header__title {
-  margin: 0 !important;
+/* 品牌 */
+.brand {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  user-select: none;
+}
+
+.brand__mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: linear-gradient(135deg, #2f54eb 0%, #85a5ff 100%);
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(47, 84, 235, 0.32);
+}
+
+.brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.brand__name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #1f2329;
+}
+
+.brand__sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #8f959e;
+  letter-spacing: 1px;
+  padding-left: 1px;
+}
+
+.brand--large {
+  gap: 16px;
+}
+
+.brand--large .brand__mark {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(47, 84, 235, 0.32);
+}
+
+.brand--large .brand__name {
+  font-size: 36px;
+  letter-spacing: 0.3px;
+}
+
+.brand--large .brand__sub {
+  margin-top: 4px;
+  font-size: 15px;
+  letter-spacing: 2px;
+  padding-left: 2px;
 }
 
 .app-header__project {
@@ -45,7 +110,9 @@ body {
 }
 
 .entry__title {
-  margin-top: 0;
+  display: flex;
+  justify-content: center;
+  margin: 0 0 20px;
 }
 
 .entry .ant-alert {

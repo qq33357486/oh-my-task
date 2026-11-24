@@ -143,7 +143,7 @@ describe('选定目录后分流', () => {
 
   it('有 .oht/ 没有 .omt/：显示旧版提示，没有可点的初始化按钮', async () => {
     await openProject({ '.oht': {} });
-    expect(screen.getByText('这个目录装的是旧版 DJTASK')).toBeInTheDocument();
+    expect(screen.getByText('这个目录装的是旧版 DJ Task')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '初始化此目录' })).toBeNull();
   });
 

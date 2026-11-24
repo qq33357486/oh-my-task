@@ -13,8 +13,8 @@
 
 1. **IndexedDB 库名保留 `oh-my-task-fs`**：改库名等于丢老用户已存的目录授权记录，收益只是代码好看。人类原话回答『库名保留 oh-my-task-fs（推荐）』（2026-11-24）。在 `fsAccess.ts` 库名旁留一句注释说明为什么不改。
 2. **镜像名保留 `ghcr.io/qq33357486/oh-my-task`**：镜像名跟 GitHub 仓库名走，仓库名不改（人在范围问题里未选『连仓库一起改』）；改镜像名会牵动 Actions、服务器拉取脚本，纯风险无收益。README 里注明镜像名不改的原因。
-3. **specs 里指产品的旧称一并改**（人定：『一并改（推荐）』）：delta 覆盖 task-system-sop 两条需求、framework-init 需求名「旧版 oh my task」→「旧版 DJTASK」、project-switching 旧版提示文案。真正指仓库的 `framework-bundle/spec.md:5,11` 不动。delivery 与 project-switching 的 Purpose 行不是需求，delta 带不动，归档并回时手动同步。排除两类历史名：归档任务夹名（如 redesign-oh-my-task）、ADR 文件名（0001/0002-oh-my-task-…）。
-4. **显示名规则**（四细节经人类回答『全按建议定（推荐）』确认）：界面大标题小写 `djtask`（同原 `oh my task` 的小写风格）；标题、日志、包名用 `djtask`/`DJTASK`；中文文案里写「多杰任务系统」；旧版提示写「旧版 DJTASK」。
+3. **specs 里指产品的旧称一并改**（人定：『一并改（推荐）』）：delta 覆盖 task-system-sop 两条需求、framework-init 需求名「旧版 oh my task」→「旧版 DJ Task」、project-switching 旧版提示文案。真正指仓库的 `framework-bundle/spec.md:5,11` 不动。delivery 与 project-switching 的 Purpose 行不是需求，delta 带不动，归档并回时手动同步。排除两类历史名：归档任务夹名（如 redesign-oh-my-task）、ADR 文件名（0001/0002-oh-my-task-…）。
+4. **显示名规则**（四细节经人类回答『全按建议定（推荐）』确认）：界面大标题「DJ Task」（同原 `oh my task` 的小写风格）；标题、日志、包名用 `djtask`/`DJTASK`；中文文案里写「多杰任务系统」；旧版提示写「旧版 DJ Task」。
 5. **`.omt/` 框架文本直接改源头**：manifest.ts 用 `?raw` 在构建时读入，改 `.omt/` 即随下次构建生效，无第二步。
 6. **测试断言跟随文案改**：App.test / App.install.test / App.fix.test 里的旧版文案断言同步改，属于「文案改了测试跟着改」，不是为让测试过而改测试。
 

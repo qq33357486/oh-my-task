@@ -12,7 +12,7 @@
 
 | 用例 | 内容 | 出处 | 标签 |
 |---|---|---|---|
-| ①界面品牌 | 网页标题、引导页大标题、菜单栏显示 djtask（小写）；中文文案处用「多杰任务系统」（由 3.1/3.2 验）；旧版提示写「这个目录装的是旧版 DJTASK」 | 人类原话『叫多杰任务系统。 DJTASK』＋人类回答『全按建议定（推荐）』 | [关键] |
+| ①界面品牌 | 网页标题、引导页大标题、菜单栏显示 DJ Task；中文文案处用「多杰任务系统」（由 3.1/3.2 验）；旧版提示写「这个目录装的是旧版 DJ Task」 | 人类原话『叫多杰任务系统。 DJTASK』＋人类回答『全按建议定（推荐）』 | [关键] |
 | ②包名 | `app/package.json` name 为 `djtask-app` | 人类回答『全按建议定（推荐）』 | [关键] |
 | ③文本自称 | README 和 `.omt/` 框架文本的产品自称改为 DJTASK／多杰任务系统 | 人类回答『品牌+代码全改（推荐）』 | [关键] |
 | ④质量闸 | `npm test`、`npm run typecheck`、`npm run build` 全过 | 人类回答『确认以上五条（推荐）』 | [关键] |
@@ -40,9 +40,9 @@
 
 ### Modified Capabilities
 
-- `project-switching`: 旧版目录提示文案改为「这个目录装的是旧版 DJTASK」，需求原文里的文案同步更新。
+- `project-switching`: 旧版目录提示文案改为「这个目录装的是旧版 DJ Task」，需求原文里的文案同步更新。
 - `task-system-sop`: 两条需求里的产品自称（向 oh my task 提需求／由 oh my task 的初始化置入）改为 DJTASK。
-- `framework-init`: 需求「旧版 oh my task」改名「旧版 DJTASK」（行为不变）。
+- `framework-init`: 需求「旧版 oh my task」改名「旧版 DJ Task」（行为不变）。
 
 ## Impact
 

@@ -1,5 +1,6 @@
 import { Alert, Button, Space } from 'antd';
 import { useStore } from '../store';
+import Brand from './Brand';
 
 /** 入口页：还没选定业务项目时显示的那一页。 */
 export default function EntryPage() {
@@ -11,7 +12,9 @@ export default function EntryPage() {
 
   return (
     <div className="entry">
-      <h1 className="entry__title">djtask</h1>
+      <h1 className="entry__title">
+        <Brand large />
+      </h1>
       {view.name === 'unsupported' && <Alert type="warning" title="请用 Chrome 或 Edge 打开" />}
       {view.name === 'no-project' && (
         <>

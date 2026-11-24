@@ -8,4 +8,4 @@
 - **镜像名保留 `ghcr.io/qq33357486/oh-my-task`**：镜像名跟 GitHub 仓库名走，仓库不改名，改镜像名会牵动 Actions 和服务器拉取脚本，纯风险无收益。
 - **GitHub 仓库名、本地目录名不改**：人在改名范围里选的是「品牌+代码全改」，未选「连仓库一起改」；部署链路跟仓库走，一并保住。
 
-同时定的显示名规则：界面大标题小写 `djtask`；标题、日志前缀（`[djtask]`）、包名（`djtask-app`）用 djtask/DJTASK；中文文案写「多杰任务系统」；旧版目录（含 `.oht/`）的提示写「旧版 DJTASK」。归档任务夹名（如 redesign-oh-my-task）、ADR 文件名、指仓库的「oh-my-task 仓库」是历史名，不改。
+同时定的显示名规则：界面大标题「DJ Task」；标题、日志前缀（`[djtask]`）、包名（`djtask-app`）用 djtask/DJTASK；中文文案写「多杰任务系统」；旧版目录（含 `.oht/`）的提示写「旧版 DJ Task」。归档任务夹名（如 redesign-oh-my-task）、ADR 文件名、指仓库的「oh-my-task 仓库」是历史名，不改。

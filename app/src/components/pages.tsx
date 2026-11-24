@@ -68,7 +68,7 @@ export function OldVersionPage() {
     <div className="page">
       <Alert
         type="error"
-        title="这个目录装的是旧版 DJTASK"
+        title="这个目录装的是旧版 DJ Task"
         description="先把目录里的 .oht/ 删掉，再回来初始化。"
       />
     </div>

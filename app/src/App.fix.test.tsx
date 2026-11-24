@@ -54,7 +54,7 @@ describe('刷新和重试', () => {
     renderApp();
     await userEvent.setup().click(screen.getByRole('button', { name: /刷 ?新/ }));
     expect(await screen.findByText('这个目录还没有任务系统')).toBeInTheDocument();
-    expect(screen.queryByText('这个目录装的是旧版 DJTASK')).toBeNull();
+    expect(screen.queryByText('这个目录装的是旧版 DJ Task')).toBeNull();
   });
 
   it('出错页上点「重试」：再探一次当前目录', async () => {

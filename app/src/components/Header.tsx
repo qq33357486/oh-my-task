@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Dropdown, Modal, Space, Typography, type MenuProps } from 'antd';
 import { FRAMEWORK_FILES } from '../framework/manifest';
 import { useStore } from '../store';
+import Brand from './Brand';
 
 const RECENT_PREFIX = 'recent:';
 
@@ -73,9 +74,7 @@ export default function Header() {
 
   return (
     <header className="app-header">
-      <Typography.Title level={4} className="app-header__title">
-        djtask
-      </Typography.Title>
+      <Brand />
       <Typography.Text className="app-header__project">{view.projectName}</Typography.Text>
       <Space className="app-header__actions">
         {/* 更新只在这两种页面上有：初始化的三道检查只有初始化才做，别的页面上不能绕过去。 */}

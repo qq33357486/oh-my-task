@@ -2,8 +2,8 @@
 
 ## 1. 网页 UI 与文案（用例①）
 
-- [x] 1.1 `app/index.html` 标题、`EntryPage.tsx` 大标题、`Header.tsx` 改为 `djtask`；实际显示留给人亲手验（Chromium 目录授权/文件读写限制单测测不到，见项目规则第 5 条）
-- [x] 1.2 `install.ts`、`pages.tsx` 及 App.test/App.install.test/App.fix.test 的旧版文案改为「这个目录装的是旧版 DJTASK」（只替换品牌词，不顺手统一成 spec 句式）；`npm test` 对应用例通过
+- [x] 1.1 `app/index.html` 标题、`EntryPage.tsx` 大标题、`Header.tsx` 改为「DJ Task」；实际显示留给人亲手验（Chromium 目录授权/文件读写限制单测测不到，见项目规则第 5 条）
+- [x] 1.2 `install.ts`、`pages.tsx` 及 App.test/App.install.test/App.fix.test 的旧版文案改为「这个目录装的是旧版 DJ Task」（只替换品牌词，不顺手统一成 spec 句式）；`npm test` 对应用例通过
 
 ## 2. 代码标识（用例②④⑤）
 
