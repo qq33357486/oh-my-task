@@ -119,11 +119,11 @@ describe('环心的两句给「整理」节点让开（样式表）', () => {
     expect(center).toContain('place-content: center;');
   });
 
-  it('节点的大小、外面那圈和环心用的是同一组数；窄屏只改这一组', () => {
+  it('节点的大小、外面那圈和环心用的是同一组数，都按「小样里的 1 像素」放大；窄屏只改这一组', () => {
     const visual = rule('.ld-loop__visual {');
-    expect(visual).toContain('--ld-node-w: 80px;');
-    expect(visual).toContain('--ld-node-h: 44px;');
-    expect(visual).toContain('--ld-node-ring: 6px;');
+    expect(visual).toContain('--ld-node-w: calc(80 * var(--u1));');
+    expect(visual).toContain('--ld-node-h: calc(44 * var(--u1));');
+    expect(visual).toContain('--ld-node-ring: calc(6 * var(--u1));');
     const node = rule('.ld .ld-node {');
     expect(node).toContain('width: var(--ld-node-w);');
     expect(node).toContain('height: var(--ld-node-h);');
@@ -140,8 +140,8 @@ describe('环心的两句给「整理」节点让开（样式表）', () => {
     expect(narrowNode).not.toContain('height:');
   });
 
-  it('字号跟着循环自己的宽度伸缩：循环最宽 340 时是 16px，最窄不小于 13px', () => {
+  it('字号跟着循环自己的宽度伸缩：循环宽 340 时是 16px，最窄不小于 13px', () => {
     expect(rule('.ld-loop__visual {')).toContain('container-type: inline-size;');
-    expect(rule('.ld-center {')).toContain('font-size: clamp(13px, 4.71cqw, 16px);');
+    expect(rule('.ld-center {')).toContain('font-size: max(13px, 4.71cqw);');
   });
 });
