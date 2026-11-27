@@ -82,7 +82,7 @@
 
 ### 4. 路径写全三份
 
-`.omt/AGENTS.md` 写明 grill-with-docs、grilling、domain-modeling 三份 `SKILL.md` 的完整路径，规则文档里写明三份技能文件不靠斜杠命令：有 Skill 工具就用它加载，没有就照路径直接读文件。两头都写，是因为 grill-with-docs 的正文只有一句「调两次 Skill 工具」：没有 Skill 工具的 AI 照它做不了，实验里它是靠推目录才找到文件的；认技能的 AI 调得了，不必拦着。另外两份的路径在默认工作流里不重复写，指到 `.omt/AGENTS.md`「要拷问时」那一条：`.omt/AGENTS.md` 是开工前必读的，写两遍以后改一处漏一处。
+`.omt/AGENTS.md` 写明 grill-with-docs、grilling、domain-modeling 三份 `SKILL.md` 的完整路径，规则文档里写明三份技能文件不靠斜杠命令：有 Skill 工具就调 Skill 工具加载，没有就照路径直接读文件。两头都写，是因为 grill-with-docs 的正文只有一句「调两次 Skill 工具」：没有 Skill 工具的 AI 照它做不了，实验里它是靠推目录才找到文件的；认技能的 AI 调得了，不必拦着。另外两份的路径在默认工作流里不重复写，指到 `.omt/AGENTS.md`「要拷问时」那一条：`.omt/AGENTS.md` 是开工前必读的，写两遍以后改一处漏一处。
 
 ### 5. 怎么验
 
@@ -110,7 +110,7 @@
 改后：
 
 ```text
-- 要拷问时：只按 grill-with-docs 做。读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它会让你再加载 grilling 和 domain-modeling：有 Skill 工具就用它加载，没有就直接读文件，路径是 `.agents/skills/grilling/SKILL.md` 和 `.agents/skills/domain-modeling/SKILL.md`。不靠斜杠命令，不单独用 grilling。
+- 要拷问时：只按 grill-with-docs 做。读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它会让你再加载 grilling 和 domain-modeling：有 Skill 工具就调 Skill 工具加载，没有就直接读文件，路径是 `.agents/skills/grilling/SKILL.md` 和 `.agents/skills/domain-modeling/SKILL.md`。不靠斜杠命令，不单独用 grilling。
 ```
 
 **`.omt/AGENTS.md` 第 32 行**
@@ -138,7 +138,7 @@
 改后：
 
 ```text
-2. **拷问**（人＋AI，主会话）：人明确要求拷问的（说法不限，比如「请拷问我」；在认技能的工具里打了 `/grill-with-docs` 也算），必须拷问；人明说不要拷问的，不拷问。人没有明确要求的，由 AI 判断，不先问人要不要：简单的需求不拷问，直接建任务夹，不转关键验收用例；需要问清楚的，直接开始拷问。只按 grill-with-docs 做（不管是怎么触发的），不单独用 grilling。三份技能文件不靠斜杠命令：先读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它让你再加载的 grilling 和 domain-modeling 两份，有 Skill 工具就用它加载，没有就直接读文件，路径在 `.omt/AGENTS.md`「要拷问时」那一条里。拷问要留痕：术语和长期决策当场写，每条需求带出处；没拷问的任务，每条需求同样带出处。审查说需人信息、回到这一步时：拷问过的接着拷问，没拷问的不再问要不要拷问，直接问人那一件。下面从「另外」起到这一步结尾的话只管拷问的任务。
+2. **拷问**（人＋AI，主会话）：人明确要求拷问的（说法不限，比如「请拷问我」；在认技能的工具里打了 `/grill-with-docs` 也算），必须拷问；人明说不要拷问的，不拷问。人没有明确要求的，由 AI 判断，不先问人要不要：简单的需求不拷问，直接建任务夹，不转关键验收用例；需要问清楚的，直接开始拷问。只按 grill-with-docs 做（不管是怎么触发的），不单独用 grilling。三份技能文件不靠斜杠命令：先读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它让你再加载的 grilling 和 domain-modeling 两份，有 Skill 工具就调 Skill 工具加载，没有就直接读文件，路径在 `.omt/AGENTS.md`「要拷问时」那一条里。拷问要留痕：术语和长期决策当场写，每条需求带出处；没拷问的任务，每条需求同样带出处。审查说需人信息、回到这一步时：拷问过的接着拷问，没拷问的不再问要不要拷问，直接问人那一件。下面从「另外」起到这一步结尾的话只管拷问的任务。
 ```
 
 这一行从「另外要问出人想要什么」起的后半句不动。独立审查那一步和分流表不动。
