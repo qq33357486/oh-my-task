@@ -320,14 +320,14 @@
 .ld-comet__glow {
   fill: none;
   stroke: #85a5ff;
-  stroke-width: 7;
+  stroke-width: 9;
   stroke-linecap: round;
-  opacity: 0.5;
+  opacity: 0.55;
 }
 .ld-comet__tail {
   fill: none;
   stroke: #eef2ff;
-  stroke-width: 2.4;
+  stroke-width: 3;
   stroke-linecap: round;
 }
 .ld-comet__head {
