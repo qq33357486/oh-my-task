@@ -209,7 +209,7 @@ describe('目录不在了、记录没了', () => {
     expect(state.recents).toEqual(['proj-B']);
   });
 
-  it('目录打不开了：「上次打开的」那条记录也清掉，下次打开不再提示「继续打开」它', async () => {
+  it('目录打不开了：「上次打开的」那条记录也清掉，下次打开停在入口页', async () => {
     await fsa.remember({ name: 'proj-A' } as unknown as FileSystemDirectoryHandle);
     expect(await fsa.lastHandleName()).toBe('proj-A');
 
@@ -222,7 +222,7 @@ describe('目录不在了、记录没了', () => {
     // 记录是在后台清的（要走一趟浏览器的数据库），等它一下。
     await vi.waitFor(async () => expect(await fsa.lastHandleName()).toBeNull());
     expect(await fsa.loadHandle('proj-A')).toBeNull();
-    // 下次打开页面：不再提示「继续打开」它
+    // 下次打开页面：停在入口页
     vi.spyOn(fsa, 'isSupported').mockReturnValue(true);
     await useStore.getState().boot();
     expect(useStore.getState().view).toEqual({ name: 'no-project' });
@@ -231,9 +231,9 @@ describe('目录不在了、记录没了', () => {
   it('目录记录没了，只剩「上次打开的」那一条：这一条也清掉', async () => {
     await fsa.remember({ name: 'proj-A' } as unknown as FileSystemDirectoryHandle);
     vi.spyOn(fsa, 'loadHandle').mockResolvedValue(null);
-    useStore.setState({ ...initialState, view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
+    useStore.setState({ ...initialState, view: { name: 'no-project' }, recents: ['proj-A'], lastProject: 'proj-A' });
 
-    await useStore.getState().continueDirectory();
+    await useStore.getState().start();
 
     expect(useStore.getState().view).toEqual({ name: 'error' });
     await vi.waitFor(async () => expect(await fsa.lastHandleName()).toBeNull());

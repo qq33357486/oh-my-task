@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fsa from './fs/fsAccess';
 import { fakeDir } from './test/fakeDir';
 import { toRaw } from './test/fakeRaw';
-import { initialState, useStore } from './store';
+import { BOOT_STORAGE_MS, initialState, useStore } from './store';
 
 const handles = vi.hoisted(() => new Map<string, unknown>());
 
@@ -34,7 +34,8 @@ function project(name: string, tree: Parameters<typeof fakeDir>[1] = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // 恢复成每个假函数原本的实现，再定权限的默认值：上一条测试留下的「只这一次」的返回值不带过来，乱序跑才不串。
+  vi.resetAllMocks();
   handles.clear();
   localStorage.clear();
   hasPermission.mockResolvedValue(true);
@@ -43,21 +44,130 @@ beforeEach(() => {
 });
 
 describe('boot', () => {
-  it('浏览器不支持选目录', async () => {
-    vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
+  it('浏览器不支持选目录：照样是入口页，页面上没有那句提示；点了「开始享受」才出现', async () => {
+    // 这个浏览器不支持选目录：启动时判断一次，点按钮选目录失败了再判断一次。
+    vi.mocked(fsa.isSupported).mockReturnValueOnce(false).mockReturnValueOnce(false);
     await useStore.getState().boot();
-    expect(useStore.getState().view.name).toBe('unsupported');
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().unsupportedHint).toBe(false);
+
+    // 选目录的窗口弹不出来
+    picker.mockRejectedValueOnce(new Error('当前浏览器不支持选目录'));
+    await useStore.getState().start();
+    expect(useStore.getState().unsupportedHint).toBe(true);
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().error).toBeNull();
+  });
+
+  it('浏览器不支持选目录时，就算浏览器里还留着上次的目录和权限：也只停在入口页，不直接进', async () => {
+    vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
+    await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().lastProject).toBeNull();
+    expect(picker).not.toHaveBeenCalled();
   });
 
   it('没打开过目录：入口页', async () => {
     await useStore.getState().boot();
-    expect(useStore.getState().view.name).toBe('no-project');
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().lastProject).toBeNull();
   });
 
-  it('打开过：提示继续打开上次那个', async () => {
-    await fsa.remember({ name: 'proj-A' } as unknown as FileSystemDirectoryHandle);
+  it('打开过、读写权限还在：直接进上次的目录，中间不出现入口页，人什么都没点', async () => {
+    await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
     await useStore.getState().boot();
-    expect(useStore.getState().view).toEqual({ name: 'restore', projectName: 'proj-A' });
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(picker).not.toHaveBeenCalled();
+  });
+
+  it('打开过、权限不在：停在入口页，记得上次的项目，不去要权限', async () => {
+    await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
+    hasPermission.mockResolvedValue(false);
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().lastProject).toBe('proj-A');
+    expect(useStore.getState().error).toBeNull();
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it('读得到上次是哪个目录、句柄的记录却没了（浏览器清过数据）：照常停在入口页，没有出错提示；人点了才说找不到', async () => {
+    // 只留「上次打开的是 proj-A」这一条，句柄本身没存
+    handles.set('__last', 'proj-A');
+    useStore.setState({ recents: ['proj-A'] });
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().error).toBeNull();
+    expect(useStore.getState().lastProject).toBe('proj-A');
+
+    await useStore.getState().start();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error).toMatchObject({ message: '找不到「proj-A」的目录记录，浏览器可能清过数据。', pick: true });
+    expect(useStore.getState().lastProject).toBeNull();
+    expect(useStore.getState().recents).toEqual([]);
+  });
+
+  it('直接进入时取目录句柄超时：照常停在入口页、没有出错提示，不猜是记录没了', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const forget = vi.spyOn(fsa, 'forgetHandle');
+      vi.mocked(fsa.loadHandle).mockReturnValueOnce(new Promise(() => {}));
+      await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
+      const booting = useStore.getState().boot();
+      await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
+      await booting;
+      expect(useStore.getState().view).toEqual({ name: 'no-project' });
+      expect(useStore.getState().error).toBeNull();
+      expect(useStore.getState().lastProject).toBe('proj-A');
+      expect(forget).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('直接进入时取目录句柄出错：也照常停在入口页、没有出错提示', async () => {
+    vi.mocked(fsa.loadHandle).mockRejectedValueOnce(new Error('IndexedDB blocked'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().error).toBeNull();
+    expect(useStore.getState().lastProject).toBe('proj-A');
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('没取到上次打开的目录'), expect.anything());
+  });
+
+  it('直接进入读目录的那段时间换了项目：后到的结果丢掉，不改新项目的状态', async () => {
+    const a = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    vi.mocked(fsa.loadHandle).mockResolvedValueOnce(toRaw('proj-A', a));
+    // A 的目录一列就卡住（直接进入走到「正在读取」）
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reached!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    a.entries = async () => {
+      reached();
+      await gate;
+      return [];
+    };
+    await fsa.remember(toRaw('proj-A', a));
+    const booting = useStore.getState().boot();
+    await entered;
+    expect(useStore.getState().view).toEqual({ name: 'loading', projectName: 'proj-A' });
+
+    // 这会儿人选了别的目录
+    picker.mockResolvedValue(toRaw('proj-B', fakeDir('proj-B', { '.omt': {}, openspec: {} }, { failOnWrite: true })));
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+
+    release();
+    await booting;
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+    expect(useStore.getState().root?.name).toBe('proj-B');
   });
 });
 
@@ -127,17 +237,130 @@ describe('chooseDirectory', () => {
   });
 });
 
-describe('继续打开和切换目录', () => {
+describe('开始享受', () => {
+  const remembered = async () => {
+    await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
+    await useStore.getState().boot();
+  };
+
+  it('没有上次的项目：弹出选目录的窗口', async () => {
+    await useStore.getState().boot();
+    picker.mockResolvedValue(project('proj-A', { '.omt': {}, openspec: {} }));
+    await useStore.getState().start();
+    expect(picker).toHaveBeenCalledTimes(1);
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+  });
+
+  it('有上次的项目、权限不在：向浏览器要回权限，拿到就进，不弹选目录的窗口', async () => {
+    hasPermission.mockResolvedValue(false);
+    requestPermission.mockResolvedValue(true);
+    await remembered();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    await useStore.getState().start();
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(picker).not.toHaveBeenCalled();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+  });
+
+  it('点了不允许：入口页不动，「开始享受」上方是出错提示，里面有「选择目录」；再点一次会再问权限', async () => {
+    hasPermission.mockResolvedValue(false);
+    requestPermission.mockResolvedValue(false);
+    await remembered();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    await useStore.getState().start();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error).toMatchObject({ message: '没有拿到这个目录的读写权限', pick: true, sticky: true });
+    expect(useStore.getState().lastProject).toBe('proj-A');
+    expect(picker).not.toHaveBeenCalled();
+
+    requestPermission.mockResolvedValue(true);
+    await useStore.getState().start();
+    expect(requestPermission).toHaveBeenCalledTimes(2);
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-A' });
+  });
+
+  it('点了「开始享受」才发现目录已经打不开：停在入口页，说清是哪个目录、里面有「选择目录」；再点一次弹选目录的窗口', async () => {
+    const gone = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    gone.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    await fsa.remember(toRaw('proj-A', gone));
+    // 启动时权限不在，所以停在入口页；点了以后浏览器给了权限，进去才发现打不开
+    hasPermission.mockResolvedValue(false);
+    requestPermission.mockResolvedValue(true);
+    localStorage.setItem('omt.recentProjects', JSON.stringify(['proj-A', 'proj-B']));
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().lastProject).toBe('proj-A');
+
+    await useStore.getState().start();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error).toMatchObject({ message: '「proj-A」这个目录打不开了，可能被移动、改名或删除了。', pick: true });
+    expect(useStore.getState().recents).toEqual(['proj-B']);
+    expect(useStore.getState().lastProject).toBeNull();
+
+    picker.mockResolvedValue(project('proj-C', { '.omt': {}, openspec: {} }));
+    await useStore.getState().start();
+    expect(picker).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-C' });
+  });
+
+  it('直接进入时目录已经打不开：停在入口页，说清是哪个目录、里面有「选择目录」', async () => {
+    const gone = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    gone.entries = async () => {
+      throw Object.assign(new Error('gone'), { name: 'NotFoundError' });
+    };
+    await fsa.remember(toRaw('proj-A', gone));
+    await useStore.getState().boot();
+    expect(useStore.getState().view).toEqual({ name: 'error' });
+    expect(useStore.getState().error).toMatchObject({ message: '「proj-A」这个目录打不开了，可能被移动、改名或删除了。', pick: true });
+    expect(useStore.getState().lastProject).toBeNull();
+  });
+
+  it('点了「开始享受」以后取目录句柄超时：停在入口页，提示在、里面有「选择目录」；不说记录没了', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const forget = vi.spyOn(fsa, 'forgetHandle');
+      hasPermission.mockResolvedValue(false);
+      await remembered();
+      useStore.setState({ recents: ['proj-A'] });
+      vi.mocked(fsa.loadHandle).mockReturnValueOnce(new Promise(() => {}));
+      const starting = useStore.getState().start();
+      await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
+      await starting;
+      expect(useStore.getState().view).toEqual({ name: 'error' });
+      expect(useStore.getState().error?.pick).toBe(true);
+      expect(useStore.getState().error?.message).not.toContain('目录记录');
+      expect(useStore.getState().recents).toEqual(['proj-A']);
+      expect(useStore.getState().lastProject).toBe('proj-A');
+      expect(forget).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('入口页上的出错只有「选择目录」一种按钮可点：点它去选别的目录', async () => {
+    await remembered();
+    hasPermission.mockResolvedValue(false);
+    requestPermission.mockResolvedValue(false);
+    await useStore.getState().start();
+    picker.mockResolvedValue(project('proj-D', { '.omt': {}, openspec: {} }));
+    await useStore.getState().chooseDirectory();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-D' });
+  });
+});
+
+describe('页眉「切换目录」菜单那一路和出错页的「重试」：这次没动', () => {
   async function rememberTwo() {
     await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
     await fsa.remember(project('proj-B', { '.oht': {} }));
     await fsa.remember(project('proj-A', { '.omt': {}, openspec: {} }));
   }
 
-  it('权限还在：直接打开', async () => {
+  it('权限还在：不用再要权限就打开', async () => {
     await rememberTwo();
-    await useStore.getState().boot();
-    await useStore.getState().continueDirectory();
+    await useStore.getState().reopen('proj-A');
     expect(useStore.getState().view.name).toBe('board');
     expect(requestPermission).not.toHaveBeenCalled();
   });
@@ -151,7 +374,7 @@ describe('继续打开和切换目录', () => {
     expect(useStore.getState().view.name).toBe('board');
   });
 
-  it('用户不给权限：显示人话', async () => {
+  it('用户不给权限：还是带项目名的出错整页', async () => {
     await rememberTwo();
     hasPermission.mockResolvedValue(false);
     requestPermission.mockResolvedValue(false);

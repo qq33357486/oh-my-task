@@ -44,15 +44,9 @@ function renderView(view: View) {
   }
 }
 
-/** 还没选定目录的几态不显示页眉：入口页，或者出错时连目录都没有。 */
+/** 还没选定目录的几态不显示页眉：入口页（没选过目录、上次目录的权限不在、浏览器不支持），或者出错时连目录都没有。 */
 function isBare(view: View): boolean {
-  return (
-    view.name === 'booting' ||
-    view.name === 'unsupported' ||
-    view.name === 'no-project' ||
-    view.name === 'restore' ||
-    (view.name === 'error' && !view.projectName)
-  );
+  return view.name === 'booting' || view.name === 'no-project' || (view.name === 'error' && !view.projectName);
 }
 
 /** 页面刚打开、还没看完浏览器存了什么：什么都不画，免得先画一个入口页再换掉。 */

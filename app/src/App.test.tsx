@@ -56,7 +56,9 @@ async function openProject(tree: Tree, options: { fake?: boolean } = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // 恢复成每个假函数原本的实现：上一条测试留下的「只这一次」的返回值、留下的选目录结果，都不带过来。
+  // 只清调用记录不够，乱序跑的时候会串。
+  vi.resetAllMocks();
   handles.clear();
   localStorage.clear();
   setVisibility('visible');
@@ -93,29 +95,113 @@ describe('页面刚打开', () => {
     expect((await screen.findAllByRole('button', { name: '开始享受' }))[0]).toBeInTheDocument();
   });
 
-  it('别的浏览器：直接是那句提示，中间不经过入口页', async () => {
+  it('别的浏览器：入口页照常，没有那句提示；点了「开始享受」才出现', async () => {
     // 第一次渲染的时候页面是哪个状态：包一层，在 App 渲染之前记下来。
     const firstPaint: string[] = [];
     function Probe() {
       firstPaint.push(useStore.getState().view.name);
       return <App />;
     }
-    vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
+    vi.mocked(fsa.isSupported).mockReturnValueOnce(false).mockReturnValueOnce(false);
+    // 选目录的窗口弹不出来
+    picker.mockRejectedValueOnce(new Error('当前浏览器不支持选目录'));
     mount(<Probe />);
-    expect(await screen.findByText(hero.unsupported)).toBeInTheDocument();
-
-    // 入口页照常画出来（首屏和收尾各一个「开始享受」），只是带着那句提示。
+    await screen.findAllByRole('button', { name: '开始享受' });
+    // 入口页照常画出来（首屏和收尾各一个「开始享受」），页面上没有那句提示，也没有页眉。
     expect(firstPaint[0]).toBe('booting');
     expect(screen.getAllByRole('button', { name: '开始享受' })).toHaveLength(2);
+    expect(screen.queryByText(hero.unsupported)).toBeNull();
+    expect(screen.queryByRole('button', { name: /刷 ?新/ })).toBeNull();
     expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
+
+    await userEvent.click(screen.getAllByRole('button', { name: '开始享受' })[0]);
+    expect(screen.getByText(hero.unsupported)).toBeInTheDocument();
+    // 入口页还在，没有变成出错的整页
+    expect(screen.getAllByRole('button', { name: '开始享受' })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /重 ?试/ })).toBeNull();
   });
 
-  it('存过目录：页面还是入口页，没有页眉', async () => {
-    vi.mocked(fsa.lastHandleName).mockResolvedValueOnce('proj-A');
+  it('存过目录、读写权限还在：一打开就直接进上次的目录，中间不出现入口页', async () => {
+    const firstPaint: string[] = [];
+    function Probe() {
+      firstPaint.push(useStore.getState().view.name);
+      return <App />;
+    }
+    // 上次打开的是 proj-A，浏览器还留着它的句柄，权限也还在。
+    handles.set('proj-A', toRaw('proj-A', fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true })));
+    handles.set('__last', 'proj-A');
+    render(
+      <AntApp>
+        <Probe />
+      </AntApp>,
+    );
+    await waitFor(() => expect(useStore.getState().view.name).toBe('board'));
+
+    // 页面刚打开那一段什么都不画；从头到尾没画过入口页，人什么都没点。
+    expect(firstPaint[0]).toBe('booting');
+    expect(firstPaint).not.toContain('no-project');
+    expect(screen.queryByRole('button', { name: '开始享受' })).toBeNull();
+    expect(screen.getByText('proj-A')).toBeInTheDocument();
+    expect(screen.getByText('等你验收')).toBeInTheDocument();
+    expect(picker).not.toHaveBeenCalled();
+    expect(fsa.requestPermission).not.toHaveBeenCalled();
+  });
+
+  it('直接进入读目录的那一段时间：页眉和「正在读取这个目录…」，不是入口页', async () => {
+    const dir = fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    dir.entries = async () => {
+      reached();
+      await gate;
+      return [];
+    };
+    handles.set('proj-A', toRaw('proj-A', dir));
+    handles.set('__last', 'proj-A');
+    const utils = mount();
+    // 页面刚打开：什么都不画
+    expect(utils.container.querySelector('.app__content')).toBeEmptyDOMElement();
+    await entered;
+    expect(screen.queryByRole('button', { name: '开始享受' })).toBeNull();
+    expect(screen.getByText('正在读取这个目录…')).toBeInTheDocument();
+    expect(screen.getByText('proj-A')).toBeInTheDocument();
+
+    release();
+    await waitFor(() => expect(useStore.getState().view.name).toBe('board'));
+    expect(screen.getByText('等你验收')).toBeInTheDocument();
+  });
+
+  it('存过目录、权限不在：停在入口页，没有页眉；点「开始享受」才向浏览器要权限', async () => {
+    handles.set('proj-A', toRaw('proj-A', fakeDir('proj-A', { '.omt': {}, openspec: {} }, { failOnWrite: true })));
+    handles.set('__last', 'proj-A');
+    // 启动时查一次、点按钮后再查一次，都是「权限不在」。
+    vi.mocked(fsa.hasPermission).mockResolvedValueOnce(false).mockResolvedValueOnce(false);
     mount();
-    expect((await screen.findAllByRole('button', { name: '开始享受' }))[0]).toBeInTheDocument();
+    await screen.findAllByRole('button', { name: '开始享受' });
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
     expect(screen.queryByRole('button', { name: /刷 ?新/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /重 ?试/ })).toBeNull();
+    expect(fsa.requestPermission).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getAllByRole('button', { name: '开始享受' })[0]);
+    await waitFor(() => expect(useStore.getState().view.name).toBe('board'));
+    expect(fsa.requestPermission).toHaveBeenCalledTimes(1);
+    expect(picker).not.toHaveBeenCalled();
+  });
+
+  it('存过目录、句柄的记录却没了：照样是入口页，没有页眉，也没有出错提示', async () => {
+    vi.mocked(fsa.lastHandleName).mockResolvedValueOnce('proj-A');
+    mount();
+    await screen.findAllByRole('button', { name: '开始享受' });
+    expect(useStore.getState().view).toEqual({ name: 'no-project' });
+    expect(useStore.getState().error).toBeNull();
+    expect(screen.queryByRole('button', { name: /刷 ?新/ })).toBeNull();
   });
 
   it('读不到浏览器里存了什么：照样是入口页，不停在空白', async () => {

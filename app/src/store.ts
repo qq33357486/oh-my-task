@@ -10,9 +10,7 @@ import { loadRecent, pushRecent, saveRecent } from './lib/recents';
 
 export type ViewName =
   | 'booting'
-  | 'unsupported'
   | 'no-project'
-  | 'restore'
   | 'loading'
   | 'error'
   | 'uninitialized'
@@ -55,12 +53,16 @@ export interface State {
   busy: boolean;
   /** 刚做完一件事的回话，比如「已置入 10 个文件。」 */
   notice: string | null;
+  /** 上次打开的目录叫什么，启动时从浏览器存储里读出来。没有、或者已经放下它了，就是 null。 */
+  lastProject: string | null;
+  /** 浏览器不支持选目录，人点了「开始享受」以后才显示的那句提示 */
+  unsupportedHint: boolean;
   boot: () => Promise<void>;
   chooseDirectory: () => Promise<void>;
-  continueDirectory: () => Promise<void>;
+  /** 点「开始享受」：没有上次的项目就去选目录；有就向浏览器要回它的权限，进那个项目 */
+  start: () => Promise<void>;
   switchTo: (name: string) => Promise<void>;
   reopen: (name: string) => Promise<void>;
-  backToEntry: () => void;
   refresh: () => Promise<void>;
   open: (root: FsDir) => Promise<void>;
   openDetail: (info: ChangeInfo) => Promise<void>;
@@ -91,10 +93,12 @@ type Data = Pick<
   | 'updateCount'
   | 'busy'
   | 'notice'
+  | 'lastProject'
+  | 'unsupportedHint'
 >;
 
 export const initialState: Data = {
-  // 页面一打开是「正在启动」，什么都不画。启动时才知道该显示「不支持」「继续打开」还是「选择目录」，
+  // 页面一打开是「正在启动」，什么都不画。启动完才知道该直接进上次的目录，还是停在入口页，
   // 先画一个再换一个会闪。
   view: { name: 'booting' },
   recents: [],
@@ -114,12 +118,15 @@ export const initialState: Data = {
   updateCount: 0,
   busy: false,
   notice: null,
+  lastProject: null,
+  unsupportedHint: false,
 };
 
 /** 换项目的时候，属于上一个项目的东西一样不留。 */
 const FORGET_PROJECT: Partial<Data> = {
   error: null,
   notice: null,
+  unsupportedHint: false,
   changes: [],
   archived: [],
   archivedTotal: 0,
@@ -227,6 +234,8 @@ export const useStore = create<State>()((set, get) => {
       refreshing: false,
       session: get().session + 1,
       root: null,
+      // 它不再是「上次打开的目录」：再点「开始享受」弹的是选目录的窗口。
+      lastProject: null,
       recents: removeFromRecents(projectName),
       view: { name: 'error' },
       error: {
@@ -281,6 +290,66 @@ export const useStore = create<State>()((set, get) => {
     }
   };
 
+  /**
+   * 打开一个记住的目录。权限还在就直接开；不在就向用户要（必须由点击触发）。
+   *
+   * fromEntry：这是人在入口页点「开始享受」。出事了停在入口页，「开始享受」上方是出错的提示，
+   * 里面有「选择目录」；视图不带项目名，页面才画的是入口页。
+   * 不是的话（页眉「切换目录」菜单、出错页的「重试」）：出事了是带项目名的出错整页，只有「重试」。这一路这次没动。
+   */
+  const askAndOpen = async (name: string, fromEntry: boolean) => {
+    // 先放下手里的项目：失败以后「重试」该重新打开要去的那个，而不是回到原来这个。
+    set({ ...FORGET_PROJECT, root: null, session: get().session + 1 });
+    if (!name) {
+      set({ view: { name: 'no-project' } });
+      return;
+    }
+    const failed = (error: Friendly) =>
+      set(fromEntry ? { view: { name: 'error' }, error } : { view: { name: 'error', projectName: name }, error });
+    try {
+      // 浏览器的存储要是一直不返回，等一小会儿就按出错处理（不去猜记录没了）：点了按钮不能没有任何反应。
+      const handle = await giveUpAfter(fsa.loadHandle(name), BOOT_STORAGE_MS);
+      if (!handle) {
+        // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页；
+        // 「上次打开的」要是它，也一起去掉（放到后台做，页面先更新）。
+        set({
+          recents: removeFromRecents(name),
+          lastProject: null,
+          view: { name: 'error' },
+          error: {
+            message: `找不到「${name}」的目录记录，浏览器可能清过数据。`,
+            next: '重新选一次目录',
+            sticky: true,
+            pick: true,
+          },
+        });
+        void forgetQuietly(name);
+        return;
+      }
+      const granted = (await fsa.hasPermission(handle)) || (await fsa.requestPermission(handle));
+      if (!granted) {
+        failed(
+          fromEntry
+            ? {
+                message: '没有拿到这个目录的读写权限',
+                next: '再点一次「开始享受」，浏览器问的时候点允许；想换一个项目，点「选择目录」',
+                sticky: true,
+                pick: true,
+              }
+            : { message: '没有拿到这个目录的读写权限', next: '再点一次，并允许访问', sticky: true },
+        );
+        return;
+      }
+      await get().open(fsa.wrapDir(handle));
+      if (!get().root) return;
+      void rememberQuietly(handle);
+    } catch (err) {
+      if (isCancelled(err)) return;
+      if (fromEntry) failed({ ...humanize(err, '打开这个目录'), pick: true });
+      else failed(humanize(err, '打开这个目录'));
+    }
+  };
+
   return {
     ...initialState,
 
@@ -310,21 +379,49 @@ export const useStore = create<State>()((set, get) => {
       }
     },
 
+    /**
+     * 页面启动。浏览器不支持选目录、没打开过目录、上次的目录权限不在了：都停在入口页。
+     * 上次的目录读写权限还在：直接进，人什么都不用点。
+     */
     boot: async () => {
       const session = get().session;
-      if (!fsa.isSupported()) {
-        set({ view: { name: 'unsupported' } });
-        return;
-      }
       // 读浏览器存的东西。读不了就当没存过，照样给入口页：不能让页面一直停在「正在启动」。
       const recents = readRecentsQuietly();
+      // 浏览器不支持选目录：照常是入口页，页面上没有那句提示；人点了「开始享受」才提示（见 chooseDirectory）。
+      if (!fsa.isSupported()) {
+        set({ recents, view: { name: 'no-project' }, lastProject: null });
+        return;
+      }
       const last = await giveUpAfter(fsa.lastHandleName(), BOOT_STORAGE_MS).catch((err: unknown) => {
         console.warn('[djtask] 没读到上次打开的是哪个目录：', err);
         return null;
       });
       // 等的这一会儿里人已经选了目录：别把页面改回入口页。
       if (get().session !== session) return;
-      set({ recents, view: last ? { name: 'restore', projectName: last } : { name: 'no-project' } });
+      const entry = { recents, view: { name: 'no-project' as const }, lastProject: last };
+      if (!last) {
+        set(entry);
+        return;
+      }
+      // 取出上次的目录，最多等 2 秒。超时、出错，或者记录已经没了（浏览器清过数据），都照常停在入口页、
+      // 没有出错提示：不去猜是记录没了，也不弹提示。人点「开始享受」时才说。
+      const handle = await giveUpAfter(fsa.loadHandle(last), BOOT_STORAGE_MS).catch((err: unknown) => {
+        console.warn('[djtask] 没取到上次打开的目录：', err);
+        return null;
+      });
+      if (get().session !== session) return;
+      if (!handle) {
+        set(entry);
+        return;
+      }
+      // 读写权限还在：直接进。不在：停在入口页，人点「开始享受」时再向浏览器要（要权限必须由点击触发）。
+      const granted = await fsa.hasPermission(handle).catch(() => false);
+      if (get().session !== session) return;
+      if (!granted) {
+        set(entry);
+        return;
+      }
+      await get().open(fsa.wrapDir(handle));
     },
 
     chooseDirectory: async () => {
@@ -337,59 +434,30 @@ export const useStore = create<State>()((set, get) => {
         void rememberQuietly(handle);
       } catch (err) {
         if (isCancelled(err)) return;
+        // 浏览器不支持选目录，选目录的窗口弹不出来：入口页不动，只是「开始享受」下方出现那句提示。
+        // 不走出错的视图，也不去碰目录记录。
+        if (!fsa.isSupported()) {
+          set({ unsupportedHint: true });
+          return;
+        }
         set({ view: { name: 'error' }, error: humanize(err, '选择目录') });
       }
     },
 
-    continueDirectory: () => get().reopen(get().view.projectName ?? ''),
-
     switchTo: (name) => get().reopen(name),
 
     /** 重新打开一个记住的目录。权限还在就直接开；不在就向用户要（必须由点击触发）。 */
-    reopen: async (name) => {
-      // 先放下手里的项目：失败以后「重试」该重新打开要去的那个，而不是回到原来这个。
-      set({ ...FORGET_PROJECT, root: null, session: get().session + 1 });
-      if (!name) {
-        set({ view: { name: 'no-project' } });
+    reopen: (name) => askAndOpen(name, false),
+
+    /** 点「开始享受」。没有上次的项目：弹出选目录的窗口。有：向浏览器要回它的读写权限，拿到就进那个项目。 */
+    start: async () => {
+      const last = get().lastProject;
+      if (!last) {
+        await get().chooseDirectory();
         return;
       }
-      try {
-        // 浏览器的存储要是一直不返回，等一小会儿就按出错处理（不去猜记录没了）：点了「继续打开」不能没有任何反应。
-        const handle = await giveUpAfter(fsa.loadHandle(name), BOOT_STORAGE_MS);
-        if (!handle) {
-          // 浏览器清过数据，这个项目的目录记录没了。别一声不响地回到入口页；
-          // 「上次打开的」要是它，也一起去掉（放到后台做，页面先更新）。
-          set({
-            recents: removeFromRecents(name),
-            view: { name: 'error' },
-            error: {
-              message: `找不到「${name}」的目录记录，浏览器可能清过数据。`,
-              next: '重新选一次目录',
-              sticky: true,
-              pick: true,
-            },
-          });
-          void forgetQuietly(name);
-          return;
-        }
-        const granted = (await fsa.hasPermission(handle)) || (await fsa.requestPermission(handle));
-        if (!granted) {
-          set({
-            view: { name: 'error', projectName: name },
-            error: { message: '没有拿到这个目录的读写权限', next: '再点一次，并允许访问', sticky: true },
-          });
-          return;
-        }
-        await get().open(fsa.wrapDir(handle));
-        if (!get().root) return;
-        void rememberQuietly(handle);
-      } catch (err) {
-        if (isCancelled(err)) return;
-        set({ view: { name: 'error', projectName: name }, error: humanize(err, '打开这个目录') });
-      }
+      await askAndOpen(last, true);
     },
-
-    backToEntry: () => set({ view: { name: 'no-project' }, error: null }),
 
     /**
      * 重读当前项目：目录还在不在，看板的数据、开着的卡片详情，以及项目里的框架文件和内置的还对不对得上。

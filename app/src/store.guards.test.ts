@@ -186,7 +186,7 @@ describe('初始化、更新进行到一半换了项目', () => {
 });
 
 describe('记住目录的时机', () => {
-  it('刚选的目录打不开：不记住它，下次不提示「继续打开」', async () => {
+  it('刚选的目录打不开：不记住它', async () => {
     const fsa = await import('./fs/fsAccess');
     const toRaw = (await import('./test/fakeRaw')).toRaw;
     const gone = fakeDir('proj-A', {});
@@ -228,8 +228,8 @@ describe('记住目录的时机', () => {
     const fsa = await import('./fs/fsAccess');
     vi.spyOn(fsa, 'forgetHandle').mockReturnValue(new Promise(() => {}));
     vi.spyOn(fsa, 'loadHandle').mockResolvedValue(null);
-    useStore.setState({ view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
-    await useStore.getState().continueDirectory();
+    useStore.setState({ view: { name: 'no-project' }, recents: ['proj-A'], lastProject: 'proj-A' });
+    await useStore.getState().start();
     expect(useStore.getState().view).toEqual({ name: 'error' });
     expect(useStore.getState().error?.message).toContain('找不到「proj-A」的目录记录');
   });
@@ -498,7 +498,7 @@ describe('第七轮补的', () => {
       const fsa = await import('./fs/fsAccess');
       vi.spyOn(fsa, 'loadHandle').mockReturnValue(new Promise(() => {}));
       const forget = vi.spyOn(fsa, 'forgetHandle');
-      useStore.setState({ view: { name: 'restore', projectName: 'proj-A' }, recents: ['proj-A'] });
+      useStore.setState({ view: { name: 'no-project' }, recents: ['proj-A'], lastProject: 'proj-A' });
       const reopening = useStore.getState().reopen('proj-A');
       await vi.advanceTimersByTimeAsync(BOOT_STORAGE_MS);
       await reopening;

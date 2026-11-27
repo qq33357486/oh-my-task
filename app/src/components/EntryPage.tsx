@@ -8,15 +8,16 @@ import LandingPage from '../landing/LandingPage';
 export default function EntryPage() {
   const view = useStore((s) => s.view);
   const error = useStore((s) => s.error);
+  const start = useStore((s) => s.start);
   const chooseDirectory = useStore((s) => s.chooseDirectory);
-  const continueDirectory = useStore((s) => s.continueDirectory);
+  const unsupportedHint = useStore((s) => s.unsupportedHint);
 
   return (
     <LandingPage
-      onStart={() => void (view.name === 'restore' ? continueDirectory() : chooseDirectory())}
+      onStart={() => void start()}
       onPick={() => void chooseDirectory()}
       error={view.name === 'error' && error ? { title: error.message, next: error.next } : null}
-      unsupportedHint={view.name === 'unsupported'}
+      unsupportedHint={unsupportedHint}
     />
   );
 }

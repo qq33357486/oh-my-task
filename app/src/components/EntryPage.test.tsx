@@ -8,11 +8,10 @@ import { fakeDir } from '../test/fakeDir';
 import EntryPage from './EntryPage';
 
 const chooseDirectory = vi.fn(async () => {});
-const continueDirectory = vi.fn(async () => {});
 
 function setup(view: View, error: Friendly | null = null) {
   // 手里有一个一写就报错的假目录：入口页要是写了任何东西，这里就会炸。
-  useStore.setState({ ...initialState, view, error, chooseDirectory, continueDirectory, root: fakeDir('proj-A', {}, { failOnWrite: true }) });
+  useStore.setState({ ...initialState, view, error, chooseDirectory, root: fakeDir('proj-A', {}, { failOnWrite: true }) });
   return render(<EntryPage />);
 }
 
@@ -65,7 +64,7 @@ describe('入口页', () => {
     const root = fakeDir('proj-A', {}, { failOnWrite: true });
     const writeText = vi.spyOn(root, 'writeText');
     const ensureDir = vi.spyOn(root, 'ensureDir');
-    useStore.setState({ ...initialState, view: { name: 'no-project' }, root, chooseDirectory, continueDirectory });
+    useStore.setState({ ...initialState, view: { name: 'no-project' }, root, chooseDirectory });
     render(<EntryPage />);
     for (const stage of stages) await userEvent.click(screen.getByRole('button', { name: stage.name }));
     await userEvent.click(screen.getAllByRole('button', { name: hero.cta })[0]);
