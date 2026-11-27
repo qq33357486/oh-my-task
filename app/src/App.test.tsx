@@ -127,6 +127,18 @@ describe('页面刚打开', () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  it('入口页是整页深色：页面底色和滚动条跟着变深，进了项目恢复原样', async () => {
+    mount();
+    await screen.findAllByRole('button', { name: '开始享受' });
+    expect(document.documentElement.style.colorScheme).toBe('dark');
+    expect(document.body.style.background).toBe('rgb(7, 11, 24)');
+    act(() => {
+      useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root: fakeDir('proj-A', { '.omt': {}, openspec: {} }) });
+    });
+    expect(document.documentElement.style.colorScheme).toBe('');
+    expect(document.body.style.background).toBe('');
+  });
 });
 
 describe('选定目录后分流', () => {

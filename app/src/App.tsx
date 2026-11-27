@@ -84,6 +84,22 @@ export default function App() {
   }, [refresh]);
 
   const bare = isBare(view);
+
+  // 入口页是整页的深色：滚动条和页面底色也跟着变深；进了项目再恢复成浅色。
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const before = { scheme: root.style.colorScheme, background: body.style.background };
+    if (bare) {
+      root.style.colorScheme = 'dark';
+      body.style.background = '#070b18';
+    }
+    return () => {
+      root.style.colorScheme = before.scheme;
+      body.style.background = before.background;
+    };
+  }, [bare]);
+
   return (
     <Layout className={bare ? 'app app--bare' : 'app'}>
       {!bare && <Header />}
