@@ -1,0 +1,75 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { guide } from './copy';
+import { initialState, useStore } from '../store';
+import { fakeDir } from '../test/fakeDir';
+import UsageGuide from './UsageGuide';
+
+const css = readFileSync(join(process.cwd(), 'src/landing/landing.css'), 'utf8');
+
+function setup() {
+  const closeGuide = vi.fn();
+  // 手里有一个一写就报错的假目录：使用说明要是写了任何东西，这里就会炸。
+  useStore.setState({ ...initialState, guideOpen: true, closeGuide, root: fakeDir('proj-A', {}, { failOnWrite: true }) });
+  return { ...render(<UsageGuide />), closeGuide };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('使用说明', () => {
+  it('是一整页，盖在整个页面上（画在布局之外的一层）', () => {
+    setup();
+    const page = screen.getByRole('dialog', { name: guide.title });
+    expect(page).toHaveAttribute('aria-modal', 'true');
+    // 样式表里它是固定定位、铺满整个视口
+    const rule = css.slice(css.indexOf('.gd {'), css.indexOf('.gd::before'));
+    expect(rule).toContain('position: fixed');
+    expect(rule).toContain('inset: 0');
+  });
+
+  it('只有三节：现在做什么、它是怎么运转的、看板怎么看；没有「常见问题」', () => {
+    const { container } = setup();
+    const headings = within(container).getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
+    expect(headings).toEqual([guide.now.title, guide.how.title, guide.board.title]);
+    expect(container.textContent).not.toContain('常见问题');
+  });
+
+  it('五个阶段各配一张小图，滚到跟前再加载，写死了宽高', () => {
+    const { container } = setup();
+    const images = [...container.querySelectorAll('img')];
+    expect(images).toHaveLength(guide.how.stages.length);
+    for (const image of images) {
+      expect(image).toHaveAttribute('loading', 'lazy');
+      expect(image).toHaveAttribute('width');
+      expect(image).toHaveAttribute('height');
+    }
+  });
+
+  it('右上角是「回到看板」，点了关掉', async () => {
+    const { closeGuide } = setup();
+    await userEvent.click(screen.getByRole('button', { name: guide.back }));
+    expect(closeGuide).toHaveBeenCalledTimes(1);
+    // 窄屏上文字藏起来只剩 ✕，读出来的名字还是「回到看板」
+    expect(css).toContain('.gd-close > span:first-child');
+    expect(css).toContain('@media (max-width: 767px)');
+  });
+
+  it('可以直接抄的那一句在', () => {
+    setup();
+    expect(screen.getByText(guide.now.quote, { exact: false })).toBeInTheDocument();
+    expect(screen.getByText(guide.now.quoteLabel)).toBeInTheDocument();
+  });
+
+  it('看板的小样四列，「等你验收」那一列是亮的', () => {
+    const { container } = setup();
+    const columns = [...container.querySelectorAll('.gd-col')].map((node) => node.textContent);
+    expect(columns).toEqual([...guide.board.columns]);
+    expect(container.querySelectorAll('.gd-col--hot')).toHaveLength(1);
+    expect(container.querySelector('.gd-col--hot')?.textContent).toBe(guide.board.hot);
+  });
+});

@@ -3,6 +3,7 @@ import { Layout } from 'antd';
 import Board from './components/Board';
 import EntryPage from './components/EntryPage';
 import Header from './components/Header';
+import UsageGuide from './landing/UsageGuide';
 import {
   BusyMask,
   ErrorView,
@@ -78,6 +79,7 @@ export default function App() {
   }, [refresh]);
 
   const bare = isBare(view);
+  const guideOpen = useStore((s) => s.guideOpen);
 
   // 入口页是整页的深色：滚动条和页面底色也跟着变深；进了项目再恢复成浅色。
   useEffect(() => {
@@ -95,10 +97,14 @@ export default function App() {
   }, [bare]);
 
   return (
-    <Layout className={bare ? 'app app--bare' : 'app'}>
-      {!bare && <Header />}
-      <Layout.Content className="app__content">{content(view)}</Layout.Content>
-      <BusyMask />
-    </Layout>
+    <>
+      <Layout className={bare ? 'app app--bare' : 'app'}>
+        {!bare && <Header />}
+        <Layout.Content className="app__content">{content(view)}</Layout.Content>
+        <BusyMask />
+      </Layout>
+      {/* 使用说明画在页面布局之外的一层，盖住整个页面；底下的页面没有卸载，关掉以后原样还在。 */}
+      {guideOpen && <UsageGuide />}
+    </>
   );
 }

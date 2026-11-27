@@ -57,10 +57,16 @@ export interface State {
   lastProject: string | null;
   /** 浏览器不支持选目录，人点了「开始享受」以后才显示的那句提示 */
   unsupportedHint: boolean;
+  /** 使用说明开着没有。和项目无关：换项目、出错都不影响它。 */
+  guideOpen: boolean;
   boot: () => Promise<void>;
   chooseDirectory: () => Promise<void>;
   /** 点「开始享受」：没有上次的项目就去选目录；有就向浏览器要回它的权限，进那个项目 */
   start: () => Promise<void>;
+  /** 页眉的「使用说明」：打开使用说明 */
+  openGuide: () => void;
+  /** 使用说明右上角的「回到看板」：关掉它 */
+  closeGuide: () => void;
   switchTo: (name: string) => Promise<void>;
   reopen: (name: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -95,6 +101,7 @@ type Data = Pick<
   | 'notice'
   | 'lastProject'
   | 'unsupportedHint'
+  | 'guideOpen'
 >;
 
 export const initialState: Data = {
@@ -120,6 +127,7 @@ export const initialState: Data = {
   notice: null,
   lastProject: null,
   unsupportedHint: false,
+  guideOpen: false,
 };
 
 /** 换项目的时候，属于上一个项目的东西一样不留。 */
@@ -458,6 +466,10 @@ export const useStore = create<State>()((set, get) => {
       }
       await askAndOpen(last, true);
     },
+
+    openGuide: () => set({ guideOpen: true }),
+
+    closeGuide: () => set({ guideOpen: false }),
 
     /**
      * 重读当前项目：目录还在不在，看板的数据、开着的卡片详情，以及项目里的框架文件和内置的还对不对得上。

@@ -658,3 +658,271 @@
     transition: none;
   }
 }
+
+/* ---------- 使用说明：画在页面布局之外的一层，盖住整个页面 ---------- */
+.gd {
+  position: fixed;
+  inset: 0;
+  /* 压在 antd 的抽屉、弹窗上面 */
+  z-index: 1200;
+  overflow-y: auto;
+  /* 横向不许滚：左上角那团光晕比页面宽，不能让它撑出横向滚动条 */
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  color-scheme: dark;
+  background:
+    radial-gradient(circle 320px at 160px 80px, rgba(47, 84, 235, 0.22), transparent) no-repeat,
+    #070b18;
+  color: #f2f5ff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei UI',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  container-type: inline-size;
+}
+.gd-top {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 48px;
+  /* 吸顶的页首要不透明，不然内容滚到它下面会透出来 */
+  background: #070b18;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.gd-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.gd-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2f54eb 0%, #85a5ff 100%);
+}
+.gd-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.gd-close {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  color: #dfe5f7;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+.gd-close:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.gd-close:focus-visible {
+  outline: 2px solid #a9bfff;
+  outline-offset: 3px;
+}
+.gd-main {
+  position: relative;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 16px 48px 88px;
+}
+.gd-sec {
+  padding: 48px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.gd-sec:first-child {
+  border-top: 0;
+}
+.gd-kicker {
+  margin: 0 0 14px;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: #85a5ff;
+}
+.gd-h2 {
+  margin: 0;
+  font-size: clamp(26px, 2.6cqw, 32px);
+  font-weight: 700;
+  line-height: 1.3;
+}
+.gd-p {
+  margin: 16px 0 0;
+  font-size: 18px;
+  line-height: 1.85;
+  color: #dfe5f7;
+}
+.gd-quote {
+  margin: 22px 0 0;
+  padding: 18px 22px;
+  font-size: 18px;
+  line-height: 1.7;
+  color: #fff;
+  border: 1px solid rgba(133, 165, 255, 0.42);
+  border-radius: 14px;
+  background: rgba(47, 84, 235, 0.14);
+}
+.gd-quote small {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #a9bfff;
+}
+.gd-note {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #6f7a99;
+}
+
+/* 五个阶段：一行一站，各配一张小图 */
+.gd-stages {
+  display: grid;
+  gap: 10px;
+  margin: 28px 0 0;
+  padding: 0;
+}
+.gd-stage {
+  display: grid;
+  grid-template-columns: 84px 96px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+  padding: 10px 18px 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.gd-stage--you {
+  border-color: rgba(133, 165, 255, 0.42);
+  background: rgba(47, 84, 235, 0.1);
+}
+.gd-stage img {
+  display: block;
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+}
+.gd-stage dt {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.gd-stage small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #85a5ff;
+}
+.gd-stage dd {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #a7b0cc;
+}
+
+/* 看板：四列的小样，「等你验收」亮着 */
+.gd-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 28px 0 0;
+}
+.gd-col {
+  height: 88px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a7b0cc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.gd-col--hot {
+  color: #fff;
+  border: 2px solid #5b7cff;
+  background: rgba(47, 84, 235, 0.22);
+  box-shadow: 0 0 24px rgba(47, 84, 235, 0.3);
+}
+.gd-cols {
+  margin: 6px 0 0;
+  padding: 0;
+}
+.gd-cols > div {
+  display: grid;
+  grid-template-columns: 5.6em minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+.gd-cols > div:first-child {
+  border-top: 0;
+}
+.gd-cols dt {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.8;
+  color: #f2f5ff;
+}
+.gd-cols dd {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #a7b0cc;
+}
+
+/* 窄屏（宽度不到 768）：照小样做，「回到看板」只留 ✕，读出来的名字不变 */
+@media (max-width: 767px) {
+  .gd-top {
+    padding: 14px 24px;
+  }
+  .gd-close {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+  .gd-close > span:first-child {
+    display: none;
+  }
+  .gd-main {
+    padding: 8px 24px 64px;
+  }
+  .gd-sec {
+    padding: 36px 0;
+  }
+  .gd-stage {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px 14px;
+  }
+  .gd-stage img {
+    width: 64px;
+    height: 64px;
+  }
+  .gd-stage dd {
+    grid-column: 1 / -1;
+  }
+  .gd-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gd-cols > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

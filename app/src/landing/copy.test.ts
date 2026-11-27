@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { below, facts, guide, hero, stageKicker, stages, ui } from './copy';
 import { pageText, textLeaves } from '../test/pageText';
 import LandingPage from './LandingPage';
+import UsageGuide from './UsageGuide';
 
 /**
  * 期望的文字，照任务夹 entry-page-and-guide 的 design.md「文案定稿」另抄的一份，不从 copy.ts 读。
@@ -247,5 +248,41 @@ describe('入口页画出来的文字和定稿一字不差', () => {
     const plain = landingLeaves(0);
     const { container } = mountLanding({ error, unsupportedHint: true });
     expect(textLeaves(container)).toEqual([...plain.slice(0, 5), error.title, error.next, EXPECTED.ui.pick, plain[5], EXPECTED.hero.unsupported, ...plain.slice(6)]);
+  });
+});
+
+/** 使用说明上全部文字，按出现的先后，照期望的那一份排出来。图标里的「DJ」、✕ 和看板小样的四列是装饰，不算。 */
+function guideLeaves(): string[] {
+  const e = EXPECTED.guide;
+  return [
+    e.brand,
+    e.title,
+    e.back,
+    e.now.kicker,
+    e.now.title,
+    e.now.text,
+    e.now.quoteLabel,
+    e.now.quote,
+    e.now.note,
+    e.how.kicker,
+    e.how.title,
+    ...e.how.stages.flatMap((stage) => [stage.name, stage.who, stage.text]),
+    e.board.kicker,
+    e.board.title,
+    ...e.board.notes.flatMap((note) => [note.name, note.text]),
+    e.board.update,
+  ];
+}
+
+describe('使用说明画出来的文字和定稿一字不差', () => {
+  it('整页的全部文字，多一句、少一句、改一个字都算不过', () => {
+    const { container } = render(createElement(UsageGuide, {}));
+    expect(textLeaves(container)).toEqual(guideLeaves());
+  });
+
+  it('页面上找不到不该出现的叫法', () => {
+    const { container } = render(createElement(UsageGuide, {}));
+    const text = pageText(container);
+    for (const word of FORBIDDEN) expect(text, `页面上出现了「${word}」`).not.toContain(word);
   });
 });

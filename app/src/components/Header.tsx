@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Dropdown, Modal, Space, Typography, type MenuProps } from 'antd';
 import { FRAMEWORK_FILES } from '../framework/manifest';
+import { guide } from '../landing/copy';
 import { useStore } from '../store';
 import Brand from './Brand';
 
@@ -85,6 +86,9 @@ export default function Header() {
         )}
         <Button onClick={() => void onRefresh()} loading={manual}>
           刷新
+        </Button>
+        <Button onClick={() => useStore.getState().openGuide()} data-testid="open-guide">
+          {guide.title}
         </Button>
         <Dropdown menu={{ items, onClick }} trigger={['click']}>
           <Button>切换目录 ▾</Button>
