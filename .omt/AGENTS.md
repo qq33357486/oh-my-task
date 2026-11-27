@@ -7,7 +7,7 @@
 - 开始任何工作前：读本说明。
 - 人类提了需求：读 `.omt/工作流/默认工作流.md`，一个任务从头到尾都按它走。
 - 这类业务具体怎么走：读 `.omt/工作流/` 里对应业务的那一份。
-- 要拷问时：用 grill-with-docs 技能。
+- 要拷问时：只按 grill-with-docs 做。读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它会让你再加载 grilling 和 domain-modeling：有 Skill 工具就调 Skill 工具加载，没有就直接读文件，路径是 `.agents/skills/grilling/SKILL.md` 和 `.agents/skills/domain-modeling/SKILL.md`。不靠斜杠命令，不单独用 grilling。
 - 要建任务、写任务夹、归档时：用 OpenSpec 的技能（`.agents/skills/openspec-*`），任务夹在 `openspec/`。
 - 查术语、过往决策、项目资料时：读 `.omt/术语/` 和 `.omt/知识库/`。
 
@@ -29,7 +29,7 @@
 
 ## OpenSpec 自带规程碰到人的地方
 
-- 「提需求时有歧义就问人」：由拷问接管，先读已有的，写过的不再问。
+- 「提需求时有歧义就问人」：先读已有的，写过的不再问。拷问时由拷问接管；没拷问的任务，AI 直接问人那一件。
 - 「OpenSpec 提示可以开工（Next: apply）」：不等于可以开工，独立审查通过才算。
 - 「实施时卡住或超出范围就停下问人」：保留。
 - 「归档前请人确认」：保留，相当于验收后的关任务。
