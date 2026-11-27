@@ -244,9 +244,15 @@
   gap: 8px;
 }
 .ld-loop__visual {
+  /* 节点的大小、它外面那圈底色。环心的两句要给「整理」节点让开，用的就是这组数，两处不会各改各的。 */
+  --ld-node-w: 80px;
+  --ld-node-h: 44px;
+  --ld-node-ring: 6px;
   position: relative;
   width: min(100%, 340px);
   aspect-ratio: 340 / 300;
+  /* 让环心的字号能按这块循环自己的宽度伸缩（cqw） */
+  container-type: inline-size;
 }
 .ld-ring {
   display: block;
@@ -278,15 +284,24 @@
     drop-shadow(0 0 4px rgba(214, 224, 255, 0.95)),
     drop-shadow(0 0 10px rgba(133, 165, 255, 0.6));
 }
-/* 环心的两句，叠在环中间（环的高宽比是 340:300，所以纵向中心在 50%，略往下一点避开上边） */
+/*
+ * 环心的两句，叠在环中间，纵向居中。
+ * 横向不按整块循环居中，而是在「整理」节点和环右边那条线之间的空当里居中：「整理」在左边中间，伸进环里半个节点，
+ * 按整块居中的话循环一窄（大约 305 以下）就会压到它下面。左边从节点外面那圈底色让开，右边到那条线；
+ * 空当不够宽时字会折行，不会伸到节点下面。
+ * 字号跟着循环的宽度伸缩：循环最宽 340 时是 16px（4.71cqw），窄了按比例缩，最小 13px。
+ */
 .ld-center {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: calc(21.18% + var(--ld-node-w) / 2 + var(--ld-node-ring));
+  right: 21.18%;
   display: grid;
   place-content: center;
   gap: 10px;
   margin: 0;
-  font-size: 16px;
+  font-size: clamp(13px, 4.71cqw, 16px);
   letter-spacing: 0.5px;
   line-height: 1;
   text-align: center;
@@ -299,8 +314,8 @@
   position: absolute;
   display: grid;
   place-items: center;
-  width: 80px;
-  height: 44px;
+  width: var(--ld-node-w);
+  height: var(--ld-node-h);
   padding: 0;
   font: inherit;
   font-size: 17px;
@@ -312,7 +327,7 @@
   border: 1px solid rgba(133, 165, 255, 0.42);
   border-radius: 13px;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 6px #070b18;
+  box-shadow: 0 0 0 var(--ld-node-ring) #070b18;
   transition:
     box-shadow 0.3s ease,
     color 0.3s ease;
@@ -325,8 +340,8 @@
 .ld .ld-node.is-now {
   color: #fff;
   box-shadow:
-    0 0 0 6px #070b18,
-    0 0 0 8px rgba(183, 198, 255, 0.75),
+    0 0 0 var(--ld-node-ring) #070b18,
+    0 0 0 calc(var(--ld-node-ring) + 2px) rgba(183, 198, 255, 0.75),
     0 0 28px rgba(133, 165, 255, 0.55);
 }
 .ld-node--tl {
@@ -613,11 +628,11 @@
     padding: 30px var(--ld-pad-x) 36px;
   }
   .ld-loop__visual {
+    --ld-node-w: 70px;
+    --ld-node-h: 40px;
     width: min(100%, 320px);
   }
   .ld .ld-node {
-    width: 70px;
-    height: 40px;
     border-radius: 12px;
     font-size: 15px;
   }
@@ -670,6 +685,8 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   color-scheme: dark;
+  /* 这一页自己滚动时滚动条也是深的（光靠 color-scheme 不一定变深，同 App 里入口页那一段） */
+  scrollbar-color: #3d4666 #0b1024;
   background:
     radial-gradient(circle 320px at 160px 80px, rgba(47, 84, 235, 0.22), transparent) no-repeat,
     #070b18;

@@ -26,8 +26,9 @@ describe('使用说明', () => {
     setup();
     const page = screen.getByRole('dialog', { name: guide.title });
     expect(page).toHaveAttribute('aria-modal', 'true');
-    // 样式表里它是固定定位、铺满整个视口
-    const rule = css.slice(css.indexOf('.gd {'), css.indexOf('.gd::before'));
+    // 样式表里它是固定定位、铺满整个视口（只看 .gd 自己这一条规则，到它的右花括号为止）
+    const start = css.indexOf('.gd {');
+    const rule = css.slice(start, css.indexOf('}', start));
     expect(rule).toContain('position: fixed');
     expect(rule).toContain('inset: 0');
   });
@@ -37,6 +38,15 @@ describe('使用说明', () => {
     const headings = within(container).getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
     expect(headings).toEqual([guide.now.title, guide.how.title, guide.board.title]);
     expect(container.textContent).not.toContain('常见问题');
+  });
+
+  it('窗口矮、这一页自己滚动时，滚动条也是深的', () => {
+    setup();
+    const start = css.indexOf('.gd {');
+    const rule = css.slice(start, css.indexOf('}', start));
+    expect(rule).toContain('overflow-y: auto;');
+    // 颜色另写了一遍：光靠 color-scheme，滚动条不一定跟着变深
+    expect(rule).toContain('scrollbar-color: #3d4666 #0b1024;');
   });
 
   it('五个阶段各配一张小图，滚到跟前再加载，写死了宽高', () => {

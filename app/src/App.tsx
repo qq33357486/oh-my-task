@@ -18,6 +18,9 @@ import { useStore, type View } from './store';
 /** 多久重读一次当前项目 */
 export const POLL_MS = 5000;
 
+/** 入口页整页深色时滚动条的颜色：滑块、轨道 */
+const DARK_SCROLLBAR = { thumb: '#3d4666', track: '#0b1024' } as const;
+
 function renderView(view: View) {
   switch (view.name) {
     case 'loading':
@@ -81,17 +84,20 @@ export default function App() {
   const bare = isBare(view);
   const guideOpen = useStore((s) => s.guideOpen);
 
-  // 入口页是整页的深色：滚动条和页面底色也跟着变深；进了项目再恢复成浅色。
+  // 入口页是整页的深色：页面底色、滚动条也跟着变深；进了项目再恢复成浅色。
+  // 滚动条光靠 color-scheme 不一定变深（2026-11-27 在内置浏览器里核过：配色是深的，滚动条还是浅的），所以再用 scrollbar-color 把颜色写上。
   useEffect(() => {
     const root = document.documentElement;
     const body = document.body;
-    const before = { scheme: root.style.colorScheme, background: body.style.background };
+    const before = { scheme: root.style.colorScheme, scrollbar: root.style.scrollbarColor, background: body.style.background };
     if (bare) {
       root.style.colorScheme = 'dark';
+      root.style.scrollbarColor = `${DARK_SCROLLBAR.thumb} ${DARK_SCROLLBAR.track}`;
       body.style.background = '#070b18';
     }
     return () => {
       root.style.colorScheme = before.scheme;
+      root.style.scrollbarColor = before.scrollbar;
       body.style.background = before.background;
     };
   }, [bare]);

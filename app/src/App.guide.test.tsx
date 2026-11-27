@@ -247,6 +247,54 @@ describe('使用说明开着的时候', () => {
     expect(useStore.getState().view.name).toBe('missing-openspec');
   });
 
+  it('初始化写到一半、使用说明开着的时候换了项目：旧项目的回话和页面不跟到新项目来', async () => {
+    const root = willEnter({}, { failOnWrite: false });
+    let release!: () => void;
+    let reached!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const entered = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const ensureDir = root.ensureDir.bind(root);
+    let takes = 0;
+    root.ensureDir = async (name: string) => {
+      if (++takes === 1) {
+        reached();
+        await gate;
+      }
+      return ensureDir(name);
+    };
+    mount();
+    await screen.findByRole('button', { name: '初始化此目录' });
+    await userEvent.click(screen.getByRole('button', { name: '初始化此目录' }));
+    await entered;
+    expect(useStore.getState().busy).toBe(true);
+
+    // 点开使用说明；开着的时候换到另一个项目
+    await openGuide();
+    await act(async () => {
+      await useStore.getState().open(fakeDir('proj-B', PROJECT, { failOnWrite: true }));
+    });
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+
+    // 已经开始的写入会写完。要看的是新项目的页面和回话不受影响，使用说明也还开着。
+    release();
+    await waitFor(() => expect(useStore.getState().busy).toBe(false));
+    expect(useStore.getState()).toMatchObject({
+      view: { name: 'board', projectName: 'proj-B' },
+      notice: null,
+      error: null,
+      changes: [{ dirName: 't' }],
+      busy: false,
+      guideOpen: true,
+    });
+    expect(guideDialog()).toBeInTheDocument();
+    await closeGuide();
+    expect(useStore.getState().view).toEqual({ name: 'board', projectName: 'proj-B' });
+  });
+
   it('使用说明不写任何文件', async () => {
     const root = willEnter(PROJECT);
     const writeText = vi.spyOn(root, 'writeText');

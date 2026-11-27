@@ -218,11 +218,14 @@ describe('页面刚打开', () => {
     mount();
     await screen.findAllByRole('button', { name: '开始享受' });
     expect(document.documentElement.style.colorScheme).toBe('dark');
+    // 滚动条的颜色另写了一遍：光靠 color-scheme，滚动条不一定跟着变深
+    expect(document.documentElement.style.scrollbarColor).toBe('rgb(61, 70, 102) rgb(11, 16, 36)');
     expect(document.body.style.background).toBe('rgb(7, 11, 24)');
     act(() => {
       useStore.setState({ view: { name: 'board', projectName: 'proj-A' }, root: fakeDir('proj-A', { '.omt': {}, openspec: {} }) });
     });
     expect(document.documentElement.style.colorScheme).toBe('');
+    expect(document.documentElement.style.scrollbarColor).toBe('');
     expect(document.body.style.background).toBe('');
   });
 });
