@@ -3,7 +3,6 @@
 ## ADDED Requirements
 
 ### Requirement: 拷问做不做由人定
-
 > 出处：人类的原话『拷问的启动灵活点，别弄成必须说那四个字』『询问用户吧，是否需要拷问，因为有的简单需求不需要拷问的。』；打了 /grill-with-docs 也算，是人类答复 AI 假设时的原话『其他都ok』
 
 默认工作流 SHALL 写明：人提了需求，AI 先问一句要不要拷问。人已经要求拷问的，说法不限；在认技能的 AI 工具里打了 `/grill-with-docs` 也一样算，不用再问。人说要，才启动拷问。人说不要，就不拷问，直接建任务夹。
@@ -25,7 +24,6 @@
 - **AND** 找不到「由人启动 grill-with-docs」
 
 ### Requirement: 没拷问的任务
-
 > 出处：人类当面对答的原话『没有关键验收用例 (Recommended)』『询问用户吧，是否需要拷问，因为有的简单需求不需要拷问的。』
 
 没拷问的任务，每条需求仍然要带出处，没有关键验收用例。`.omt/AGENTS.md` SHALL 写明：没拷问的任务有歧义时，AI 直接问人那一件。
@@ -43,7 +41,6 @@
 - **THEN** 写着没拷问的任务，AI 直接问人那一件
 
 ### Requirement: 拷问只按 grill-with-docs 做
-
 > 出处：人类的原话『但启动只允许启动with docs 的，必须留痕。如果可以，干掉不留痕的路径。』；拷问记录不立规矩，是人类当面对答的原话『不用留，已记的留着 (Recommended)』
 
 默认工作流 SHALL 写明：拷问只按 grill-with-docs 做，不单独用 grilling，调不了就读文件。拷问要留痕：每条需求带出处，术语和长期决策当场写。这两样是已有的规矩。拷问记录不立规矩。
@@ -54,7 +51,6 @@
 - **THEN** 写着只按 grill-with-docs 做、不单独用 grilling、调不了就读文件，写着每条需求带出处、术语和长期决策当场写
 
 ### Requirement: 技能文件的路径写明
-
 > 出处：人类当面对答的原话『三份都写明 (Recommended)』；人类的原话『然后就让它去读拷问我with docs 的技能。』
 
 `.omt/AGENTS.md` SHALL 写明三份技能文件的完整路径，并写明直接读文件、不靠斜杠命令、不单独用 grilling。
@@ -65,7 +61,6 @@
 - **THEN** 写着 `.agents/skills/grill-with-docs/SKILL.md`、`.agents/skills/grilling/SKILL.md`、`.agents/skills/domain-modeling/SKILL.md` 三个路径，写着直接读文件、不靠斜杠命令、不单独用 grilling
 
 ### Requirement: grilling 的说明加一道硬闸
-
 > 出处：人类当面对答的原话『立规矩加硬闸 (Recommended)』；人类的原话『如果可以，干掉不留痕的路径。』
 
 grilling 的 `SKILL.md` SHALL 做两处改动，别的不动：说明里加一行 `disable-model-invocation: true`；正文最前面加一句，写明它只经 grill-with-docs 用、不单独用。grill-with-docs 和 domain-modeling 两份 SHALL 不改。
@@ -82,7 +77,6 @@ grilling 的 `SKILL.md` SHALL 做两处改动，别的不动：说明里加一�
 - **THEN** 拷问照常开始：grilling 调不了，AI 就照写明的路径读文件
 
 #### Scenario: [关键] 没有斜杠命令的 AI 也能开始拷问
-
 > 出处：人类确认这一条带「关键」标签，是答复 AI 假设时的原话『其他都ok』（第 6 条）；对应人的原话『但其他工具不会安装啊。所以/没用啊。』
 
 - **WHEN** 一个新开的 AI 被明确要求：不用 Skill 工具、不用斜杠命令、不看技能列表，只能读文件，并且要在报告里如实写明自己有没有做到。只给它项目根 `AGENTS.md` 的路径，人对它说「我想做某件事。请拷问我。」
