@@ -128,6 +128,8 @@ describe('环心的两句给「整理」节点让开（样式表）', () => {
     expect(node).toContain('width: var(--ld-node-w);');
     expect(node).toContain('height: var(--ld-node-h);');
     expect(node).toContain('box-shadow: 0 0 0 var(--ld-node-ring) #070b18;');
+    // 选中时外面多一圈亮边，里面那一圈还是同一个数
+    expect(rule('.ld .ld-node.is-now {')).toContain('0 0 0 var(--ld-node-ring) #070b18,');
 
     const narrowVisual = rule('.ld-loop__visual {', narrowAt);
     expect(narrowVisual).toContain('--ld-node-w: 70px;');

@@ -49,6 +49,44 @@ describe('使用说明', () => {
     expect(rule).toContain('scrollbar-color: #3d4666 #0b1024;');
   });
 
+  it('开着的时候底下那一页不许滚：它的滚动条不再露在这一页的最右边；关掉恢复原样', () => {
+    const root = document.documentElement;
+    root.style.overflow = 'auto';
+    const { unmount } = setup();
+    expect(root.style.overflow).toBe('hidden');
+    unmount();
+    expect(root.style.overflow).toBe('auto');
+    root.style.overflow = '';
+  });
+
+  it('本来没有写过 overflow 的，关掉以后也没有', () => {
+    const root = document.documentElement;
+    const { unmount } = setup();
+    expect(root.style.overflow).toBe('hidden');
+    unmount();
+    expect(root.style.overflow).toBe('');
+  });
+
+  it('关掉时滚动位置回到打开以前的地方', () => {
+    const root = document.documentElement;
+    // 假装打开以前那一页滚到了 300；锁住以后浏览器把滚动位置丢了（回到 0）
+    let y = 300;
+    const scrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => y });
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    try {
+      const { unmount } = setup();
+      y = 0;
+      unmount();
+      expect(scrollTo).toHaveBeenCalledWith(0, 300);
+      expect(root.style.overflow).toBe('');
+    } finally {
+      scrollTo.mockRestore();
+      if (scrollY) Object.defineProperty(window, 'scrollY', scrollY);
+      else delete (window as { scrollY?: number }).scrollY;
+    }
+  });
+
   it('五个阶段各配一张小图，滚到跟前再加载，写死了宽高', () => {
     const { container } = setup();
     const images = [...container.querySelectorAll('img')];

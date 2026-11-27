@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import stepAccept from '../assets/step-accept.webp';
 import stepBuild from '../assets/step-build.webp';
 import stepDoc from '../assets/step-doc.webp';
@@ -22,6 +23,19 @@ const STEP_IMAGES: Record<string, string> = {
  */
 export default function UsageGuide() {
   const closeGuide = useStore((s) => s.closeGuide);
+
+  // 盖着的那一页不许滚。它的滚动条要是还在，会露在这一页的最右边（进了项目以后那条是浅色的），
+  // 人也能在它上面把底下的页面滚走。关掉时恢复，滚动位置也回到原来的地方。
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = root.style.overflow;
+    const scrollTop = window.scrollY;
+    root.style.overflow = 'hidden';
+    return () => {
+      root.style.overflow = before;
+      if (window.scrollY !== scrollTop) window.scrollTo(0, scrollTop);
+    };
+  }, []);
 
   return (
     <div className="gd" role="dialog" aria-modal="true" aria-label={guide.title} data-testid="usage-guide">
