@@ -177,7 +177,7 @@ describe('目录不在了', () => {
     picker.mockResolvedValueOnce(toRaw('proj-A', gone));
     renderApp();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: '选择目录' }));
+    await user.click((await screen.findAllByRole('button', { name: '开始享受' }))[0]);
 
     expect(await screen.findByText('「proj-A」这个目录打不开了，可能被移动、改名或删除了。')).toBeInTheDocument();
     expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();

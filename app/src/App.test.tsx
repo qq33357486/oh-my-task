@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fsa from './fs/fsAccess';
 import App, { POLL_MS } from './App';
+import { hero } from './landing/copy';
 import { initialState, useStore } from './store';
 import { fakeDir, type Tree } from './test/fakeDir';
 import { toRaw } from './test/fakeRaw';
@@ -50,7 +51,7 @@ async function openProject(tree: Tree, options: { fake?: boolean } = {}) {
     </AntApp>,
   );
   // 页面一打开先什么都不画，看完浏览器存了什么才画入口页。
-  await userEvent.click(await screen.findByRole('button', { name: '选择目录' }));
+  await userEvent.click((await screen.findAllByRole('button', { name: '开始享受' }))[0]);
   await waitFor(() => expect(useStore.getState().view.name).not.toBe('loading'));
 }
 
@@ -89,7 +90,7 @@ describe('页面刚打开', () => {
     expect(screen.queryByRole('button')).toBeNull();
 
     release();
-    expect(await screen.findByRole('button', { name: '选择目录' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: '开始享受' }))[0]).toBeInTheDocument();
   });
 
   it('别的浏览器：直接是那句提示，中间不经过入口页', async () => {
@@ -101,17 +102,18 @@ describe('页面刚打开', () => {
     }
     vi.mocked(fsa.isSupported).mockReturnValueOnce(false);
     mount(<Probe />);
-    expect(await screen.findByText('请用 Chrome 或 Edge 打开')).toBeInTheDocument();
+    expect(await screen.findByText(hero.unsupported)).toBeInTheDocument();
 
+    // 入口页照常画出来（首屏和收尾各一个「开始享受」），只是带着那句提示。
     expect(firstPaint[0]).toBe('booting');
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getAllByRole('button', { name: '开始享受' })).toHaveLength(2);
     expect(screen.queryByText('选一个业务项目的目录，开始用任务系统。')).toBeNull();
   });
 
-  it('存过目录：页面是「继续打开」那一页，没有页眉', async () => {
+  it('存过目录：页面还是入口页，没有页眉', async () => {
     vi.mocked(fsa.lastHandleName).mockResolvedValueOnce('proj-A');
     mount();
-    expect(await screen.findByRole('button', { name: '继续打开 proj-A' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: '开始享受' }))[0]).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /刷 ?新/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /重 ?试/ })).toBeNull();
   });
@@ -120,7 +122,7 @@ describe('页面刚打开', () => {
     vi.mocked(fsa.lastHandleName).mockRejectedValueOnce(new Error('IndexedDB blocked'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount();
-    expect(await screen.findByRole('button', { name: '选择目录' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('button', { name: '开始享受' }))[0]).toBeInTheDocument();
     expect(useStore.getState().view.name).toBe('no-project');
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();

@@ -1,59 +1,22 @@
-import { Alert, Button, Space } from 'antd';
 import { useStore } from '../store';
-import Brand from './Brand';
+import LandingPage from '../landing/LandingPage';
 
-/** 入口页：还没选定业务项目时显示的那一页。 */
+/**
+ * 入口页：还没选定业务项目时显示的那一页（没选过目录、上次目录的权限失效、浏览器不支持选目录，都是它）。
+ * 这一层只管出错提示和按钮怎么走，画面在 LandingPage。
+ */
 export default function EntryPage() {
   const view = useStore((s) => s.view);
   const error = useStore((s) => s.error);
   const chooseDirectory = useStore((s) => s.chooseDirectory);
   const continueDirectory = useStore((s) => s.continueDirectory);
-  const backToEntry = useStore((s) => s.backToEntry);
 
   return (
-    <div className="entry">
-      <h1 className="entry__title">
-        <Brand large />
-      </h1>
-      {view.name === 'unsupported' && <Alert type="warning" title="请用 Chrome 或 Edge 打开" />}
-      {view.name === 'no-project' && (
-        <>
-          <p>选一个业务项目的目录，开始用任务系统。</p>
-          <Button type="primary" onClick={() => void chooseDirectory()}>
-            选择目录
-          </Button>
-        </>
-      )}
-      {view.name === 'restore' && (
-        <>
-          <p>上次打开的是「{view.projectName}」。</p>
-          <Space>
-            <Button type="primary" onClick={() => void continueDirectory()}>
-              继续打开 {view.projectName}
-            </Button>
-            <Button onClick={() => void chooseDirectory()}>选别的目录</Button>
-          </Space>
-        </>
-      )}
-      {view.name === 'error' && error && (
-        <Alert
-          type="error"
-          title={error.message}
-          description={error.next}
-          action={
-            // 目录记录丢了、目录被移走了：直接重选。别的错先回到入口页。
-            error.pick ? (
-              <Button size="small" onClick={() => void chooseDirectory()}>
-                选择目录
-              </Button>
-            ) : (
-              <Button size="small" onClick={backToEntry}>
-                换一个目录
-              </Button>
-            )
-          }
-        />
-      )}
-    </div>
+    <LandingPage
+      onStart={() => void (view.name === 'restore' ? continueDirectory() : chooseDirectory())}
+      onPick={() => void chooseDirectory()}
+      error={view.name === 'error' && error ? { title: error.message, next: error.next } : null}
+      unsupportedHint={view.name === 'unsupported'}
+    />
   );
 }

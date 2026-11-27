@@ -100,23 +100,13 @@ body {
   padding: 24px;
 }
 
-.entry {
-  max-width: 560px;
-  margin: 12vh auto 0;
-  padding: 32px;
-  background: #fff;
-  border-radius: 8px;
-  text-align: center;
+/* 入口页这几种情况不显示页眉，画面是整页的深色入口页：不留内边距，底色跟着变深。 */
+.app--bare {
+  background: #070b18;
 }
 
-.entry__title {
-  display: flex;
-  justify-content: center;
-  margin: 0 0 20px;
-}
-
-.entry .ant-alert {
-  text-align: left;
+.app--bare .app__content {
+  padding: 0;
 }
 
 .page {

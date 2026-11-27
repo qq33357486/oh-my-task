@@ -100,7 +100,7 @@ describe('页面上切换目录', () => {
     renderApp();
     const user = userEvent.setup();
     picker.mockResolvedValueOnce(toRaw('proj-A', fakeDir('proj-A', frameworkTree(false))));
-    await user.click(await screen.findByRole('button', { name: '选择目录' }));
+    await user.click((await screen.findAllByRole('button', { name: '开始享受' }))[0]);
     await waitFor(() => expect(useStore.getState().view.projectName).toBe('proj-A'));
 
     picker.mockResolvedValueOnce(toRaw('proj-B', fakeDir('proj-B', frameworkTree(false))));

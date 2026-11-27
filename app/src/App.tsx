@@ -85,7 +85,7 @@ export default function App() {
 
   const bare = isBare(view);
   return (
-    <Layout className="app">
+    <Layout className={bare ? 'app app--bare' : 'app'}>
       {!bare && <Header />}
       <Layout.Content className="app__content">{content(view)}</Layout.Content>
       <BusyMask />

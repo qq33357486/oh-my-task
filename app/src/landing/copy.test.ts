@@ -1,6 +1,10 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { createElement, type ComponentProps } from 'react';
 import { describe, expect, it } from 'vitest';
 import { below, facts, guide, hero, stageKicker, stages, ui } from './copy';
-import { pageText } from '../test/pageText';
+import { pageText, textLeaves } from '../test/pageText';
+import LandingPage from './LandingPage';
 
 /**
  * 期望的文字，照任务夹 entry-page-and-guide 的 design.md「文案定稿」另抄的一份，不从 copy.ts 读。
@@ -173,5 +177,75 @@ describe('读页面文字的办法', () => {
     root.innerHTML =
       '<p>只做决策，<em>不碰文档。</em></p><b>  DJ Task </b><small>多杰\n任务系统</small><span aria-hidden="true">DJ</span>';
     expect(pageText(root)).toBe('只做决策， 不碰文档。 DJ Task 多杰 任务系统');
+  });
+});
+
+/** 入口页上全部文字，按出现的先后，照期望的那一份排出来。图标里的「DJ」是装饰，不算。 */
+function landingLeaves(stageIndex: number): string[] {
+  const e = EXPECTED;
+  const stage = e.stages[stageIndex];
+  const closingRest = e.below.closingTitle.endsWith(e.hero.titleRest) ? e.below.closingTitle.slice(-e.hero.titleRest.length) : '';
+  const closingLead = closingRest ? e.below.closingTitle.slice(0, -closingRest.length) : e.below.closingTitle;
+  return [
+    e.hero.brand,
+    e.hero.brandSub,
+    e.hero.titleLead,
+    e.hero.titleRest,
+    e.hero.subtitle,
+    e.hero.cta,
+    e.hero.loop,
+    e.hero.loopSub,
+    ...e.stages.map((item) => item.name),
+    `0${stageIndex + 1} · ${stage.who}`,
+    stage.name,
+    stage.slogan,
+    e.facts.what,
+    stage.what,
+    e.facts.why,
+    stage.why,
+    e.below.pain.kicker,
+    e.below.pain.title,
+    ...e.below.pain.items.flatMap((item) => [item.no, item.text]),
+    e.below.split.kicker,
+    e.below.split.title,
+    ...e.below.split.rows.flatMap((row) => [row.title, row.text]),
+    e.below.believe.kicker,
+    e.below.believe.title,
+    ...e.below.believe.cards.flatMap((card) => [card.title, card.text]),
+    closingLead,
+    ...(closingRest ? [closingRest] : []),
+    e.hero.cta,
+    e.below.footer,
+  ];
+}
+
+// 这一份是 .ts，页面用 createElement 画（不放 JSX）。
+function mountLanding(props: Partial<ComponentProps<typeof LandingPage>> = {}) {
+  return render(createElement(LandingPage, { onStart: () => {}, onPick: () => {}, ...props }));
+}
+
+describe('入口页画出来的文字和定稿一字不差', () => {
+  it('没点过：整页的全部文字，多一句、少一句、改一个字都算不过', () => {
+    const { container } = mountLanding();
+    expect(textLeaves(container)).toEqual(landingLeaves(0));
+  });
+
+  it.each([1, 2, 3, 4])('点了第 %i 站以后：只有右边那一块换了', async (index) => {
+    const { container } = mountLanding();
+    await userEvent.click(screen.getByRole('button', { name: EXPECTED.stages[index].name }));
+    expect(textLeaves(container)).toEqual(landingLeaves(index));
+  });
+
+  it('页面上找不到不该出现的叫法', () => {
+    const { container } = mountLanding();
+    const text = pageText(container);
+    for (const word of FORBIDDEN) expect(text, `页面上出现了「${word}」`).not.toContain(word);
+  });
+
+  it('出错提示和不支持时的那句提示：多出来的只有它们自己', () => {
+    const error = { title: '没有拿到这个目录的读写权限', next: '再点一次，并允许访问' };
+    const plain = landingLeaves(0);
+    const { container } = mountLanding({ error, unsupportedHint: true });
+    expect(textLeaves(container)).toEqual([...plain.slice(0, 5), error.title, error.next, EXPECTED.ui.pick, plain[5], EXPECTED.hero.unsupported, ...plain.slice(6)]);
   });
 });
