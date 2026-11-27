@@ -72,7 +72,11 @@ grilling 的 `SKILL.md` 改两处，都是插入，原有的一个字不动：
 - 说明里加一行 `disable-model-invocation: true`。认这个标记的工具里，AI 不能自己调用它。
 - 正文最前面加一句，写明它只经 grill-with-docs 用、不单独用。不认标记的工具里，AI 读到这句也知道不能单独用。
 
-这是能做的最硬的一道。做不到更硬的：把 grilling 从框架名单里拿掉、并进 grill-with-docs，会让 grill-with-docs 和上游走样，而且已经初始化过的项目里旧的 grilling 文件删不掉，那条路还在。
+认 `SKILL.md` 说明头里这个标记的工具靠标记拦；不认的工具靠正文那句，AI 读了照做。那句里「留痕」的说法照 domain-modeling 的写法：术语定了写术语表，长期的决定才写决策记录，每条需求带出处。
+
+还有一道没上。认 `.agents/skills/` 的工具（Codex 这类），「不许 AI 自己调用」的开关在同目录的 `agents/openai.yaml` 里：`policy:` 下的 `allow_implicit_invocation: false`。仓库里 grill-with-docs 的那份有这两行，grilling 的那份只有 `interface`。第五轮审查问要不要给 grilling 也加上，人不加（原话见 proposal 拷问记录第 15 轮）：拷不拷问在上层的规则文档里管，不靠改技能文件来管。
+
+更硬的做不到：把 grilling 从框架名单里拿掉、并进 grill-with-docs，会让 grill-with-docs 和上游走样，而且已经初始化过的项目里旧的 grilling 文件删不掉，那条路还在。
 
 ### 4. 路径写全三份
 
@@ -85,7 +89,7 @@ grilling 的 `SKILL.md` 改两处，都是插入，原有的一个字不动：
   - 「没有技能」是要求它不用 Skill 工具、斜杠命令和技能列表，并在报告里如实写明有没有做到；环境里做不到真的没有。
   - 「打了 /grill-with-docs 也走得通」在本机验。本机的 ZCode 不认「禁止 AI 自己调用」这个标记（它把带标记的技能也列了出来），所以这一条验的是「加了标记以后，这条路还走得通」。认标记的工具里被拦的那一半，本机验不了，靠「直接读文件」那几句和文字核对。
   - 新开的 AI 问不了人，所以验的是它把第一轮问题写出来。「简单需求不拷问」验的是它不提问、说明为什么不拷问、停在准备建任务夹这一步（试验里它只读，不写文件）。
-- 每条跑两遍，交回的原文写进 tasks.md 末尾「独立验收的记录」一节的普通条目里。重点看它的报告里「哪一行让它去读的」是不是指向写明的路径，而不是推断。带标签的那一条，三份技能文件的路径都要指向 `.omt/AGENTS.md`「要拷问时」那一条；报告里出现「推出目录」「列目录确认」这类字眼，就算没做到。
+- 每条跑两遍，交回的原文写进 tasks.md 末尾「独立验收的记录」一节的普通条目里。重点看它的报告里「哪一行让它去读的」是不是指向写明的路径，而不是推断。带标签的那一条，grilling 和 domain-modeling 两份的路径要指向 `.omt/AGENTS.md`「要拷问时」那一条；grill-with-docs 那一份指向 `.omt/AGENTS.md` 或默认工作流拷问那一步都算对，两处都写了它的完整路径。报告里出现「推出目录」「列目录确认」这类字眼，就算没做到。
 - 谁来开这些新 AI：独立验收的 AI 是子代理，开不了新的 AI。我的提议是验收的 AI 写好设定和要对它说的话，主会话照着开、原样转交、原文交回，验收的 AI 只管判。人 2026-11-27 答了『可以』（proposal.md「定下的几条」第 14 条）。
 
 ## 文字定稿
@@ -117,7 +121,7 @@ grilling 的 `SKILL.md` 改两处，都是插入，原有的一个字不动：
 改后：
 
 ```text
-- 「提需求时有歧义就问人」：拷问时由拷问接管，先读已有的，写过的不再问；没拷问的任务，AI 直接问人那一件。
+- 「提需求时有歧义就问人」：先读已有的，写过的不再问。拷问时由拷问接管；没拷问的任务，AI 直接问人那一件。
 ```
 
 **`.omt/工作流/默认工作流.md` 第 30 行的开头**
@@ -131,7 +135,7 @@ grilling 的 `SKILL.md` 改两处，都是插入，原有的一个字不动：
 改后：
 
 ```text
-2. **拷问**（人＋AI，主会话）：人明确要求拷问的（说法不限，比如「请拷问我」；在认技能的工具里打了 `/grill-with-docs` 也算），必须拷问。人没有明确要求的，由 AI 判断：简单的需求不拷问，直接建任务夹，没有关键验收用例；需要问清楚的，直接开始拷问，不先问人要不要。只按 grill-with-docs 做，不管是怎么触发的：AI 读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它让你再读的 grilling 和 domain-modeling 两份也直接读文件，路径在 `.omt/AGENTS.md`「要拷问时」那一条里。不靠斜杠命令加载，不单独用 grilling。拷问要留痕，每条需求带出处，术语和长期决策当场写。审查说需人信息、回到这一步时：拷问过的接着拷问，没拷问的直接问人那一件。下面从「另外」起到这一步结尾的话只管拷问的任务。
+2. **拷问**（人＋AI，主会话）：人明确要求拷问的（说法不限，比如「请拷问我」；在认技能的工具里打了 `/grill-with-docs` 也算），必须拷问。人没有明确要求的，由 AI 判断：简单的需求不拷问，直接建任务夹，没有关键验收用例；需要问清楚的，直接开始拷问，不先问人要不要。只按 grill-with-docs 做，不管是怎么触发的：AI 读 `.agents/skills/grill-with-docs/SKILL.md`，照它做；它让你再读的 grilling 和 domain-modeling 两份也直接读文件，路径在 `.omt/AGENTS.md`「要拷问时」那一条里。不靠斜杠命令加载，不单独用 grilling。拷问要留痕：术语和长期决策当场写，每条需求带出处；没拷问的任务，每条需求同样带出处。审查说需人信息、回到这一步时：拷问过的接着拷问，没拷问的不再问要不要拷问，直接问人那一件。下面从「另外」起到这一步结尾的话只管拷问的任务。
 ```
 
 这一行从「另外要问出人想要什么」起的后半句不动。独立审查那一步和分流表不动。
@@ -172,7 +176,7 @@ description: Grill the user relentlessly about a plan, decision, or idea. Use wh
 disable-model-invocation: true
 ---
 
-Use this only through grill-with-docs, never on its own: a grilling must leave a record (the glossary, the decision records, a source on every requirement).
+Use this only through grill-with-docs, never on its own: a grilling must leave a record. Settled terms go into the glossary, lasting decisions into the decision records, and every requirement gets a source.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: …
 ```
@@ -204,10 +208,11 @@ Interview the user relentlessly until you reach a shared understanding. Map this
 
 - 业务工作流 `.omt/工作流/工具开发.md`：「grilling 直接用上游的；domain-modeling 有本地改动」改成两份都有本地改动，写明 grilling 多了哪两处。这一处是流程，人类验收时由人确认。
 - 知识库「拷问技能的来源」：表格里 grilling 一行「SKILL.md 差 2 行…不是本地改的」后面补上这次的本地改动；「更新时注意」里「grilling 直接用上游的」改成要合并。
+- `README.md`「来源」一节：「其中 domain-modeling 有本地改动」改成 grilling 和 domain-modeling 都有本地改动。`entry-page-and-guide` 的待办 5.3 也改 README，改的是「用之前」那一段，两边不撞。
 
 ## Risks / Trade-offs
 
-- **硬闸不是处处管用。** `disable-model-invocation` 只有认它的工具才拦；ZCode 这次就把带这个标记的 grill-with-docs 也列了出来。正文里那句限制是给不认标记的工具准备的，靠 AI 读了照做。真正把关的还是已有的规矩：没有出处的需求不进审查。
+- **硬闸不是处处管用。** `disable-model-invocation` 只有认它的工具才拦；ZCode 这次就把带这个标记的 grill-with-docs 也列了出来。正文里那句限制是给不认标记的工具准备的，靠 AI 读了照做。认 `.agents/skills/` 的工具（Codex 这类）要看同目录 `agents/openai.yaml` 里的 `policy`，那一道人定了不加（见「3. 给 grilling 加一道硬闸」）。真正把关的还是已有的规矩：没有出处的需求不进审查。
 - **硬闸可能拦到正路。** 认标记的工具里，grill-with-docs 让 AI 调的那第二次 Skill 可能被拦。靠 `.omt/AGENTS.md` 和默认工作流里的「直接读文件」兜着。本机的 ZCode 不认这个标记，这一半在本机验不了，只能验「加了标记以后 /grill-with-docs 还走得通」。
 - **新开的 AI 问不了人，也开不了新的 AI。** 所以带标签的用例验的是它把第一轮问题写出来；独立验收要跑的五条试验，得由主会话替验收的 AI 去开（见「怎么验」，人答了『可以』）。
 - **别的 AI 未必照做。** 实验只跑了一个模型。所以独立验收时每条跑两遍，并且把「哪一行让它去读的」写进报告里。
