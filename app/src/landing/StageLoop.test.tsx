@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { COMET_SECONDS, default as StageLoop } from './StageLoop';
+import { COMET_SECONDS, TAIL, default as StageLoop } from './StageLoop';
 import { hero, stages } from './copy';
+import { LOOP, trackLength } from './loopPath';
 
 const NAMES = stages.map((stage) => stage.name);
 const POSITIONS = ['ld-node--tl', 'ld-node--tr', 'ld-node--br', 'ld-node--bl', 'ld-node--lm'];
@@ -75,8 +76,11 @@ describe('方形循环', () => {
   it('没有箭头，环下没有说明', () => {
     const { container } = render(<StageLoop value={0} onChange={() => {}} />);
     expect(container.querySelector('[class*="arrow"]')).toBeNull();
-    // 图里只有环本身那一条路径（底和光点走的轨道是同一条）
-    expect(container.querySelectorAll('path')).toHaveLength(2);
+    expect(container.querySelector('marker')).toBeNull();
+    // 图里的每一条路径都是同一条轨道（底、亮线、尾巴共用），没有箭头那种另外的线
+    const paths = [...container.querySelectorAll('path')];
+    expect(paths.length).toBeGreaterThan(2);
+    expect(new Set(paths.map((node) => node.getAttribute('d'))).size).toBe(1);
     // 这块图里只有环、环心两句和五个节点，没有别的说明
     const visual = container.querySelector('.ld-loop__visual')!;
     expect([...visual.children].map((child) => child.tagName)).toEqual(['svg', 'P', 'DIV']);
@@ -93,17 +97,108 @@ describe('方形循环', () => {
   it('平时光点在走：一圈 7 秒，一直转', () => {
     reduceMotion(false);
     const { container } = render(<StageLoop value={0} onChange={() => {}} />);
-    const motion = container.querySelector('animateMotion');
+    const motion = container.querySelector('.ld-comet__head animateMotion');
     expect(motion).toHaveAttribute('dur', `${COMET_SECONDS}s`);
     expect(motion).toHaveAttribute('repeatCount', 'indefinite');
     expect(COMET_SECONDS).toBe(7);
   });
 
-  it('系统设了「减少动态效果」：光停下，不画动画', () => {
+  it('系统设了「减少动态效果」：光停下，不画动画，亮点和尾巴停在起点', () => {
     const pauseAnimations = reduceMotion(true);
     const { container } = render(<StageLoop value={0} onChange={() => {}} />);
     expect(pauseAnimations).toHaveBeenCalled();
     expect(container.querySelector('animateMotion')).toBeNull();
+    expect(container.querySelector('animate')).toBeNull();
+    const head = container.querySelector('.ld-comet__head')!;
+    expect(head.getAttribute('cx')).toBe(String(LOOP.inset.left + LOOP.radius));
+    expect(head.getAttribute('cy')).toBe(String(LOOP.inset.top));
+  });
+});
+
+describe('流光的尾巴贴着环走', () => {
+  /** 一条画在轨道上的线段：`stroke-dasharray` 是「长 空隙」，`stroke-dashoffset` 是负的起点。都按一圈 1000 算。 */
+  function dashOf(path: Element) {
+    const [length, gap] = (path.getAttribute('stroke-dasharray') ?? '').split(' ').map(Number);
+    const offset = Number(path.getAttribute('stroke-dashoffset'));
+    return { length, gap, start: ((-offset % 1000) + 1000) % 1000 };
+  }
+
+  it('尾巴是同一条轨道上的一截，一开始终点对着起点上的亮点', () => {
+    const { container } = render(<StageLoop value={0} onChange={() => {}} />);
+    const track = container.querySelector('defs > path')!.getAttribute('d');
+    for (const name of ['.ld-comet__tail', '.ld-comet__glow']) {
+      const tail = container.querySelector(name)!;
+      expect(tail.getAttribute('d'), name).toBe(track);
+      expect(tail, name).toHaveAttribute('pathLength', '1000');
+      const { length, gap, start } = dashOf(tail);
+      expect(length + gap, name).toBe(1000);
+      // 尾巴的长度是 TAIL 个小样像素；终点（起点 + 长度）就是轨道的起点
+      expect(length).toBeCloseTo((TAIL / trackLength(LOOP)) * 1000, 1);
+      expect((start + length) % 1000, name).toBeCloseTo(0, 1);
+    }
+  });
+
+  it('尾巴跟着亮点走：每一圈往前挪一整圈，时长和亮点一样', () => {
+    const { container } = render(<StageLoop value={0} onChange={() => {}} />);
+    for (const name of ['.ld-comet__tail', '.ld-comet__glow']) {
+      const tail = container.querySelector(name)!;
+      const { length } = dashOf(tail);
+      const slide = tail.querySelector('animate');
+      expect(slide, name).not.toBeNull();
+      expect(slide, name).toHaveAttribute('attributeName', 'stroke-dashoffset');
+      expect(slide!.getAttribute('values'), name).toBe(`${length}; ${length - 1000}`);
+      expect(slide, name).toHaveAttribute('dur', `${COMET_SECONDS}s`);
+      expect(slide, name).toHaveAttribute('repeatCount', 'indefinite');
+    }
+  });
+
+  it('越到尾巴尖上越透明：一层蒙版，上面是一个跟着亮点走的圆，中心白、边缘黑', () => {
+    const { container } = render(<StageLoop value={0} onChange={() => {}} />);
+    const comet = container.querySelector('g.ld-comet')!;
+    const maskId = comet.getAttribute('mask')?.match(/^url\(#(.+)\)$/)?.[1];
+    expect(maskId, '流光要套一层蒙版').toBeTruthy();
+    const mask = document.getElementById(maskId!)!;
+    expect(mask.querySelector('rect')?.getAttribute('fill')).toBe('#000');
+    const circle = mask.querySelector('circle')!;
+    expect(circle.getAttribute('r')).toBe(String(TAIL));
+    // 蒙版上的圆和亮点走同一条轨道、同一个时长
+    expect(circle.querySelector('animateMotion')).toHaveAttribute('dur', `${COMET_SECONDS}s`);
+    expect(circle.querySelector('animateMotion mpath')?.getAttribute('href')).toBe(
+      container.querySelector('.ld-comet__head animateMotion mpath')?.getAttribute('href'),
+    );
+    const gradientId = circle.getAttribute('fill')?.match(/^url\(#(.+)\)$/)?.[1];
+    const stops = [...document.getElementById(gradientId!)!.querySelectorAll('stop')];
+    expect(stops.map((stop) => stop.getAttribute('stop-color'))).toEqual(['#fff', '#fff', '#000']);
+    // 最后一步是透明的：尾巴尖上看不见
+    expect(Number(stops[stops.length - 1].getAttribute('stop-opacity'))).toBe(0);
+  });
+
+  it('五段亮线接起来正好一圈，每段的终点就是下一段的起点', () => {
+    const { container } = render(<StageLoop value={0} onChange={() => {}} />);
+    const segments = [...container.querySelectorAll('.ld-seg')];
+    const dashes = segments.map((segment, index) => {
+      expect(segment).toHaveAttribute('pathLength', '1000');
+      const dash = dashOf(segment);
+      expect(dash.length + dash.gap).toBe(1000);
+      // 每一段都比一圈短、又比 0 长：负的长度浏览器不认，整条线会全画出来
+      expect(dash.length, `第 ${index + 1} 段亮线`).toBeGreaterThan(0);
+      expect(dash.length, `第 ${index + 1} 段亮线`).toBeLessThan(1000);
+      return dash;
+    });
+    for (let i = 0; i < dashes.length; i++) {
+      const end = (dashes[i].start + dashes[i].length) % 1000;
+      const next = dashes[(i + 1) % dashes.length].start;
+      expect(Math.abs(end - next), `第 ${i + 1} 段的终点`).toBeLessThan(0.02);
+    }
+  });
+
+  it('样式表里：亮线只描边不填充，尾巴是两层（宽而淡的光晕、细而亮的核心）', () => {
+    expect(rule('.ld-seg {')).toContain('fill: none;');
+    const glow = rule('.ld-comet__glow {');
+    const core = rule('.ld-comet__tail {');
+    expect(glow).toContain('fill: none;');
+    expect(core).toContain('fill: none;');
+    expect(parseFloat(core.match(/stroke-width: ([\d.]+)/)![1])).toBeLessThan(parseFloat(glow.match(/stroke-width: ([\d.]+)/)![1]));
   });
 });
 

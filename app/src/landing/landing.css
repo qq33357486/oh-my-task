@@ -302,6 +302,8 @@
   filter: drop-shadow(0 0 5px rgba(133, 165, 255, 0.7));
 }
 .ld-seg {
+  /* 亮线是轨道上的一截虚线段（一条闭合的路径），只描边、不填充，不然环里面会被填成黑的 */
+  fill: none;
   stroke: #85a5ff;
   stroke-width: 3;
   stroke-linecap: round;
@@ -310,6 +312,23 @@
 }
 .ld-seg.is-on {
   opacity: 1;
+}
+/*
+ * 流光的尾巴：轨道上的一截虚线段（见 StageLoop.tsx），所以拐弯处跟着线弯。
+ * 两层叠起来：一层宽而淡的光晕，一层细而亮的核心；外面那层蒙版让它越到尾上越透明。
+ */
+.ld-comet__glow {
+  fill: none;
+  stroke: #85a5ff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+.ld-comet__tail {
+  fill: none;
+  stroke: #eef2ff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
 }
 .ld-comet__head {
   fill: #eef2ff;
