@@ -1,6 +1,6 @@
 # Design
 
-任务夹在 `openspec/changes/grill-on-request/`。改的是框架文件的正本，就在本仓库。和 `openspec/changes/entry-page-and-guide/` 一起发布。
+任务夹在 `openspec/changes/grill-on-request/`。改的是框架文件的正本，就在本仓库。和网页任务夹 `entry-page-and-guide`（2026-11-27 人类验收通过，已归档到 `openspec/changes/archive/2026-11-27-entry-page-and-guide/`）一起发布。
 
 ## Context
 
