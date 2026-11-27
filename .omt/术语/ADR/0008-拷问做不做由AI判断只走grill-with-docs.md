@@ -17,4 +17,4 @@
 
 ## 出处
 
-任务夹 `openspec/changes/grill-on-request/`（归档后在 `openspec/changes/archive/` 下）的 proposal.md「定下的几条」「拷问记录」和 design.md「1」「3」。具体做法以 `openspec/specs/task-system-sop/spec.md` 为准，这里不重复。
+任务夹 `openspec/changes/archive/2026-11-28-grill-on-request/`的 proposal.md「定下的几条」「拷问记录」和 design.md「1」「3」。具体做法以 `openspec/specs/task-system-sop/spec.md` 为准，这里不重复。
