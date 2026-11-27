@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check:share-card": "node scripts/check-share-card.mjs"
   },
   "dependencies": {
     "antd": "^6.7.2",

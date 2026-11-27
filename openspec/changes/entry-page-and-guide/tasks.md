@@ -87,10 +87,13 @@
 
 ## 5. 收尾检查
 
-- [ ] 5.1 `npm test`、`npm run typecheck`、`npm run build`、`npm run check:bundle` 全过；乱序跑 `npx vitest run --sequence.shuffle` 几遍。
-- [ ] 5.2 写一条检查，构建完读 `dist/index.html`：描述和 `og:` 系列标签都在，预览图指向完整的网址，`dist/share-card.jpg` 在。验证：检查通过；把 `index.html` 里的 `og:image` 临时删掉再构建，检查要能报出少了它。
-- [ ] 5.3 README 的「用之前」那一段按 proposal.md「定下的几条」第 9 条改。验证：README 里的按钮名和页面上的一致。
-- [ ] 5.4 提交第 5 组。
+- [x] 5.1 `npm test`、`npm run typecheck`、`npm run build`、`npm run check:bundle` 全过；乱序跑 `npx vitest run --sequence.shuffle` 几遍。
+- [x] 5.2 写一条检查，构建完读 `dist/index.html`：描述和 `og:` 系列标签都在，预览图指向完整的网址，`dist/share-card.jpg` 在。验证：检查通过；把 `index.html` 里的 `og:image` 临时删掉再构建，检查要能报出少了它。
+  做过的记录（2026-11-27）：检查是 `app/scripts/check-share-card.mjs`（`npm run check:share-card`）。删掉 `og:image` 重新构建，它报「MISSING meta property="og:image"」，并说期望的是什么、实际「没有」，以非零退出；恢复后 7 样都在。
+
+  第 5 组做完时（2026-11-27）：全量 615 条按顺序过、乱序多遍过；类型检查、构建、`check:bundle`（10 份都在）、`check:share-card` 都过。
+- [x] 5.3 README 的「用之前」那一段按 proposal.md「定下的几条」第 9 条改。验证：README 里的按钮名和页面上的一致。
+- [x] 5.4 提交第 5 组。
 
 ## 6. 固定新东西
 
